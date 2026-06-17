@@ -51,7 +51,7 @@ echo "== 2-6. drive server =="
   printf '%s\n' "{\"jsonrpc\":\"2.0\",\"id\":10,\"method\":\"tools/call\",\"params\":{\"name\":\"export_table\",\"arguments\":{\"name\":\"data.pokemon.wild\",\"outPath\":\"$ENCW\"}}}"; sleep 2
   printf '%s\n' "{\"jsonrpc\":\"2.0\",\"id\":11,\"method\":\"tools/call\",\"params\":{\"name\":\"export_table\",\"arguments\":{\"name\":\"data.trainers.stats\",\"outPath\":\"$TRNW\"}}}"; sleep 2
   printf '%s\n' "{\"jsonrpc\":\"2.0\",\"id\":12,\"method\":\"tools/call\",\"params\":{\"name\":\"export_table\",\"arguments\":{\"name\":\"data.pokedex.stats\",\"outPath\":\"$DEXW\"}}}"; sleep 2
-  printf '%s\n' '{"jsonrpc":"2.0","id":13,"method":"tools/call","params":{"name":"run_script","arguments":{"script":"data.pokemon.stats/1/hp="}}}'; sleep 3
+  printf '%s\n' '{"jsonrpc":"2.0","id":13,"method":"tools/call","params":{"name":"run_script","arguments":{"script":"","path":"resources/Scripts/Add Mechanics From Later Generations/AnyGame_PixilateStyleAbilities.hma"}}}'; sleep 8
 } | "./$EXE" > "$OUT" 2>"$ERR"
 
 echo "== assertions =="
@@ -68,8 +68,8 @@ echo "== assertions =="
 [ "$(is_error 10)" = "false" ] && [ -s "$ENC" ] && ok "export encounters" || bad "export encounters (TODO)"
 [ "$(is_error 11)" = "false" ] && [ -s "$TRN" ] && ok "export trainers" || bad "export trainers (TODO)"
 [ "$(is_error 12)" = "false" ] && [ -s "$DEX" ] && ok "export dex" || bad "export dex (TODO)"
-# 6. script
-[ "$(is_error 13)" = "false" ] && ok "run_script" || bad "run_script (TODO)"
+# 6. script (logical failures don't set isError, so check the inner ok flag)
+[ "$(result_text 13 | jq -r '.ok' 2>/dev/null)" = "true" ] && ok "run_script (no errors)" || bad "run_script (TODO)"
 
 echo "================="
 echo "PASS=$PASS  FAIL=$FAIL"
