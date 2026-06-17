@@ -16,12 +16,15 @@ OUT="$TMP/out.jsonl"
 ERR="$TMP/err.txt"
 EXE="src/HexManiac.Mcp/artifacts/HexManiac.Mcp/bin/Release/net8.0/HexManiac.Mcp.exe"
 mkdir -p "$TMP"
+# Kill any stray server from a previous/interrupted run so it can't lock the exe.
+taskkill //F //IM HexManiac.Mcp.exe >/dev/null 2>&1 || true
 PASS=0; FAIL=0
 ok()   { echo "  PASS: $1"; PASS=$((PASS+1)); }
 bad()  { echo "  FAIL: $1"; FAIL=$((FAIL+1)); }
 
 echo "== 1. build =="
-if dotnet build src/HexManiac.Mcp/HexManiac.Mcp.csproj -c Release -v quiet >/dev/null 2>&1; then ok "build"; else bad "build (run dotnet build to see errors)"; echo "BUILD FAILED — stopping"; exit 1; fi
+# Build from the MCP project dir so its project-local global.json (SDK 8) applies.
+if ( cd src/HexManiac.Mcp && dotnet build HexManiac.Mcp.csproj -c Release -v quiet ) >/dev/null 2>&1; then ok "build"; else bad "build (cd src/HexManiac.Mcp && dotnet build to see errors)"; echo "BUILD FAILED — stopping"; exit 1; fi
 [ -f "$ROM" ] || { echo "missing test ROM at $ROM"; exit 2; }
 
 # --- helper: pull the inner tool-result JSON for a given response id ---
