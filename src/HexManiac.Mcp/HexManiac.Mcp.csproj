@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>HexManiac.Mcp</AssemblyName>
+    <RootNamespace>HavenSoft.HexManiac.Mcp</RootNamespace>
+    <!-- Core emits many doc/style warnings; don't let them fail our build -->
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="ModelContextProtocol" Version="1.4.0" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\HexManiac.Core\HexManiac.Core.csproj" />
+  </ItemGroup>
+
+  <!-- HexManiac.Core's Singletons loads reference files (scriptReference.txt, hma.py,
+       *.toml, etc.) from a "resources/" folder relative to the working directory.
+       Ship that folder next to the exe so the headless server can find it. -->
+  <ItemGroup>
+    <Content Include="resources\**\*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      <Link>resources\%(RecursiveDir)%(Filename)%(Extension)</Link>
+    </Content>
+  </ItemGroup>
+
+</Project>

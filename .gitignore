@@ -20,3 +20,10 @@ __pycache__/
 packages/
 
 
+
+# MCP integration
+test/roms/
+src/HexManiac.Mcp/bin/
+src/HexManiac.Mcp/obj/
+*.user
+test/.tmp/

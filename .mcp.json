@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "hexmaniac": {
+      "type": "stdio",
+      "command": "Q:\\Users\\user\\Projects\\HexManiacAdvance-MCP\\src\\HexManiac.Mcp\\artifacts\\HexManiac.Mcp\\bin\\Release\\net8.0\\HexManiac.Mcp.exe",
+      "args": [],
+      "env": {}
+    }
+  }
+}

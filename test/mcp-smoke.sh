@@ -1,0 +1,76 @@
+#!/usr/bin/env bash
+# Deterministic smoke test for the HexManiac MCP server.
+# Builds the server, drives it over stdio (newline-delimited JSON-RPC), and
+# asserts each capability in the definition-of-done. Exit 0 only if ALL pass.
+#
+# This is the promise gate for the Ralph loop. Requirements: dotnet (SDK 8),
+# jq, and a clean FireRed at test/roms/firered.gba.
+set -uo pipefail
+cd "$(dirname "$0")/.." || exit 2
+export PATH="/c/Program Files/dotnet:$PATH"
+export DOTNET_CLI_TELEMETRY_OPTOUT=1 DOTNET_NOLOGO=1
+
+ROM="$(pwd)/test/roms/firered.gba"
+TMP="$(pwd)/test/.tmp"
+OUT="$TMP/out.jsonl"
+ERR="$TMP/err.txt"
+EXE="src/HexManiac.Mcp/artifacts/HexManiac.Mcp/bin/Release/net8.0/HexManiac.Mcp.exe"
+mkdir -p "$TMP"
+PASS=0; FAIL=0
+ok()   { echo "  PASS: $1"; PASS=$((PASS+1)); }
+bad()  { echo "  FAIL: $1"; FAIL=$((FAIL+1)); }
+
+echo "== 1. build =="
+if dotnet build src/HexManiac.Mcp/HexManiac.Mcp.csproj -c Release -v quiet >/dev/null 2>&1; then ok "build"; else bad "build (run dotnet build to see errors)"; echo "BUILD FAILED — stopping"; exit 1; fi
+[ -f "$ROM" ] || { echo "missing test ROM at $ROM"; exit 2; }
+
+# --- helper: pull the inner tool-result JSON for a given response id ---
+result_text() { jq -rs --argjson id "$1" 'map(select(.id==$id))[0].result.content[0].text // empty' "$OUT"; }
+is_error()    { jq -rs --argjson id "$1" 'map(select(.id==$id))[0].result.isError // false' "$OUT"; }
+
+OUTROM="$TMP/firered.edited.gba"
+ENC="$TMP/encounters.json"; TRN="$TMP/trainers.json"; DEX="$TMP/dex.json"
+# Convert MSYS paths (/q/Users/...) to Windows form (Q:/Users/...) that .NET
+# can open. Forward slashes are valid on Windows and dodge JSON-escape issues.
+R="$(cygpath -m "$ROM")"; OR="$(cygpath -m "$OUTROM")"
+ENCW="$(cygpath -m "$ENC")"; TRNW="$(cygpath -m "$TRN")"; DEXW="$(cygpath -m "$DEX")"
+
+echo "== 2-6. drive server =="
+{
+  printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"smoke","version":"1"}}}'
+  printf '%s\n' '{"jsonrpc":"2.0","method":"notifications/initialized"}'
+  printf '%s\n' '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}'
+  printf '%s\n' "{\"jsonrpc\":\"2.0\",\"id\":3,\"method\":\"tools/call\",\"params\":{\"name\":\"open_rom\",\"arguments\":{\"path\":\"$R\"}}}"; sleep 15
+  printf '%s\n' '{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"read_table","arguments":{"name":"data.pokemon.stats","start":1,"count":1}}}'; sleep 2
+  printf '%s\n' '{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"write_value","arguments":{"table":"data.pokemon.stats","index":1,"field":"hp","value":99}}}'; sleep 2
+  printf '%s\n' "{\"jsonrpc\":\"2.0\",\"id\":6,\"method\":\"tools/call\",\"params\":{\"name\":\"save_rom\",\"arguments\":{\"outPath\":\"$OR\"}}}"; sleep 2
+  printf '%s\n' "{\"jsonrpc\":\"2.0\",\"id\":7,\"method\":\"tools/call\",\"params\":{\"name\":\"open_rom\",\"arguments\":{\"path\":\"$OR\"}}}"; sleep 15
+  printf '%s\n' '{"jsonrpc":"2.0","id":8,"method":"tools/call","params":{"name":"read_table","arguments":{"name":"data.pokemon.stats","start":1,"count":1}}}'; sleep 2
+  # re-open original so exports reflect the clean ROM
+  printf '%s\n' "{\"jsonrpc\":\"2.0\",\"id\":9,\"method\":\"tools/call\",\"params\":{\"name\":\"open_rom\",\"arguments\":{\"path\":\"$R\"}}}"; sleep 15
+  printf '%s\n' "{\"jsonrpc\":\"2.0\",\"id\":10,\"method\":\"tools/call\",\"params\":{\"name\":\"export_table\",\"arguments\":{\"name\":\"data.pokemon.wild\",\"outPath\":\"$ENCW\"}}}"; sleep 2
+  printf '%s\n' "{\"jsonrpc\":\"2.0\",\"id\":11,\"method\":\"tools/call\",\"params\":{\"name\":\"export_table\",\"arguments\":{\"name\":\"data.trainers.stats\",\"outPath\":\"$TRNW\"}}}"; sleep 2
+  printf '%s\n' "{\"jsonrpc\":\"2.0\",\"id\":12,\"method\":\"tools/call\",\"params\":{\"name\":\"export_table\",\"arguments\":{\"name\":\"data.pokedex.stats\",\"outPath\":\"$DEXW\"}}}"; sleep 2
+  printf '%s\n' '{"jsonrpc":"2.0","id":13,"method":"tools/call","params":{"name":"run_script","arguments":{"script":"data.pokemon.stats/1/hp="}}}'; sleep 3
+} | "./$EXE" > "$OUT" 2>"$ERR"
+
+echo "== assertions =="
+# 2. protocol + tools/list
+[ "$(jq -rs 'map(select(.id==2))[0].result.tools|length' "$OUT" 2>/dev/null)" = "7" ] && ok "tools/list shows 7 tools" || bad "tools/list"
+# 3. open + read known value
+[ "$(is_error 3)" = "false" ] && ok "open_rom" || bad "open_rom"
+[ "$(result_text 4 | jq -r '.rows[0].hp' 2>/dev/null)" = "45" ] && ok "read_table Bulbasaur hp=45" || bad "read_table known value"
+# 4. write + save + reload reflects change
+[ "$(is_error 5)" = "false" ] && ok "write_value" || bad "write_value (TODO)"
+[ "$(is_error 6)" = "false" ] && [ -f "$OUTROM" ] && ok "save_rom wrote file" || bad "save_rom (TODO)"
+[ "$(result_text 8 | jq -r '.rows[0].hp' 2>/dev/null)" = "99" ] && ok "edit persisted (hp=99 after reload)" || bad "edit did not persist (TODO)"
+# 5. exports
+[ "$(is_error 10)" = "false" ] && [ -s "$ENC" ] && ok "export encounters" || bad "export encounters (TODO)"
+[ "$(is_error 11)" = "false" ] && [ -s "$TRN" ] && ok "export trainers" || bad "export trainers (TODO)"
+[ "$(is_error 12)" = "false" ] && [ -s "$DEX" ] && ok "export dex" || bad "export dex (TODO)"
+# 6. script
+[ "$(is_error 13)" = "false" ] && ok "run_script" || bad "run_script (TODO)"
+
+echo "================="
+echo "PASS=$PASS  FAIL=$FAIL"
+[ "$FAIL" -eq 0 ] && echo "ALL GREEN" && exit 0 || exit 1

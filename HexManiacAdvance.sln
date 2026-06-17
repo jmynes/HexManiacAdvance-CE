@@ -11,6 +11,10 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "HexManiac.WPF", "src\HexMan
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "HexManiac.Integration", "src\HexManiac.Integration\HexManiac.Integration.csproj", "{0581ACCA-F4BD-44DE-8D8F-01236CEB1634}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{73BE7617-B246-42B3-81D5-156EC7248581}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HexManiac.Mcp", "src\HexManiac.Mcp\HexManiac.Mcp.csproj", "{464B601D-0483-4B41-B8A7-DF511CFEB4CA}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -69,11 +73,26 @@ Global
 		{0581ACCA-F4BD-44DE-8D8F-01236CEB1634}.Release|x64.Build.0 = Release|Any CPU
 		{0581ACCA-F4BD-44DE-8D8F-01236CEB1634}.Release|x86.ActiveCfg = Release|Any CPU
 		{0581ACCA-F4BD-44DE-8D8F-01236CEB1634}.Release|x86.Build.0 = Release|Any CPU
+		{464B601D-0483-4B41-B8A7-DF511CFEB4CA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{464B601D-0483-4B41-B8A7-DF511CFEB4CA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{464B601D-0483-4B41-B8A7-DF511CFEB4CA}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{464B601D-0483-4B41-B8A7-DF511CFEB4CA}.Debug|x64.Build.0 = Debug|Any CPU
+		{464B601D-0483-4B41-B8A7-DF511CFEB4CA}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{464B601D-0483-4B41-B8A7-DF511CFEB4CA}.Debug|x86.Build.0 = Debug|Any CPU
+		{464B601D-0483-4B41-B8A7-DF511CFEB4CA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{464B601D-0483-4B41-B8A7-DF511CFEB4CA}.Release|Any CPU.Build.0 = Release|Any CPU
+		{464B601D-0483-4B41-B8A7-DF511CFEB4CA}.Release|x64.ActiveCfg = Release|Any CPU
+		{464B601D-0483-4B41-B8A7-DF511CFEB4CA}.Release|x64.Build.0 = Release|Any CPU
+		{464B601D-0483-4B41-B8A7-DF511CFEB4CA}.Release|x86.ActiveCfg = Release|Any CPU
+		{464B601D-0483-4B41-B8A7-DF511CFEB4CA}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {2C441E4B-874E-47AB-B85C-0BB9E6584CC2}
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{464B601D-0483-4B41-B8A7-DF511CFEB4CA} = {73BE7617-B246-42B3-81D5-156EC7248581}
 	EndGlobalSection
 EndGlobal
