@@ -68,6 +68,10 @@ namespace HavenSoft.HexManiac.WPF.Windows {
          MainWindow.Resources.Add("PaletteMixer", new PaletteCollection().Fluent(mixer => mixer.SetContents(new short[16])));
          MainWindow.Resources.Add("IsPaletteMixerExpanded", new EditableValue<bool>());
          MainWindow.Show();
+
+         // Expose the open ROMs to the MCP server over a named pipe.
+         new AutomationPipeServer(viewModel).Start();
+
          DebugLog(viewModel, "All Started!");
       }
 

@@ -1,5 +1,9 @@
 <Project>
   <PropertyGroup>
+    <!-- When building a single project (no .sln context) SolutionDir is empty,
+         which would scatter artifacts/ inside each project dir and break the
+         WPF solution build. Fall back to the repo root (parent of this src/). -->
+    <SolutionDir Condition="'$(SolutionDir)' == '' or '$(SolutionDir)' == '*Undefined*'">$(MSBuildThisFileDirectory)..\</SolutionDir>
     <OutputPath>$(SolutionDir)artifacts\$(MSBuildProjectName)\bin\$(Configuration)\</OutputPath>
     <BaseOutputPath>$(SolutionDir)artifacts\$(MSBuildProjectName)\bin\$(Configuration)\</BaseOutputPath>
     <BaseIntermediateOutputPath>$(SolutionDir)artifacts\$(MSBuildProjectName)\obj\$(Configuration)\</BaseIntermediateOutputPath>

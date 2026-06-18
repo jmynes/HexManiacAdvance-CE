@@ -1,0 +1,122 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.IO.Pipes;
+using System.Linq;
+using System.Text;
+using System.Text.Json;
+using System.Threading;
+using System.Windows;
+using HavenSoft.HexManiac.Core.Models;
+using HavenSoft.HexManiac.Core.ViewModels;
+
+namespace HavenSoft.HexManiac.WPF.Windows {
+   // Named-pipe automation server hosted inside the GUI. Lets the MCP server
+   // (a separate process) operate on the ROMs currently open in this editor.
+   //
+   // Every request is marshaled onto the WPF UI thread before touching a tab,
+   // because the model/view-model are not thread-safe.
+   public class AutomationPipeServer {
+      public const string PipeName = "HexManiacAdvance.Automation";
+
+      private readonly EditorViewModel editor;
+
+      public AutomationPipeServer(EditorViewModel editor) => this.editor = editor;
+
+      public void Start() =>
+         new Thread(Loop) { IsBackground = true, Name = "MCP-Automation" }.Start();
+
+      private void Loop() {
+         while (true) {
+            try {
+               using var server = new NamedPipeServerStream(PipeName, PipeDirection.InOut, 1,
+                  PipeTransmissionMode.Byte, PipeOptions.Asynchronous);
+               server.WaitForConnection();
+               using var reader = new StreamReader(server, Encoding.UTF8);
+               using var writer = new StreamWriter(server, new UTF8Encoding(false)) { AutoFlush = true };
+               string line;
+               while ((line = reader.ReadLine()) != null) {
+                  AutoResponse resp;
+                  try {
+                     var req = JsonSerializer.Deserialize<AutoRequest>(line);
+                     resp = Application.Current.Dispatcher.Invoke(() => Handle(req));
+                  } catch (Exception ex) {
+                     resp = new AutoResponse(false, null, ex.Message);
+                  }
+                  writer.WriteLine(JsonSerializer.Serialize(resp));
+               }
+            } catch {
+               // client dropped or pipe error: loop and re-listen
+            }
+         }
+      }
+
+      // ---- request handling (runs on the UI thread) ----
+
+      private AutoResponse Handle(AutoRequest req) {
+         var p = req.Params;
+         switch (req.Method) {
+            case "list_tabs":
+               return Ok(new { tabs = ListTabs() });
+            case "list_tables": {
+               var vp = ResolveTab(p);
+               if (vp == null) return NoTab();
+               return Ok(RomAutomation.ListTables(vp.Model, StrOrNull(p, "filter")));
+            }
+            case "read_table": {
+               var vp = ResolveTab(p);
+               if (vp == null) return NoTab();
+               return Ok(RomAutomation.ReadTable(vp.Model, Str(p, "name"), Int(p, "start", 0), Int(p, "count", 25)));
+            }
+            default:
+               return new AutoResponse(false, null, $"Unknown or not-yet-live method: {req.Method}");
+         }
+      }
+
+      private List<object> ListTabs() {
+         var list = new List<object>();
+         int i = 0;
+         foreach (var t in editor) {
+            if (t is ViewPort vp) {
+               list.Add(new { index = i, file = vp.FullFileName ?? vp.Name, selected = ReferenceEquals(t, editor.SelectedTab) });
+            }
+            i++;
+         }
+         return list;
+      }
+
+      // Pick the target ROM tab: by "tab" index or filename substring, else the
+      // selected tab, else the first ROM tab.
+      private ViewPort ResolveTab(JsonElement p) {
+         var tabs = new List<ViewPort>();
+         foreach (var t in editor) if (t is ViewPort vp) tabs.Add(vp);
+         if (p.ValueKind == JsonValueKind.Object && p.TryGetProperty("tab", out var tab) && tab.ValueKind != JsonValueKind.Null) {
+            if (tab.ValueKind == JsonValueKind.Number) return tabs.ElementAtOrDefault(tab.GetInt32());
+            if (tab.ValueKind == JsonValueKind.String) {
+               var s = tab.GetString();
+               return tabs.FirstOrDefault(v => (v.FullFileName ?? v.Name ?? "").Contains(s, StringComparison.OrdinalIgnoreCase));
+            }
+         }
+         return editor.SelectedTab as ViewPort ?? tabs.FirstOrDefault();
+      }
+
+      private static AutoResponse Ok(object result) =>
+         new AutoResponse(true, JsonSerializer.SerializeToElement(result), null);
+
+      private static AutoResponse NoTab() =>
+         new AutoResponse(false, null, "No open ROM tab in the GUI.");
+
+      private static string Str(JsonElement p, string key, string fallback = "") =>
+         p.ValueKind == JsonValueKind.Object && p.TryGetProperty(key, out var v) && v.ValueKind == JsonValueKind.String
+            ? v.GetString() : fallback;
+
+      private static string StrOrNull(JsonElement p, string key) {
+         var s = Str(p, key, null);
+         return string.IsNullOrEmpty(s) ? null : s;
+      }
+
+      private static int Int(JsonElement p, string key, int fallback) =>
+         p.ValueKind == JsonValueKind.Object && p.TryGetProperty(key, out var v) && v.ValueKind == JsonValueKind.Number
+            ? v.GetInt32() : fallback;
+   }
+}

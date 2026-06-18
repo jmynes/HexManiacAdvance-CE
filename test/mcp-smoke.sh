@@ -14,7 +14,7 @@ ROM="$(pwd)/test/roms/firered.gba"
 TMP="$(pwd)/test/.tmp"
 OUT="$TMP/out.jsonl"
 ERR="$TMP/err.txt"
-EXE="src/HexManiac.Mcp/artifacts/HexManiac.Mcp/bin/Release/net8.0/HexManiac.Mcp.exe"
+EXE="artifacts/HexManiac.Mcp/bin/Release/net8.0/HexManiac.Mcp.exe"
 mkdir -p "$TMP"
 # Kill any stray server from a previous/interrupted run so it can't lock the exe.
 taskkill //F //IM HexManiac.Mcp.exe >/dev/null 2>&1 || true
