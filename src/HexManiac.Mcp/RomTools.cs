@@ -27,8 +27,11 @@ public sealed class RomTools {
    [McpServerTool(Name = "list_open_roms")]
    [Description("List the ROMs currently open: the running GUI's tabs if a GUI is up, otherwise the headless-loaded ROM (or empty).")]
    public string ListOpenRoms(RomSession session) {
-      if (GuiBridge.TryCall("list_tabs", new Dictionary<string, object?>(), out var json, out _))
+      var result = GuiBridge.TryCall("list_tabs", new Dictionary<string, object?>(), out var json, out _);
+      if (result == GuiCallResult.Ok)
          return Stamp(json, "live");
+      // For both Error and Unreachable, fall back to the headless tab listing.
+      // A list_tabs error from the GUI is not worth surfacing here.
       object open = session.Model != null
          ? new { tabs = new[] { new { index = 0, file = session.RomPath, selected = true } } }
          : new { tabs = System.Array.Empty<object>() };
@@ -166,13 +169,17 @@ public sealed class RomTools {
    // ---- helpers ----
 
    // Prefer the live GUI (if reachable) for `method`; fall back to a headless
-   // computation. Adds the tab selector to the live params and stamps `mode`.
+   // computation only when the GUI is truly unreachable. A live error response
+   // is surfaced directly (mode:"live") rather than discarded.
    private static string Dispatch(string method, Dictionary<string, object?> liveParams, int? tab, string? tabFile, System.Func<object> headless) {
       if (tab.HasValue) liveParams["tab"] = tab.Value;
       else if (!string.IsNullOrEmpty(tabFile)) liveParams["tab"] = tabFile;
-      if (GuiBridge.TryCall(method, liveParams, out var json, out _))
-         return Stamp(json, "live");
-      return Stamp(JsonSerializer.Serialize(headless(), Json), "headless");
+      var result = GuiBridge.TryCall(method, liveParams, out var json, out var gerror);
+      return result switch {
+         GuiCallResult.Ok          => Stamp(json, "live"),
+         GuiCallResult.Error       => Stamp(JsonSerializer.Serialize(RomAutomation.Err(gerror), Json), "live"),
+         _  /* Unreachable */      => Stamp(JsonSerializer.Serialize(headless(), Json), "headless"),
+      };
    }
 
    // Serialize a result object and stamp mode:"headless".

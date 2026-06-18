@@ -59,8 +59,9 @@ echo "== assertions =="
 [ "$(rt 7 | jq -r '.mode' 2>/dev/null)" = "live" ] && ok "goto mode=live" || bad "goto not live"
 [ "$(rt 7 | jq -r '.ok' 2>/dev/null)" = "true" ] && ok "goto ok=true" || bad "goto not ok"
 [ -n "$(rt 7 | jq -r '.resolved // empty' 2>/dev/null)" ] && ok "goto resolved non-empty" || bad "goto resolved empty"
+[ "$(rt 8 | jq -r '.mode' 2>/dev/null)" = "live" ] && ok "goto reject mode=live" || bad "goto reject not live"
+[ "$(rt 8 | jq -r '.error // empty' 2>/dev/null | grep -ci 'Unknown goto target')" -ge 1 ] && ok "goto unknown-target error surfaced" || bad "goto unknown-target error not surfaced"
 [ "$(rt 8 | jq -r '.ok // "false"' 2>/dev/null)" != "true" ] && ok "goto rejects unknown target" || bad "goto did not reject unknown target"
-[ -n "$(rt 8 | jq -r '.error // empty' 2>/dev/null)" ] && ok "goto unknown-target error message" || bad "goto unknown-target error message"
 
 taskkill //F //IM HexManiacAdvance.exe >/dev/null 2>&1 || true
 echo "================="
