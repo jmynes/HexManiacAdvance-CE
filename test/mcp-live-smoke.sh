@@ -43,6 +43,7 @@ echo "== drive MCP =="
   printf '%s\n' '{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"read_table","arguments":{"name":"data.pokemon.stats","start":1,"count":1}}}'; sleep 1
   printf '%s\n' '{"jsonrpc":"2.0","id":6,"method":"tools/call","params":{"name":"list_shortcuts","arguments":{}}}'; sleep 1
   printf '%s\n' '{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"goto","arguments":{"target":"Pokemon"}}}'; sleep 1
+  printf '%s\n' '{"jsonrpc":"2.0","id":8,"method":"tools/call","params":{"name":"goto","arguments":{"target":"nonsense_xyz_no_such_target"}}}'; sleep 1
 } | "./$MCP" > "$OUT" 2>/dev/null
 
 rt(){ jq -rs --argjson id "$1" 'map(select(.id==$id))[0].result.content[0].text//empty' "$OUT"; }
@@ -58,6 +59,8 @@ echo "== assertions =="
 [ "$(rt 7 | jq -r '.mode' 2>/dev/null)" = "live" ] && ok "goto mode=live" || bad "goto not live"
 [ "$(rt 7 | jq -r '.ok' 2>/dev/null)" = "true" ] && ok "goto ok=true" || bad "goto not ok"
 [ -n "$(rt 7 | jq -r '.resolved // empty' 2>/dev/null)" ] && ok "goto resolved non-empty" || bad "goto resolved empty"
+[ "$(rt 8 | jq -r '.ok // "false"' 2>/dev/null)" != "true" ] && ok "goto rejects unknown target" || bad "goto did not reject unknown target"
+[ -n "$(rt 8 | jq -r '.error // empty' 2>/dev/null)" ] && ok "goto unknown-target error message" || bad "goto unknown-target error message"
 
 taskkill //F //IM HexManiacAdvance.exe >/dev/null 2>&1 || true
 echo "================="
