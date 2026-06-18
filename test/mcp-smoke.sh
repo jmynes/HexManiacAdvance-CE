@@ -55,11 +55,12 @@ echo "== 2-6. drive server =="
   printf '%s\n' "{\"jsonrpc\":\"2.0\",\"id\":11,\"method\":\"tools/call\",\"params\":{\"name\":\"export_table\",\"arguments\":{\"name\":\"data.trainers.stats\",\"outPath\":\"$TRNW\"}}}"; sleep 2
   printf '%s\n' "{\"jsonrpc\":\"2.0\",\"id\":12,\"method\":\"tools/call\",\"params\":{\"name\":\"export_table\",\"arguments\":{\"name\":\"data.pokedex.stats\",\"outPath\":\"$DEXW\"}}}"; sleep 2
   printf '%s\n' '{"jsonrpc":"2.0","id":13,"method":"tools/call","params":{"name":"run_script","arguments":{"script":"","path":"resources/Scripts/Add Mechanics From Later Generations/AnyGame_PixilateStyleAbilities.hma"}}}'; sleep 8
+  printf '%s\n' '{"jsonrpc":"2.0","id":14,"method":"tools/call","params":{"name":"list_shortcuts","arguments":{}}}'; sleep 2
 } | "./$EXE" > "$OUT" 2>"$ERR"
 
 echo "== assertions =="
 # 2. protocol + tools/list
-[ "$(jq -rs 'map(select(.id==2))[0].result.tools|length' "$OUT" 2>/dev/null)" = "8" ] && ok "tools/list shows 8 tools" || bad "tools/list"
+[ "$(jq -rs 'map(select(.id==2))[0].result.tools|length' "$OUT" 2>/dev/null)" = "9" ] && ok "tools/list shows 9 tools" || bad "tools/list"
 # 3. open + read known value
 [ "$(is_error 3)" = "false" ] && ok "open_rom" || bad "open_rom"
 [ "$(result_text 4 | jq -r '.rows[0].hp' 2>/dev/null)" = "45" ] && ok "read_table Bulbasaur hp=45" || bad "read_table known value"
@@ -73,6 +74,9 @@ echo "== assertions =="
 [ "$(is_error 12)" = "false" ] && [ -s "$DEX" ] && ok "export dex" || bad "export dex (TODO)"
 # 6. script (logical failures don't set isError, so check the inner ok flag)
 [ "$(result_text 13 | jq -r '.ok' 2>/dev/null)" = "true" ] && ok "run_script (no errors)" || bad "run_script (TODO)"
+# 7. list_shortcuts (headless): correct mode + array shape
+[ "$(result_text 14 | jq -r '.mode' 2>/dev/null)" = "headless" ] && ok "list_shortcuts mode=headless" || bad "list_shortcuts mode"
+[ "$(result_text 14 | jq -r '.shortcuts|type' 2>/dev/null)" = "array" ] && ok "list_shortcuts returns array" || bad "list_shortcuts shape"
 
 echo "================="
 echo "PASS=$PASS  FAIL=$FAIL"

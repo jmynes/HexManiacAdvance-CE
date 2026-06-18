@@ -76,6 +76,13 @@ namespace HavenSoft.HexManiac.Core.Models {
          };
       }
 
+      public static object ListShortcuts(IDataModel model) {
+         var shortcuts = model.GotoShortcuts
+            .Select(s => new Dictionary<string, object?> { ["display"] = s.DisplayText, ["anchor"] = s.GotoAnchor })
+            .ToList();
+         return new Dictionary<string, object?> { ["count"] = shortcuts.Count, ["shortcuts"] = shortcuts };
+      }
+
       public static object ExportToFile(IDataModel model, string name, string outPath) {
          var table = model.GetTableModel(name);
          if (table == null) return Err($"No table named '{name}'.");

@@ -35,6 +35,16 @@ public sealed class RomTools {
       return Stamp(JsonSerializer.Serialize(open, Json), "headless");
    }
 
+   [McpServerTool(Name = "list_shortcuts")]
+   [Description("List the GUI 'Goto' shortcut buttons (e.g. Pokemon, Trainers) as {display, anchor}. Targets the GUI's active tab when live; else headless.")]
+   public string ListShortcuts(
+      RomSession session,
+      [Description("Target GUI tab by index (default: active tab)")] int? tab = null,
+      [Description("Target GUI tab by filename substring")] string? tabFile = null) {
+      var p = new Dictionary<string, object?>();
+      return Dispatch("list_shortcuts", p, tab, tabFile, () => RomAutomation.ListShortcuts(session.Require()));
+   }
+
    [McpServerTool(Name = "list_tables")]
    [Description("List the named data tables (anchors) in the open ROM. Targets the GUI's active tab when live; optional substring filter and tab selector.")]
    public string ListTables(
