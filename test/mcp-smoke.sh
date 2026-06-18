@@ -56,11 +56,12 @@ echo "== 2-6. drive server =="
   printf '%s\n' "{\"jsonrpc\":\"2.0\",\"id\":12,\"method\":\"tools/call\",\"params\":{\"name\":\"export_table\",\"arguments\":{\"name\":\"data.pokedex.stats\",\"outPath\":\"$DEXW\"}}}"; sleep 2
   printf '%s\n' '{"jsonrpc":"2.0","id":13,"method":"tools/call","params":{"name":"run_script","arguments":{"script":"","path":"resources/Scripts/Add Mechanics From Later Generations/AnyGame_PixilateStyleAbilities.hma"}}}'; sleep 8
   printf '%s\n' '{"jsonrpc":"2.0","id":14,"method":"tools/call","params":{"name":"list_shortcuts","arguments":{}}}'; sleep 2
+  printf '%s\n' '{"jsonrpc":"2.0","id":15,"method":"tools/call","params":{"name":"goto","arguments":{"target":"Pokemon"}}}'; sleep 2
 } | "./$EXE" > "$OUT" 2>"$ERR"
 
 echo "== assertions =="
 # 2. protocol + tools/list
-[ "$(jq -rs 'map(select(.id==2))[0].result.tools|length' "$OUT" 2>/dev/null)" = "9" ] && ok "tools/list shows 9 tools" || bad "tools/list"
+[ "$(jq -rs 'map(select(.id==2))[0].result.tools|length' "$OUT" 2>/dev/null)" = "10" ] && ok "tools/list shows 10 tools" || bad "tools/list"
 # 3. open + read known value
 [ "$(is_error 3)" = "false" ] && ok "open_rom" || bad "open_rom"
 [ "$(result_text 4 | jq -r '.rows[0].hp' 2>/dev/null)" = "45" ] && ok "read_table Bulbasaur hp=45" || bad "read_table known value"
@@ -77,6 +78,9 @@ echo "== assertions =="
 # 7. list_shortcuts (headless): correct mode + array shape
 [ "$(result_text 14 | jq -r '.mode' 2>/dev/null)" = "headless" ] && ok "list_shortcuts mode=headless" || bad "list_shortcuts mode"
 [ "$(result_text 14 | jq -r '.shortcuts|type' 2>/dev/null)" = "array" ] && ok "list_shortcuts returns array" || bad "list_shortcuts shape"
+# 8. goto (headless): live-only error + correct mode
+[ "$(result_text 15 | jq -r '.mode' 2>/dev/null)" = "headless" ] && ok "goto mode=headless" || bad "goto mode"
+[ "$(result_text 15 | jq -r '.error' 2>/dev/null | grep -ci 'live GUI')" -ge 1 ] && ok "goto headless live-only error" || bad "goto headless error"
 
 echo "================="
 echo "PASS=$PASS  FAIL=$FAIL"

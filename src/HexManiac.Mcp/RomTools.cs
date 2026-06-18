@@ -45,6 +45,18 @@ public sealed class RomTools {
       return Dispatch("list_shortcuts", p, tab, tabFile, () => RomAutomation.ListShortcuts(session.Require()));
    }
 
+   [McpServerTool(Name = "goto")]
+   [Description("Navigate the live GUI to a target: a shortcut label (e.g. Pokemon), an anchor name (e.g. data.pokemon.stats), or a hex address. Live GUI only; headless returns an error.")]
+   public string Goto(
+      RomSession session,
+      [Description("Shortcut label, anchor name, or hex address to navigate to")] string target,
+      [Description("Target GUI tab by index (default: active tab)")] int? tab = null,
+      [Description("Target GUI tab by filename substring")] string? tabFile = null) {
+      var p = new Dictionary<string, object?> { ["target"] = target };
+      return Dispatch("goto", p, tab, tabFile,
+         () => RomAutomation.Err("goto requires the live GUI (no view to navigate in headless mode)."));
+   }
+
    [McpServerTool(Name = "list_tables")]
    [Description("List the named data tables (anchors) in the open ROM. Targets the GUI's active tab when live; optional substring filter and tab selector.")]
    public string ListTables(
