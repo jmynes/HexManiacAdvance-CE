@@ -26,4 +26,5 @@ test/roms/
 src/HexManiac.Mcp/bin/
 src/HexManiac.Mcp/obj/
 *.user
-test/.tmp/
+# transient test/build scratch dirs, anywhere in the tree
+**/.tmp/
