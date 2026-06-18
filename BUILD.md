@@ -62,6 +62,16 @@ disk:
 - When no GUI is running, the same tools fall back to **headless** mode
   (`open_rom` + load from disk), reporting `"mode": "headless"`.
 
+### Navigation tools
+
+- `list_shortcuts` — lists the GUI's "Goto" shortcut buttons as `{ display, anchor }`
+  (e.g. `Pokemon`, `Trainers`, `Moves`, `Items`, `Maps`). Works in both live and
+  headless mode.
+- `goto` — **live only.** Navigates the active GUI tab to a target: a shortcut
+  label (e.g. `Pokemon`), an anchor name (e.g. `data.pokemon.stats`), or a hex
+  address. In headless mode it returns an error (there is no view to navigate).
+  `bash test/mcp-live-smoke.sh` exercises `goto Pokemon` against the running GUI.
+
 Verify the two modes:
 
 ```bash
