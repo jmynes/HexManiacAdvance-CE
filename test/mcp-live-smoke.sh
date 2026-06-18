@@ -41,6 +41,8 @@ echo "== drive MCP =="
   printf '%s\n' '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"read_table","arguments":{"name":"data.pokemon.stats","start":1,"count":1}}}'; sleep 1
   printf '%s\n' '{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"write_value","arguments":{"table":"data.pokemon.stats","index":1,"field":"hp","value":77}}}'; sleep 1
   printf '%s\n' '{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"read_table","arguments":{"name":"data.pokemon.stats","start":1,"count":1}}}'; sleep 1
+  printf '%s\n' '{"jsonrpc":"2.0","id":6,"method":"tools/call","params":{"name":"list_shortcuts","arguments":{}}}'; sleep 1
+  printf '%s\n' '{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"goto","arguments":{"target":"Pokemon"}}}'; sleep 1
 } | "./$MCP" > "$OUT" 2>/dev/null
 
 rt(){ jq -rs --argjson id "$1" 'map(select(.id==$id))[0].result.content[0].text//empty' "$OUT"; }
@@ -51,6 +53,11 @@ echo "== assertions =="
 [ "$(rt 4 | jq -r '.mode' 2>/dev/null)" = "live" ] && ok "write_value mode=live" || bad "write not live"
 [ "$(rt 4 | jq -r '.newValue' 2>/dev/null)" = "77" ] && ok "write_value newValue=77" || bad "write newValue"
 [ "$(rt 5 | jq -r '.rows[0].hp' 2>/dev/null)" = "77" ] && ok "live write read-back hp=77" || bad "write not reflected"
+[ "$(rt 6 | jq -r '.mode' 2>/dev/null)" = "live" ] && ok "list_shortcuts mode=live" || bad "list_shortcuts not live"
+[ "$(rt 6 | jq -r '.shortcuts[].display' 2>/dev/null | grep -ci '^Pokemon$')" -ge 1 ] && ok "Pokemon shortcut listed" || bad "Pokemon shortcut missing"
+[ "$(rt 7 | jq -r '.mode' 2>/dev/null)" = "live" ] && ok "goto mode=live" || bad "goto not live"
+[ "$(rt 7 | jq -r '.ok' 2>/dev/null)" = "true" ] && ok "goto ok=true" || bad "goto not ok"
+[ -n "$(rt 7 | jq -r '.resolved // empty' 2>/dev/null)" ] && ok "goto resolved non-empty" || bad "goto resolved empty"
 
 taskkill //F //IM HexManiacAdvance.exe >/dev/null 2>&1 || true
 echo "================="

@@ -9,6 +9,7 @@ using System.Threading;
 using System.Windows;
 using HavenSoft.HexManiac.Core.Models;
 using HavenSoft.HexManiac.Core.ViewModels;
+using HavenSoft.HexManiac.Core.ViewModels.DataFormats;
 
 namespace HavenSoft.HexManiac.WPF.Windows {
    // Named-pipe automation server hosted inside the GUI. Lets the MCP server
@@ -110,6 +111,22 @@ namespace HavenSoft.HexManiac.WPF.Windows {
                vp.Save.Execute(GuiFileSystem());
                return Ok(new { ok = true, saved = vp.FullFileName ?? vp.Name });
             }
+            case "list_shortcuts": {
+               var vp = ResolveTab(p);
+               if (vp == null) return NoTab();
+               return Ok(RomAutomation.ListShortcuts(vp.Model));
+            }
+            case "goto": {
+               var vp = ResolveTab(p);
+               if (vp == null) return NoTab();
+               var target = Str(p, "target");
+               if (string.IsNullOrEmpty(target))
+                  return new AutoResponse(false, null, "Provide a 'target' (shortcut label, anchor, or address).");
+               if (!TryResolveGotoTarget(vp.Model, target, out var resolved))
+                  return new AutoResponse(false, null, $"Unknown goto target '{target}'. Use list_shortcuts, or a valid anchor/address.");
+               vp.Goto.Execute(resolved);
+               return Ok(new { ok = true, target, resolved, tab = vp.FullFileName ?? vp.Name });
+            }
             default:
                return new AutoResponse(false, null, $"Unknown method: {req.Method}");
          }
@@ -140,6 +157,20 @@ namespace HavenSoft.HexManiac.WPF.Windows {
             }
          }
          return editor.SelectedTab as ViewPort ?? tabs.FirstOrDefault();
+      }
+
+      // Resolve a goto target without mutating data. A shortcut DisplayText maps
+      // to its GotoAnchor; otherwise the target must already be a known anchor or
+      // a hex address (the inputs ViewPort.ExecuteGoto accepts), so we never
+      // silently no-op on a bad target.
+      private static bool TryResolveGotoTarget(IDataModel model, string target, out string resolved) {
+         var shortcut = model.GotoShortcuts.FirstOrDefault(s =>
+            string.Equals(s.DisplayText, target, StringComparison.OrdinalIgnoreCase));
+         if (shortcut != null) { resolved = shortcut.GotoAnchor; return true; }
+         resolved = target;
+         if (model.GetAddressFromAnchor(new NoDataChangeDeltaModel(), -1, target) != Pointer.NULL) return true;
+         if (target.TryParseHex(out _)) return true;
+         return false;
       }
 
       private static AutoResponse Ok(object result) =>
