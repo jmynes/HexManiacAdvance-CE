@@ -38,9 +38,33 @@ directory** (or let the smoke test do it):
 bash test/mcp-smoke.sh        # expect: ALL GREEN
 ```
 
-Output: `src/HexManiac.Mcp/artifacts/HexManiac.Mcp/bin/Release/net8.0/HexManiac.Mcp.exe`
+Output: `artifacts/HexManiac.Mcp/bin/Release/net8.0/HexManiac.Mcp.exe`
 (this is the path `.mcp.json` points at). It's a stdio server — don't run it
 directly; an MCP client (Claude Code) launches it. See `PROMPT.md` / the spec.
 
 Both projects share the same `HexManiac.Core` (net6.0) library, which builds
-fine under either SDK.
+fine under either SDK. All build output goes to one repo-root `artifacts/` dir
+(a `SolutionDir` fallback in `src/Directory.Build.props` keeps single-project
+and solution builds consistent).
+
+## Live GUI mode
+
+When a HexManiacAdvance GUI built from this fork is running, the MCP server
+automatically targets the **ROMs open in that GUI** instead of loading from
+disk:
+
+- The GUI hosts a named-pipe automation server (`HexManiacAdvance.Automation`),
+  started at launch.
+- MCP tools (`list_open_roms`, `read_table`, `write_value`, `export_table`,
+  `run_script`, `save_rom`) forward to the GUI's active tab and report
+  `"mode": "live"`. Edits appear in the GUI immediately and are undoable there.
+- Use `tab` (index) or `tabFile` (filename substring) to target a specific tab.
+- When no GUI is running, the same tools fall back to **headless** mode
+  (`open_rom` + load from disk), reporting `"mode": "headless"`.
+
+Verify the two modes:
+
+```bash
+bash test/mcp-smoke.sh        # headless gate -> ALL GREEN
+bash test/mcp-live-smoke.sh   # live gate (launches the GUI) -> LIVE GREEN
+```
