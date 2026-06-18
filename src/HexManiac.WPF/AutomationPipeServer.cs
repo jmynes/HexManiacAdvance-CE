@@ -68,8 +68,50 @@ namespace HavenSoft.HexManiac.WPF.Windows {
                if (vp == null) return NoTab();
                return Ok(RomAutomation.ReadTable(vp.Model, Str(p, "name"), Int(p, "start", 0), Int(p, "count", 25)));
             }
+            case "write_value": {
+               var vp = ResolveTab(p);
+               if (vp == null) return NoTab();
+               // Edit through the tab's change token so it enters GUI undo history
+               // and renders immediately.
+               return Ok(RomAutomation.WriteValue(vp.Model, () => vp.CurrentChange,
+                  Str(p, "table"), Int(p, "index", -1), Str(p, "field"), Int(p, "value", 0)));
+            }
+            case "export_table": {
+               var vp = ResolveTab(p);
+               if (vp == null) return NoTab();
+               return Ok(RomAutomation.ExportToFile(vp.Model, Str(p, "name"), Str(p, "outPath")));
+            }
+            case "run_script": {
+               var vp = ResolveTab(p);
+               if (vp == null) return NoTab();
+               var errs = new List<string>();
+               void OnErr(object s, string e) => errs.Add(e);
+               vp.OnError += OnErr;
+               try {
+                  var path = StrOrNull(p, "path");
+                  if (!string.IsNullOrEmpty(path)) {
+                     var full = Path.GetFullPath(path);
+                     if (!File.Exists(full)) return new AutoResponse(false, null, $"Script file not found: {full}");
+                     vp.TryImport(new LoadedFile(full, File.ReadAllBytes(full)), GuiFileSystem());
+                  } else {
+                     var script = Str(p, "script");
+                     if (string.IsNullOrEmpty(script)) return new AutoResponse(false, null, "Provide 'script' text or 'path'.");
+                     vp.Edit(script);
+                  }
+                  vp.ChangeHistory.ChangeCompleted();
+               } finally {
+                  vp.OnError -= OnErr;
+               }
+               return Ok(new { ok = errs.Count == 0, errors = errs, ranOn = vp.FullFileName ?? vp.Name });
+            }
+            case "save_rom": {
+               var vp = ResolveTab(p);
+               if (vp == null) return NoTab();
+               vp.Save.Execute(GuiFileSystem());
+               return Ok(new { ok = true, saved = vp.FullFileName ?? vp.Name });
+            }
             default:
-               return new AutoResponse(false, null, $"Unknown or not-yet-live method: {req.Method}");
+               return new AutoResponse(false, null, $"Unknown method: {req.Method}");
          }
       }
 
@@ -105,6 +147,9 @@ namespace HavenSoft.HexManiac.WPF.Windows {
 
       private static AutoResponse NoTab() =>
          new AutoResponse(false, null, "No open ROM tab in the GUI.");
+
+      private static IFileSystem GuiFileSystem() =>
+         ((MainWindow)Application.Current.MainWindow).FileSystem;
 
       private static string Str(JsonElement p, string key, string fallback = "") =>
          p.ValueKind == JsonValueKind.Object && p.TryGetProperty(key, out var v) && v.ValueKind == JsonValueKind.String

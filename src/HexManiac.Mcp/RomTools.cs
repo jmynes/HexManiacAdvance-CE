@@ -61,59 +61,84 @@ public sealed class RomTools {
    }
 
    [McpServerTool(Name = "write_value")]
-   [Description("Set a single integer field on a table row (in memory; call save_rom to persist). Returns old and new values.")]
+   [Description("Set a single integer field on a table row. Targets the GUI's active tab when live (visible + undoable there); else headless. Returns old/new values.")]
    public string WriteValue(
       RomSession session,
       [Description("Anchor/table name")] string table,
       [Description("Row index")] int index,
       [Description("Field name within the row")] string field,
-      [Description("New integer value")] int value) {
-      return Headless(RomAutomation.WriteValue(session.Require(), () => session.Token, table, index, field, value));
+      [Description("New integer value")] int value,
+      [Description("Target GUI tab by index (default: active tab)")] int? tab = null,
+      [Description("Target GUI tab by filename substring")] string? tabFile = null) {
+      var p = new Dictionary<string, object?> { ["table"] = table, ["index"] = index, ["field"] = field, ["value"] = value };
+      return Dispatch("write_value", p, tab, tabFile,
+         () => RomAutomation.WriteValue(session.Require(), () => session.Token, table, index, field, value));
    }
 
    [McpServerTool(Name = "export_table")]
-   [Description("Export an entire table (all rows, no paging) to a JSON file on disk. Use for encounters, trainers, dex, etc.")]
+   [Description("Export an entire table (all rows, no paging) to a JSON file on disk. Targets the GUI's active tab when live; else headless.")]
    public string ExportTable(
       RomSession session,
       [Description("Anchor/table name to export")] string name,
-      [Description("Absolute path of the .json file to write")] string outPath) {
-      return Headless(RomAutomation.ExportToFile(session.Require(), name, outPath));
+      [Description("Absolute path of the .json file to write")] string outPath,
+      [Description("Target GUI tab by index (default: active tab)")] int? tab = null,
+      [Description("Target GUI tab by filename substring")] string? tabFile = null) {
+      var p = new Dictionary<string, object?> { ["name"] = name, ["outPath"] = outPath };
+      return Dispatch("export_table", p, tab, tabFile,
+         () => RomAutomation.ExportToFile(session.Require(), name, outPath));
    }
 
    [McpServerTool(Name = "run_script")]
-   [Description("Run an HMA script against the loaded ROM. Provide inline 'script' text OR 'path' to a .hma file. Returns ok + any errors/messages.")]
+   [Description("Run an HMA script. Provide inline 'script' text OR 'path' to a .hma file. Targets the GUI's active tab when live; else headless.")]
    public string RunScript(
       RomSession session,
       [Description("Inline HMA script text")] string script = "",
-      [Description("Path to a .hma script file (takes precedence over inline text)")] string? path = null) {
+      [Description("Path to a .hma script file (takes precedence over inline text)")] string? path = null,
+      [Description("Target GUI tab by index (default: active tab)")] int? tab = null,
+      [Description("Target GUI tab by filename substring")] string? tabFile = null) {
+      var p = new Dictionary<string, object?>();
+      if (!string.IsNullOrEmpty(script)) p["script"] = script;
+      if (!string.IsNullOrEmpty(path)) p["path"] = path;
+      return Dispatch("run_script", p, tab, tabFile, () => RunScriptHeadless(session, script, path));
+   }
+
+   private static object RunScriptHeadless(RomSession session, string script, string? path) {
       var vp = session.RequireViewPort();
       session.Errors.Clear();
       session.Messages.Clear();
-
       if (!string.IsNullOrEmpty(path)) {
          var full = Path.GetFullPath(path);
-         if (!File.Exists(full)) return Headless(RomAutomation.Err($"Script file not found: {full}"));
+         if (!File.Exists(full)) return RomAutomation.Err($"Script file not found: {full}");
          vp.TryImport(new LoadedFile(full, File.ReadAllBytes(full)), session.FileSystem);
       } else if (!string.IsNullOrEmpty(script)) {
          vp.Edit(script);
       } else {
-         return Headless(RomAutomation.Err("Provide 'script' text or 'path' to a .hma file."));
+         return RomAutomation.Err("Provide 'script' text or 'path' to a .hma file.");
       }
-
       vp.ChangeHistory.ChangeCompleted();
       var errors = session.Errors.ToList();
-      return Headless(new { ok = errors.Count == 0, errors, messages = session.Messages.ToList() });
+      return new { ok = errors.Count == 0, errors, messages = session.Messages.ToList() };
    }
 
    [McpServerTool(Name = "save_rom")]
-   [Description("Write the (possibly edited) ROM to disk. Defaults to the loaded path; pass outPath to write a copy.")]
-   public string SaveRom(RomSession session, [Description("Optional output path; defaults to the loaded ROM path")] string? outPath = null) {
+   [Description("Write the (possibly edited) ROM to disk. Live: saves the GUI tab to its file. Headless: defaults to the loaded path; pass outPath for a copy.")]
+   public string SaveRom(
+      RomSession session,
+      [Description("Optional output path; defaults to the loaded ROM path (headless only)")] string? outPath = null,
+      [Description("Target GUI tab by index (default: active tab)")] int? tab = null,
+      [Description("Target GUI tab by filename substring")] string? tabFile = null) {
+      var p = new Dictionary<string, object?>();
+      if (!string.IsNullOrEmpty(outPath)) p["outPath"] = outPath;
+      return Dispatch("save_rom", p, tab, tabFile, () => SaveRomHeadless(session, outPath));
+   }
+
+   private static object SaveRomHeadless(RomSession session, string? outPath) {
       var model = session.Require();
       var target = string.IsNullOrEmpty(outPath) ? session.RomPath : outPath;
-      if (string.IsNullOrEmpty(target)) return Headless(RomAutomation.Err("No output path and no loaded path to default to."));
+      if (string.IsNullOrEmpty(target)) return RomAutomation.Err("No output path and no loaded path to default to.");
       session.RequireViewPort().ChangeHistory.ChangeCompleted();
       File.WriteAllBytes(target, model.RawData);
-      return Headless(new { ok = true, path = target, length = model.RawData.Length });
+      return new { ok = true, path = target, length = model.RawData.Length };
    }
 
    // ---- helpers ----
