@@ -32,8 +32,8 @@ namespace HavenSoft.HexManiac.WPF.Windows {
                using var server = new NamedPipeServerStream(PipeName, PipeDirection.InOut, 1,
                   PipeTransmissionMode.Byte, PipeOptions.Asynchronous);
                server.WaitForConnection();
-               using var reader = new StreamReader(server, Encoding.UTF8);
-               using var writer = new StreamWriter(server, new UTF8Encoding(false)) { AutoFlush = true };
+               using var reader = new StreamReader(server, Encoding.UTF8, false, 1024, leaveOpen: true);
+               using var writer = new StreamWriter(server, new UTF8Encoding(false), 1024, leaveOpen: true) { AutoFlush = true };
                string line;
                while ((line = reader.ReadLine()) != null) {
                   AutoResponse resp;

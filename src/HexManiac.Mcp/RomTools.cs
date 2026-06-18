@@ -24,20 +24,40 @@ public sealed class RomTools {
       return Headless(new { ok = true, path, length = model.Count, anchorCount = model.Anchors.Count });
    }
 
+   [McpServerTool(Name = "list_open_roms")]
+   [Description("List the ROMs currently open: the running GUI's tabs if a GUI is up, otherwise the headless-loaded ROM (or empty).")]
+   public string ListOpenRoms(RomSession session) {
+      if (GuiBridge.TryCall("list_tabs", new Dictionary<string, object?>(), out var json, out _))
+         return Stamp(json, "live");
+      object open = session.Model != null
+         ? new { tabs = new[] { new { index = 0, file = session.RomPath, selected = true } } }
+         : new { tabs = System.Array.Empty<object>() };
+      return Stamp(JsonSerializer.Serialize(open, Json), "headless");
+   }
+
    [McpServerTool(Name = "list_tables")]
-   [Description("List the named data tables (anchors) in the loaded ROM. Optional case-insensitive substring filter.")]
-   public string ListTables(RomSession session, [Description("Optional substring to filter anchor names")] string? filter = null) {
-      return Headless(RomAutomation.ListTables(session.Require(), filter));
+   [Description("List the named data tables (anchors) in the open ROM. Targets the GUI's active tab when live; optional substring filter and tab selector.")]
+   public string ListTables(
+      RomSession session,
+      [Description("Optional substring to filter anchor names")] string? filter = null,
+      [Description("Target GUI tab by index (default: active tab)")] int? tab = null,
+      [Description("Target GUI tab by filename substring")] string? tabFile = null) {
+      var p = new Dictionary<string, object?>();
+      if (!string.IsNullOrEmpty(filter)) p["filter"] = filter;
+      return Dispatch("list_tables", p, tab, tabFile, () => RomAutomation.ListTables(session.Require(), filter));
    }
 
    [McpServerTool(Name = "read_table")]
-   [Description("Read a named table as JSON rows. Provide the anchor name (e.g. 'data.pokemon.stats'). Use start/count to page through large tables.")]
+   [Description("Read a named table as JSON rows. Targets the GUI's active tab when live. Use start/count to page; tab/tabFile to pick a tab.")]
    public string ReadTable(
       RomSession session,
       [Description("Anchor/table name, e.g. data.pokemon.stats")] string name,
       [Description("First row index to return")] int start = 0,
-      [Description("Maximum rows to return")] int count = 25) {
-      return Headless(RomAutomation.ReadTable(session.Require(), name, start, count));
+      [Description("Maximum rows to return")] int count = 25,
+      [Description("Target GUI tab by index (default: active tab)")] int? tab = null,
+      [Description("Target GUI tab by filename substring")] string? tabFile = null) {
+      var p = new Dictionary<string, object?> { ["name"] = name, ["start"] = start, ["count"] = count };
+      return Dispatch("read_table", p, tab, tabFile, () => RomAutomation.ReadTable(session.Require(), name, start, count));
    }
 
    [McpServerTool(Name = "write_value")]
@@ -97,6 +117,16 @@ public sealed class RomTools {
    }
 
    // ---- helpers ----
+
+   // Prefer the live GUI (if reachable) for `method`; fall back to a headless
+   // computation. Adds the tab selector to the live params and stamps `mode`.
+   private static string Dispatch(string method, Dictionary<string, object?> liveParams, int? tab, string? tabFile, System.Func<object> headless) {
+      if (tab.HasValue) liveParams["tab"] = tab.Value;
+      else if (!string.IsNullOrEmpty(tabFile)) liveParams["tab"] = tabFile;
+      if (GuiBridge.TryCall(method, liveParams, out var json, out _))
+         return Stamp(json, "live");
+      return Stamp(JsonSerializer.Serialize(headless(), Json), "headless");
+   }
 
    // Serialize a result object and stamp mode:"headless".
    private static string Headless(object result) => Stamp(JsonSerializer.Serialize(result, Json), "headless");
