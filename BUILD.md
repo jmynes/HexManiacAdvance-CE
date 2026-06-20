@@ -62,6 +62,15 @@ disk:
 - When no GUI is running, the same tools fall back to **headless** mode
   (`open_rom` + load from disk), reporting `"mode": "headless"`.
 
+### Reading & discovery
+
+- `help` — show how to use this MCP. No `topic`: the full guide; `topic` (a tool name or
+  section heading): just that section. Works live or headless. The same guide is also the
+  `hexmaniac://guide` MCP resource.
+- `list_tables` — list the named tables/anchors available in the loaded ROM.
+- `read_table` — read a named table as JSON rows; `start`/`count` to page.
+- `export_table` — export a named table to a JSON file (`outPath`).
+
 ### Navigation tools
 
 - `list_shortcuts` — lists the GUI's "Goto" shortcut buttons as `{ display, anchor }`
