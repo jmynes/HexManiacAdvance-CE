@@ -1,4 +1,6 @@
+using System.Collections.Generic;
 using System.ComponentModel;
+using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using HavenSoft.HexManiac.Core.Models;
@@ -382,6 +384,23 @@ public sealed class RomTools {
    public string SupportedRoms_([Description("Optional header code filter, e.g. BPRE0")] string? code = null) {
       var text = string.IsNullOrWhiteSpace(code) ? SupportedRoms.Json() : SupportedRoms.Lookup(code);
       return Stamp(JsonSerializer.Serialize(new { ok = true, text }, Json), GuiBridge.IsGuiRunning() ? "live" : "headless");
+   }
+
+   [McpServerTool(Name = "identify_rom")]
+   [Description("Identify the loaded/open ROM: header game code, base game + revision, HMA support level, and whether it's a clean No-Intro dump or an edited/romhack (and what base it's built on). Hashes the in-memory ROM (unsaved edits read as not-clean).")]
+   public string IdentifyRom(RomSession session,
+      [Description("Target GUI tab by index")] int? tab = null,
+      [Description("Target GUI tab by filename substring")] string? tabFile = null) {
+      return Dispatch("identify_rom", new Dictionary<string, object?>(), tab, tabFile, () => IdentifyResult(session.Require()));
+   }
+
+   private static object IdentifyResult(IDataModel model) {
+      var bytes = model.RawData is byte[] b ? b : model.RawData.ToArray();
+      var code = model.GetGameCode();
+      var md5 = string.Concat(System.Security.Cryptography.MD5.HashData(bytes).Select(x => x.ToString("x2")));
+      var sha1 = string.Concat(System.Security.Cryptography.SHA1.HashData(bytes).Select(x => x.ToString("X2")));
+      var crc32 = Force.Crc32.Crc32Algorithm.Compute(bytes).ToString("X8");
+      return SupportedRoms.Match(code, md5, sha1, crc32);
    }
 
    // ---- helpers ----

@@ -99,11 +99,15 @@ echo "== 2-6. drive server =="
   printf '%s\n' '{"jsonrpc":"2.0","id":57,"method":"tools/call","params":{"name":"supported_roms","arguments":{"code":"BPEE0"}}}'; sleep 1
   printf '%s\n' '{"jsonrpc":"2.0","id":58,"method":"resources/list","params":{}}'; sleep 1
   printf '%s\n' '{"jsonrpc":"2.0","id":59,"method":"resources/read","params":{"uri":"hexmaniac://supported-roms"}}'; sleep 1
+  printf '%s\n' "{\"jsonrpc\":\"2.0\",\"id\":60,\"method\":\"tools/call\",\"params\":{\"name\":\"open_rom\",\"arguments\":{\"path\":\"$R\"}}}"; sleep 15
+  printf '%s\n' '{"jsonrpc":"2.0","id":61,"method":"tools/call","params":{"name":"identify_rom","arguments":{}}}'; sleep 1
+  printf '%s\n' '{"jsonrpc":"2.0","id":62,"method":"tools/call","params":{"name":"write_value","arguments":{"table":"data.pokemon.stats","index":1,"field":"hp","value":"61"}}}'; sleep 1
+  printf '%s\n' '{"jsonrpc":"2.0","id":63,"method":"tools/call","params":{"name":"identify_rom","arguments":{}}}'; sleep 1
 } | "./$EXE" > "$OUT" 2>"$ERR"
 
 echo "== assertions =="
 # 2. protocol + tools/list
-[ "$(jq -rs 'map(select(.id==2))[0].result.tools|length' "$OUT" 2>/dev/null)" = "24" ] && ok "tools/list shows 24 tools" || bad "tools/list"
+[ "$(jq -rs 'map(select(.id==2))[0].result.tools|length' "$OUT" 2>/dev/null)" = "25" ] && ok "tools/list shows 25 tools" || bad "tools/list"
 # 3. open + read known value
 [ "$(is_error 3)" = "false" ] && ok "open_rom" || bad "open_rom"
 [ "$(result_text 4 | jq -r '.rows[0].hp' 2>/dev/null)" = "45" ] && ok "read_table Bulbasaur hp=45" || bad "read_table known value"
@@ -170,6 +174,10 @@ echo "== assertions =="
 [ "$(result_text 57 | grep -ci 'Emerald')" -ge 1 ] && ok "supported_roms code filter" || bad "supported_roms code"
 [ "$(jq -rs 'map(select(.id==58))[0].result.resources|map(.uri)|join(" ")' "$OUT" 2>/dev/null | grep -ci 'hexmaniac://supported-roms')" -ge 1 ] && ok "resources/list has supported-roms" || bad "resources/list roms"
 [ "$(jq -rs 'map(select(.id==59))[0].result.contents[0].text // empty' "$OUT" 2>/dev/null | grep -ci 'BPRE0')" -ge 1 ] && ok "resources/read supported-roms" || bad "resources/read roms"
+[ "$(result_text 61 | jq -r '.isCleanDump' 2>/dev/null)" = "true" ] && ok "identify_rom clean FireRed" || bad "identify clean"
+[ "$(result_text 61 | jq -r '.baseGame' 2>/dev/null | grep -ci 'FireRed')" -ge 1 ] && ok "identify_rom base FireRed" || bad "identify base"
+[ "$(result_text 63 | jq -r '.isCleanDump' 2>/dev/null)" = "false" ] && ok "identify_rom detects edit" || bad "identify edited"
+[ "$(result_text 63 | jq -r '.baseGame' 2>/dev/null | grep -ci 'FireRed')" -ge 1 ] && ok "identify_rom base after edit (hack base)" || bad "identify base after edit"
 
 echo "================="
 echo "PASS=$PASS  FAIL=$FAIL"
