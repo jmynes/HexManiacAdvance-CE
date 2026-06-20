@@ -149,9 +149,17 @@ Live mode: edits are visible in the GUI immediately and are undoable with Ctrl+Z
 - Pass `overwrite=true` (no `outPath`) to save over the loaded/open ROM in place.
 - With neither, it refuses — it will not silently overwrite the source.
 
+Before overwriting an existing file, `save_rom` automatically backs up the current `.gba`, its sidecar `.toml`, and its `.sav` into a timestamped `backups/` subdirectory next to the target. The result includes a `backedUp` list of the files written.
+
 ```json
 {"name": "save_rom", "arguments": {"outPath": "C:/out/firered_edited.gba"}}
 {"name": "save_rom", "arguments": {"overwrite": true}}
+```
+
+**`backup_rom`** — create an explicit backup of the loaded ROM (`.gba` + sidecar `.toml` + `.sav`) into a timestamped `backups/` subdirectory next to the ROM, without saving any pending edits. Returns the list of files written. Works live and headless.
+
+```json
+{"name": "backup_rom", "arguments": {}}
 ```
 
 **`close_tab`** — close one tab in the live GUI (default: active tab). Refuses if the tab has unsaved changes unless `force=true` (which discards them). **Live only.**
@@ -190,11 +198,20 @@ To supply your own metadata, place a `.toml` next to the ROM and use `metadata="
 
 `save_rom` will not silently overwrite the source ROM. Without an `outPath` or `overwrite=true`, it refuses with an error. This prevents accidental data loss when the AI calls `save_rom` without an explicit intent to overwrite.
 
+**Auto-backup on overwrite:** when `save_rom` would overwrite an existing file (via `outPath` pointing to an existing path, or `overwrite=true`), it first copies the current `.gba`, its sidecar `.toml`, and its `.sav` into a timestamped `backups/` subdirectory next to the target (e.g. `backups/firered_20240615_123456.gba`). The result includes a `backedUp` list of the paths written. This means you can always recover the previous state even after an in-place save.
+
+**`backup_rom`** — explicitly snapshot the loaded ROM without saving any edits. Copies the `.gba`, sidecar `.toml`, and `.sav` into a timestamped `backups/` subdirectory next to the ROM and returns the list of files written. Useful as a checkpoint before a risky batch of edits.
+
+```json
+{"name": "backup_rom", "arguments": {}}
+```
+
 Recommended workflow:
 1. Open the ROM.
-2. Edit with `write_value` / `run_script`.
-3. Save a copy: `save_rom(outPath="path/to/backup.gba")`.
-4. Or save in place explicitly: `save_rom(overwrite=true)`.
+2. Optionally call `backup_rom` for a pre-edit checkpoint.
+3. Edit with `write_value` / `run_script`.
+4. Save a copy: `save_rom(outPath="path/to/output.gba")`.
+5. Or save in place explicitly: `save_rom(overwrite=true)` — the previous state is auto-backed-up before overwriting.
 
 ## Recipes
 
@@ -230,7 +247,7 @@ Recommended workflow:
 
 ## Tools index
 
-All 20 tools exposed by this MCP server:
+All 22 tools exposed by this MCP server:
 
 | Tool | Description |
 |---|---|
@@ -253,7 +270,9 @@ All 20 tools exposed by this MCP server:
 | `close_tab` | Close one tab in the live GUI (default: active tab). Refuses if the tab has unsaved changes unless force=true (which discards them). Live GUI only. |
 | `close_rom` | Close ALL tabs showing the resolved tab's ROM in the live GUI. Refuses if any of those tabs has unsaved changes unless force=true (which discards them). Live GUI only. |
 | `duplicate_tab` | Open a second tab on the same ROM as the resolved tab (like Ctrl+T) — shares the ROM's model and undo history; close_rom then closes all such tabs. Live GUI only. |
-| `save_rom` | Write the ROM to disk. Pass outPath to save a COPY there; pass overwrite=true (no outPath) to save over the loaded/open ROM. With neither, it refuses (won't silently overwrite the source). Live targets the resolved tab; else headless. |
+| `save_rom` | Write the ROM to disk. Pass outPath to save a COPY there; pass overwrite=true (no outPath) to save over the loaded/open ROM. With neither, it refuses (won't silently overwrite the source). Before overwriting an existing file, auto-backs-up the current .gba + .toml + .sav into a timestamped backups/ subdirectory; result includes backedUp list. Live targets the resolved tab; else headless. |
+| `backup_rom` | Explicitly snapshot the loaded ROM (.gba + sidecar .toml + .sav) into a timestamped backups/ subdirectory next to the ROM, without saving any pending edits. Returns the list of files written. Live or headless. |
+| `help` | Return the full MCP guide or a specific section. Call with no arguments for the full guide; pass topic="<section-heading>" for a specific section (e.g. topic="Saving & backups safety"). |
 
 Call `help` with no arguments for the full guide, or `help(topic="<section>")` for a specific section.
 

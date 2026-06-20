@@ -122,6 +122,13 @@ options). Works live (visible + undoable in the GUI) and headless.
   tabs of that ROM at once.
 - `save_rom` — pass `outPath` to save a COPY, or `overwrite=true` to save over the
   loaded/open ROM. With neither it refuses (won't silently overwrite the source).
+  **Auto-backup:** before overwriting an existing target file, `save_rom` snapshots
+  the current `.gba`, its sidecar `.toml`, and its `.sav` into a timestamped
+  `backups/` subdirectory next to the target (e.g. `backups/firered_20240615_123456.gba`).
+  The result includes a `backedUp` list of the files written.
+- `backup_rom` — explicitly create a backup of the loaded ROM (`.gba` + sidecar
+  `.toml` + `.sav`) into a timestamped `backups/` subdirectory next to the ROM,
+  without saving any edits. Returns the list of files written.
 - `close_tab` — close one tab (default: active). **Live only.** Refuses on unsaved
   changes unless `force=true` (which discards them; no disk write, no dialog).
 - `close_rom` — close ALL tabs showing the resolved tab's ROM. **Live only.** Same
