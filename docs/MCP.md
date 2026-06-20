@@ -168,6 +168,13 @@ Before overwriting an existing file, `save_rom` automatically backs up the curre
 
 **`duplicate_tab`** — open a second tab on the same ROM (like Ctrl+T), sharing its model and undo history. **Live only.** `close_rom` then closes all such tabs at once.
 
+**`launch_rom`** — shell-opens the resolved ROM's on-disk file in your default GBA program (like HexManiacAdvance's play button). The ROM must already be saved; pass `force=true` to launch the last-saved file even when there are unsaved edits in the current session. Returns `{ ok, launched, mode }` with the path that was opened. Works live and headless.
+
+```json
+{"name": "launch_rom", "arguments": {}}
+{"name": "launch_rom", "arguments": {"force": true}}
+```
+
 ## Scripts
 
 **`run_script`** — run an HMA script. Provide inline `script` text or a `path` to a `.hma` file (`path` takes precedence). Works live and headless.
@@ -247,7 +254,7 @@ Recommended workflow:
 
 ## Tools index
 
-All 22 tools exposed by this MCP server:
+All 23 tools exposed by this MCP server:
 
 | Tool | Description |
 |---|---|
@@ -272,6 +279,7 @@ All 22 tools exposed by this MCP server:
 | `duplicate_tab` | Open a second tab on the same ROM as the resolved tab (like Ctrl+T) — shares the ROM's model and undo history; close_rom then closes all such tabs. Live GUI only. |
 | `save_rom` | Write the ROM to disk. Pass outPath to save a COPY there; pass overwrite=true (no outPath) to save over the loaded/open ROM. With neither, it refuses (won't silently overwrite the source). Before overwriting an existing file, auto-backs-up the current .gba + .toml + .sav into a timestamped backups/ subdirectory; result includes backedUp list. Live targets the resolved tab; else headless. |
 | `backup_rom` | Explicitly snapshot the loaded ROM (.gba + sidecar .toml + .sav) into a timestamped backups/ subdirectory next to the ROM, without saving any pending edits. Returns the list of files written. Live or headless. |
+| `launch_rom` | Shell-open the resolved ROM's on-disk file in the default GBA program (like HexManiacAdvance's play button). The ROM must be saved; pass force=true to launch the last-saved file even with unsaved edits. Returns { ok, launched, mode }. Live or headless. |
 | `help` | Return the full MCP guide or a specific section. Call with no arguments for the full guide; pass topic="<section-heading>" for a specific section (e.g. topic="Saving & backups safety"). |
 
 Call `help` with no arguments for the full guide, or `help(topic="<section>")` for a specific section.

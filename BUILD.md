@@ -133,3 +133,7 @@ options). Works live (visible + undoable in the GUI) and headless.
   changes unless `force=true` (which discards them; no disk write, no dialog).
 - `close_rom` — close ALL tabs showing the resolved tab's ROM. **Live only.** Same
   unsaved-change guard / `force` semantics.
+- `launch_rom` — shell-opens the resolved ROM's on-disk file in your default GBA
+  program (like the play button). The ROM must already be saved; pass `force=true`
+  to launch the last-saved file even if there are unsaved edits. Returns
+  `{ ok, launched, mode }` with the path that was launched. Works live and headless.
