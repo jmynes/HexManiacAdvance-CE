@@ -301,24 +301,30 @@ public sealed class RomTools {
    }
 
    [McpServerTool(Name = "save_rom")]
-   [Description("Write the (possibly edited) ROM to disk. Live: saves the GUI tab to its file. Headless: defaults to the loaded path; pass outPath for a copy.")]
+   [Description("Write the ROM to disk. Pass outPath to save a COPY there; pass overwrite=true (no outPath) to save over the loaded/open ROM. With neither, it refuses (won't silently overwrite the source). Live targets the resolved tab; else headless.")]
    public string SaveRom(
       RomSession session,
-      [Description("Optional output path; defaults to the loaded ROM path (headless only)")] string? outPath = null,
+      [Description("Output path to save a COPY to")] string? outPath = null,
+      [Description("Save over the loaded/open ROM in place (only used when outPath is omitted)")] bool overwrite = false,
       [Description("Target GUI tab by index (default: active tab)")] int? tab = null,
       [Description("Target GUI tab by filename substring")] string? tabFile = null) {
-      var p = new Dictionary<string, object?>();
+      var p = new Dictionary<string, object?> { ["overwrite"] = overwrite };
       if (!string.IsNullOrEmpty(outPath)) p["outPath"] = outPath;
-      return Dispatch("save_rom", p, tab, tabFile, () => SaveRomHeadless(session, outPath));
+      return Dispatch("save_rom", p, tab, tabFile, () => SaveRomHeadless(session, outPath, overwrite));
    }
 
-   private static object SaveRomHeadless(RomSession session, string? outPath) {
+   private static object SaveRomHeadless(RomSession session, string? outPath, bool overwrite) {
       var model = session.Require();
-      var target = string.IsNullOrEmpty(outPath) ? session.RomPath : outPath;
-      if (string.IsNullOrEmpty(target)) return RomAutomation.Err("No output path and no loaded path to default to.");
       session.RequireViewPort().ChangeHistory.ChangeCompleted();
-      File.WriteAllBytes(target, model.RawData);
-      return new { ok = true, path = target, length = model.RawData.Length };
+      if (!string.IsNullOrEmpty(outPath)) {
+         File.WriteAllBytes(outPath, model.RawData);
+         return new { ok = true, path = outPath, overwrote = false, length = model.RawData.Length };
+      }
+      if (!overwrite)
+         return RomAutomation.Err("Refusing to overwrite the loaded ROM in place. Pass outPath to save a copy, or overwrite=true to save over the source.");
+      if (string.IsNullOrEmpty(session.RomPath)) return RomAutomation.Err("No loaded ROM path to overwrite.");
+      File.WriteAllBytes(session.RomPath, model.RawData);
+      return new { ok = true, path = session.RomPath, overwrote = true, length = model.RawData.Length };
    }
 
    // ---- helpers ----

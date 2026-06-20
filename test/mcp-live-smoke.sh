@@ -12,6 +12,7 @@ GUI="artifacts/HexManiac.WPF/bin/Release/net6.0-windows/HexManiacAdvance.exe"
 MCP="artifacts/HexManiac.Mcp/bin/Release/net8.0/HexManiac.Mcp.exe"
 GUIW="$(cygpath -w "$(pwd)/$GUI")"
 ROMW="$(cygpath -w "$(pwd)/test/roms/firered.gba")"
+COPYW="$(cygpath -m "$(pwd)/test/.tmp/live-savecopy.gba")"
 ROMW_JSON=$(printf '%s' "$ROMW" | awk 'BEGIN{FS=""}{for(i=1;i<=NF;i++){if($i=="\\")printf "\\\\"; else printf $i}; print ""}')
 TMP="test/.tmp"; mkdir -p "$TMP"; OUT="$TMP/live.jsonl"
 PASS=0; FAIL=0
@@ -55,6 +56,9 @@ echo "== drive MCP =="
   printf '%s\n' '{"jsonrpc":"2.0","id":16,"method":"tools/call","params":{"name":"list_open_roms","arguments":{}}}'; sleep 1
   printf '%s\n' '{"jsonrpc":"2.0","id":17,"method":"tools/call","params":{"name":"duplicate_tab","arguments":{}}}'; sleep 1
   printf '%s\n' '{"jsonrpc":"2.0","id":18,"method":"tools/call","params":{"name":"list_open_roms","arguments":{}}}'; sleep 1
+  COPY_JSON=$(printf '%s' "$COPYW" | sed 's/\\/\\\\/g')
+  printf '%s\n' "{\"jsonrpc\":\"2.0\",\"id\":20,\"method\":\"tools/call\",\"params\":{\"name\":\"save_rom\",\"arguments\":{\"outPath\":\"$COPY_JSON\"}}}"; sleep 1
+  printf '%s\n' '{"jsonrpc":"2.0","id":21,"method":"tools/call","params":{"name":"save_rom","arguments":{}}}'; sleep 1
   printf '%s\n' '{"jsonrpc":"2.0","id":19,"method":"tools/call","params":{"name":"close_rom","arguments":{"tab":0,"force":true}}}'; sleep 1
 } | "./$MCP" > "$OUT" 2>/dev/null
 
@@ -91,6 +95,9 @@ echo "== assertions =="
 [ "$(rt 17 | jq -r '.ok' 2>/dev/null)" = "true" ] && ok "duplicate_tab ok" || bad "duplicate_tab ok"
 [ "$(rt 18 | jq -r '.tabs | length' 2>/dev/null)" = "2" ] && ok "two tabs after duplicate" || bad "duplicate did not add tab"
 [ "$(rt 19 | jq -r '.closedCount' 2>/dev/null)" = "2" ] && ok "close_rom closed both duplicate tabs" || bad "close_rom closedCount"
+[ "$(rt 20 | jq -r '.ok' 2>/dev/null)" = "true" ] && ok "live save_rom outPath copy ok" || bad "live save copy"
+[ "$(rt 21 | jq -r '.error' 2>/dev/null | grep -ci 'Refusing to overwrite')" -ge 1 ] && ok "live save_rom guards in-place" || bad "live save guard"
+[ -s "test/.tmp/live-savecopy.gba" ] && ok "live-savecopy.gba exists and non-empty" || bad "live-savecopy.gba missing or empty"
 
 taskkill //F //IM HexManiacAdvance.exe >/dev/null 2>&1 || true
 echo "================="

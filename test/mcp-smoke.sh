@@ -81,6 +81,9 @@ echo "== 2-6. drive server =="
   printf '%s\n' "{\"jsonrpc\":\"2.0\",\"id\":41,\"method\":\"tools/call\",\"params\":{\"name\":\"open_rom\",\"arguments\":{\"path\":\"$R\"}}}"; sleep 15
   printf '%s\n' '{"jsonrpc":"2.0","id":39,"method":"tools/call","params":{"name":"write_value","arguments":{"table":"data.pokemon.moves.stats.battle","index":1,"field":"info","value":false,"flag":"Makes Contact"}}}'; sleep 1
   printf '%s\n' '{"jsonrpc":"2.0","id":40,"method":"tools/call","params":{"name":"write_value","arguments":{"table":"data.pokemon.moves.stats.battle","index":1,"field":"target","value":true,"flag":"Both"}}}'; sleep 1
+  printf '%s\n' '{"jsonrpc":"2.0","id":42,"method":"tools/call","params":{"name":"save_rom","arguments":{}}}'; sleep 1
+  printf '%s\n' "{\"jsonrpc\":\"2.0\",\"id\":43,\"method\":\"tools/call\",\"params\":{\"name\":\"open_rom\",\"arguments\":{\"path\":\"$OR\"}}}"; sleep 15
+  printf '%s\n' '{"jsonrpc":"2.0","id":44,"method":"tools/call","params":{"name":"save_rom","arguments":{"overwrite":true}}}'; sleep 2
 } | "./$EXE" > "$OUT" 2>"$ERR"
 
 echo "== assertions =="
@@ -134,6 +137,10 @@ echo "== assertions =="
 [ "$(result_text 39 | jq -r '.ok' 2>/dev/null)" = "true" ] && ok "checkbox by spaced friendly name" || bad "spaced flag name"
 [ "$(result_text 39 | jq -r '.flag' 2>/dev/null)" = "Makes Contact" ] && ok "flag reported unquoted" || bad "flag unquoted report"
 [ "$(result_text 40 | jq -r '.ok' 2>/dev/null)" = "true" ] && ok "single-word flag still works" || bad "single-word flag"
+# save_rom overwrite guard
+[ "$(result_text 42 | jq -r '.error' 2>/dev/null | grep -ci 'Refusing to overwrite')" -ge 1 ] && ok "save_rom guards in-place overwrite" || bad "save_rom guard"
+[ "$(result_text 44 | jq -r '.ok' 2>/dev/null)" = "true" ] && ok "save_rom overwrite=true saves in place" || bad "save_rom overwrite"
+[ "$(result_text 44 | jq -r '.overwrote' 2>/dev/null)" = "true" ] && ok "save_rom reports overwrote" || bad "save_rom overwrote flag"
 
 echo "================="
 echo "PASS=$PASS  FAIL=$FAIL"
