@@ -12,6 +12,7 @@ GUI="artifacts/HexManiac.WPF/bin/Release/net6.0-windows/HexManiacAdvance.exe"
 MCP="artifacts/HexManiac.Mcp/bin/Release/net8.0/HexManiac.Mcp.exe"
 GUIW="$(cygpath -w "$(pwd)/$GUI")"
 ROMW="$(cygpath -w "$(pwd)/test/roms/firered.gba")"
+ROMW_JSON=$(printf '%s' "$ROMW" | awk 'BEGIN{FS=""}{for(i=1;i<=NF;i++){if($i=="\\")printf "\\\\"; else printf $i}; print ""}')
 TMP="test/.tmp"; mkdir -p "$TMP"; OUT="$TMP/live.jsonl"
 PASS=0; FAIL=0
 ok(){ echo "  PASS: $1"; PASS=$((PASS+1)); }
@@ -48,6 +49,8 @@ echo "== drive MCP =="
   printf '%s\n' '{"jsonrpc":"2.0","id":10,"method":"tools/call","params":{"name":"read_table","arguments":{"name":"data.pokemon.moves.names","start":19,"count":1}}}'; sleep 1
   printf '%s\n' '{"jsonrpc":"2.0","id":11,"method":"tools/call","params":{"name":"select","arguments":{"table":"data.pokemon.stats","index":1,"count":2}}}'; sleep 1
   printf '%s\n' '{"jsonrpc":"2.0","id":12,"method":"tools/call","params":{"name":"clipboard_copy","arguments":{}}}'; sleep 1
+  printf '%s\n' "{\"jsonrpc\":\"2.0\",\"id\":13,\"method\":\"tools/call\",\"params\":{\"name\":\"open_rom\",\"arguments\":{\"path\":\"$ROMW_JSON\"}}}"; sleep 8
+  printf '%s\n' '{"jsonrpc":"2.0","id":14,"method":"tools/call","params":{"name":"list_open_roms","arguments":{}}}'; sleep 1
 } | "./$MCP" > "$OUT" 2>/dev/null
 
 rt(){ jq -rs --argjson id "$1" 'map(select(.id==$id))[0].result.content[0].text//empty' "$OUT"; }
@@ -73,6 +76,9 @@ echo "== assertions =="
 [ "$(rt 11 | jq -r '.count' 2>/dev/null)" = "2" ] && ok "select count=2" || bad "select count"
 [ "$(rt 12 | jq -r '.mode' 2>/dev/null)" = "live" ] && ok "clipboard_copy mode=live" || bad "clipboard_copy not live"
 [ -n "$(rt 12 | jq -r '.text // empty' 2>/dev/null)" ] && ok "clipboard_copy returns text" || bad "clipboard_copy text"
+[ "$(rt 13 | jq -r '.mode' 2>/dev/null)" = "live" ] && ok "open_rom mode=live" || bad "open_rom not live"
+[ "$(rt 13 | jq -r '.ok' 2>/dev/null)" = "true" ] && ok "open_rom ok" || bad "open_rom ok"
+[ "$(rt 14 | jq -r '.tabs | length' 2>/dev/null)" -ge 2 ] && ok "two tabs open after open_rom" || bad "open_rom did not add a tab"
 
 taskkill //F //IM HexManiacAdvance.exe >/dev/null 2>&1 || true
 echo "================="

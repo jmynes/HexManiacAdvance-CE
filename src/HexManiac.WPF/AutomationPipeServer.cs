@@ -169,6 +169,19 @@ namespace HavenSoft.HexManiac.WPF.Windows {
                if (text.Length > 0) { vp.Edit(text); vp.ChangeHistory.ChangeCompleted(); }
                return Ok(new { ok = true, pasted = text.Length });
             }
+            case "open_rom": {
+               var path = Str(p, "path");
+               if (string.IsNullOrEmpty(path)) return new AutoResponse(false, null, "Provide an absolute 'path' to a .gba file.");
+               var full = System.IO.Path.GetFullPath(path);
+               if (!System.IO.File.Exists(full)) return new AutoResponse(false, null, $"File not found: {full}");
+               var loaded = GuiFileSystem().LoadFile(full);
+               if (loaded == null) return new AutoResponse(false, null, $"Could not load: {full}");
+               var vp = editor.OpenFileAsTab(loaded);
+               if (vp == null) return new AutoResponse(false, null, editor.ErrorMessage is { Length: > 0 } e ? e : "Open failed.");
+               int index = -1, i = 0;
+               foreach (var t in editor) { if (ReferenceEquals(t, vp)) { index = i; break; } i++; }
+               return Ok(new { ok = true, path = full, index, file = vp.FullFileName ?? vp.Name });
+            }
             default:
                return new AutoResponse(false, null, $"Unknown method: {req.Method}");
          }

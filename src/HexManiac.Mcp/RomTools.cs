@@ -17,11 +17,14 @@ public sealed class RomTools {
    private static readonly JsonSerializerOptions Json = new() { WriteIndented = false };
 
    [McpServerTool(Name = "open_rom")]
-   [Description("Load a GBA Pokémon ROM from an absolute file path (headless mode). Must be called before headless tools.")]
+   [Description("Open a GBA Pokémon ROM from an absolute path. Live: opens it as a new tab in the running GUI. Headless: loads it as the single session ROM.")]
    public string OpenRom(RomSession session, [Description("Absolute path to a .gba ROM file")] string path) {
-      session.Load(path);
-      var model = session.Require();
-      return Headless(new { ok = true, path, length = model.Count, anchorCount = model.Anchors.Count });
+      var p = new Dictionary<string, object?> { ["path"] = path };
+      return Dispatch("open_rom", p, null, null, () => {
+         session.Load(path);
+         var model = session.Require();
+         return new { ok = true, path, length = model.Count, anchorCount = model.Anchors.Count };
+      });
    }
 
    [McpServerTool(Name = "list_open_roms")]
