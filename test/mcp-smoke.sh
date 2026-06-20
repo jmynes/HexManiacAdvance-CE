@@ -37,6 +37,8 @@ ENC="$TMP/encounters.json"; TRN="$TMP/trainers.json"; DEX="$TMP/dex.json"
 # can open. Forward slashes are valid on Windows and dodge JSON-escape issues.
 R="$(cygpath -m "$ROM")"; OR="$(cygpath -m "$OUTROM")"
 ENCW="$(cygpath -m "$ENC")"; TRNW="$(cygpath -m "$TRN")"; DEXW="$(cygpath -m "$DEX")"
+FAKE="$TMP/fakerom.gba"; cp "$ROM" "$FAKE"; printf 'ZZZZ' | dd of="$FAKE" bs=1 seek=172 count=4 conv=notrunc 2>/dev/null; rm -f "$TMP/fakerom.toml"
+FAKEW="$(cygpath -m "$FAKE")"
 
 echo "== 2-6. drive server =="
 {
@@ -73,6 +75,9 @@ echo "== 2-6. drive server =="
   printf '%s\n' '{"jsonrpc":"2.0","id":33,"method":"tools/call","params":{"name":"close_tab","arguments":{}}}'; sleep 1
   printf '%s\n' '{"jsonrpc":"2.0","id":34,"method":"tools/call","params":{"name":"close_rom","arguments":{}}}'; sleep 1
   printf '%s\n' '{"jsonrpc":"2.0","id":35,"method":"tools/call","params":{"name":"duplicate_tab","arguments":{}}}'; sleep 1
+  printf '%s\n' "{\"jsonrpc\":\"2.0\",\"id\":36,\"method\":\"tools/call\",\"params\":{\"name\":\"open_rom\",\"arguments\":{\"path\":\"$R\",\"metadata\":\"guess_offsets\"}}}"; sleep 2
+  printf '%s\n' "{\"jsonrpc\":\"2.0\",\"id\":37,\"method\":\"tools/call\",\"params\":{\"name\":\"open_rom\",\"arguments\":{\"path\":\"$FAKEW\"}}}"; sleep 2
+  printf '%s\n' "{\"jsonrpc\":\"2.0\",\"id\":38,\"method\":\"tools/call\",\"params\":{\"name\":\"open_rom\",\"arguments\":{\"path\":\"$FAKEW\",\"metadata\":\"guess\"}}}"; sleep 8
 } | "./$EXE" > "$OUT" 2>"$ERR"
 
 echo "== assertions =="
@@ -117,6 +122,12 @@ echo "== assertions =="
 [ "$(result_text 33 | jq -r '.error' 2>/dev/null | grep -ci 'live GUI')" -ge 1 ] && ok "close_tab live-only in headless" || bad "close_tab headless error"
 [ "$(result_text 34 | jq -r '.error' 2>/dev/null | grep -ci 'live GUI')" -ge 1 ] && ok "close_rom live-only in headless" || bad "close_rom headless error"
 [ "$(result_text 35 | jq -r '.error' 2>/dev/null | grep -ci 'live GUI')" -ge 1 ] && ok "duplicate_tab live-only in headless" || bad "duplicate_tab headless error"
+# open_rom metadata awareness
+[ "$(result_text 3 | jq -r '.recognized' 2>/dev/null)" = "true" ] && ok "open_rom reports recognized firered" || bad "open_rom recognized"
+[ -n "$(result_text 3 | jq -r '.gameCode // empty' 2>/dev/null)" ] && ok "open_rom reports gameCode" || bad "open_rom gameCode"
+[ "$(result_text 36 | jq -r '.error' 2>/dev/null | grep -ci 'not yet implemented')" -ge 1 ] && ok "guess_offsets not-implemented notice" || bad "guess_offsets notice"
+[ "$(result_text 37 | jq -r '.needsMetadataChoice' 2>/dev/null)" = "true" ] && ok "unrecognized auto -> needsMetadataChoice" || bad "unrecognized warning"
+[ "$(result_text 38 | jq -r '.ok' 2>/dev/null)" = "true" ] && ok "guess opens unrecognized rom" || bad "guess open"
 
 echo "================="
 echo "PASS=$PASS  FAIL=$FAIL"

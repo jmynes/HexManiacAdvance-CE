@@ -17,14 +17,59 @@ public sealed class RomTools {
    private static readonly JsonSerializerOptions Json = new() { WriteIndented = false };
 
    [McpServerTool(Name = "open_rom")]
-   [Description("Open a GBA Pokémon ROM from an absolute path. Live: opens it as a new tab in the running GUI. Headless: loads it as the single session ROM.")]
-   public string OpenRom(RomSession session, [Description("Absolute path to a .gba ROM file")] string path) {
+   [Description("Open a GBA ROM. Live: new GUI tab; headless: single session. For ROMs that are NOT a recognized base game (FireRed/Emerald/...) AND have no sidecar .toml, HexManiac guesses table offsets; under metadata='auto' this returns a warning with choices instead of opening. metadata: 'auto' (default) | 'find_toml' | 'guess_offsets' | 'guess'.")]
+   public string OpenRom(RomSession session,
+      [Description("Absolute path to a .gba ROM file")] string path,
+      [Description("auto | find_toml | guess_offsets | guess")] string metadata = "auto") {
+      string mode = GuiBridge.IsGuiRunning() ? "live" : "headless";
+      string err(string m) => Stamp(JsonSerializer.Serialize(RomAutomation.Err(m), Json), mode);
+      if (!File.Exists(path)) return err($"ROM not found: {path}");
+      string gameCode;
+      try { gameCode = ((IReadOnlyList<byte>)File.ReadAllBytes(path)).GetGameCode(); }
+      catch (System.Exception ex) { return err($"Could not read ROM header: {ex.Message}"); }
+      bool recognized = session.Singletons.GameReferenceTables.TryGetValue(gameCode, out _);
+      var tomlPath = Path.ChangeExtension(path, ".toml");
+      bool hasToml = File.Exists(tomlPath);
+
+      switch (metadata) {
+         case "guess_offsets":
+            return err("Auto-detecting table offsets for an unrecognized ROM is not yet implemented. Please bug jmynes on GitHub or jordank.memes on Discord for this feature.");
+         case "find_toml":
+            if (!hasToml) return err($"No sidecar .toml found next to '{path}' (looked for '{tomlPath}'). Use metadata='guess' to open with guessed offsets, or metadata='guess_offsets'.");
+            return OpenProceed(session, path, gameCode, recognized, "toml", File.ReadAllLines(tomlPath), false);
+         case "guess":
+            return OpenProceed(session, path, gameCode, recognized, recognized ? "builtin" : "guessed", hasToml ? File.ReadAllLines(tomlPath) : null, warnGuess: !recognized && !hasToml);
+         case "auto":
+         default:
+            if (recognized || hasToml)
+               return OpenProceed(session, path, gameCode, recognized, hasToml ? "toml" : "builtin", hasToml ? File.ReadAllLines(tomlPath) : null, false);
+            var warn = new Dictionary<string, object?> {
+               ["ok"] = false, ["needsMetadataChoice"] = true, ["gameCode"] = gameCode,
+               ["recognized"] = false, ["hasToml"] = false,
+               ["warning"] = $"'{path}' is not a recognized base game (e.g. FireRed/Emerald) and has no sidecar .toml, so HexManiac would guess table offsets — reads and writes may be inaccurate.",
+               ["options"] = new Dictionary<string, object?> {
+                  ["find_toml"] = "Re-call open_rom with metadata='find_toml' to use a .toml placed next to the ROM.",
+                  ["guess_offsets"] = "Re-call with metadata='guess_offsets' to auto-detect offsets (not yet implemented).",
+                  ["guess"] = "Re-call with metadata='guess' to open anyway with guessed metadata.",
+               },
+            };
+            return Stamp(JsonSerializer.Serialize(warn, Json), mode);
+      }
+   }
+
+   private static string OpenProceed(RomSession session, string path, string gameCode, bool recognized, string metadataSource, string[]? tomlLines, bool warnGuess) {
       var p = new Dictionary<string, object?> { ["path"] = path };
-      return Dispatch("open_rom", p, null, null, () => {
-         session.Load(path);
+      var json = Dispatch("open_rom", p, null, null, () => {
+         if (tomlLines != null) session.Load(path, tomlLines); else session.Load(path);
          var model = session.Require();
          return new { ok = true, path, length = model.Count, anchorCount = model.Anchors.Count };
       });
+      var node = System.Text.Json.Nodes.JsonNode.Parse(json)!.AsObject();
+      node["gameCode"] = gameCode;
+      node["recognized"] = recognized;
+      node["metadataSource"] = metadataSource;
+      if (warnGuess) node["warning"] = "Opened with guessed metadata — this ROM is not a recognized base game and has no sidecar .toml; offsets may be inaccurate.";
+      return node.ToJsonString();
    }
 
    [McpServerTool(Name = "list_open_roms")]

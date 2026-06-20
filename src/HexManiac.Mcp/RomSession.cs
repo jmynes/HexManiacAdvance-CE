@@ -24,19 +24,18 @@ public sealed class RomSession {
    public List<string> Messages { get; } = new();
 
    // Loads a .gba ROM into a fully-initialized model + headless ViewPort.
-   public void Load(string path) {
+   public void Load(string path) => Load(path, new string[0]);
+
+   public void Load(string path, string[] metadataLines) {
       if (!File.Exists(path)) throw new FileNotFoundException($"ROM not found: {path}");
       var data = File.ReadAllBytes(path);
-      var model = new HardcodeTablesModel(Singletons, data, new StoredMetadata(new string[0]));
-      // Table auto-detection runs on a background task; wait for it.
+      var model = new HardcodeTablesModel(Singletons, data, new StoredMetadata(metadataLines));
       model.InitializationWorkload?.Wait();
-
       var vp = new ViewPort(path, model, InstantDispatch.Instance, Singletons, new(), FileSystem);
       Errors.Clear();
       Messages.Clear();
       vp.OnError += (_, e) => Errors.Add(e);
       vp.OnMessage += (_, e) => Messages.Add(e);
-
       ViewPort = vp;
       RomPath = path;
    }
