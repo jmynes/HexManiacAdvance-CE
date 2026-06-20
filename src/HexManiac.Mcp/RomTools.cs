@@ -38,7 +38,7 @@ public sealed class RomTools {
             if (!hasToml) return err($"No sidecar .toml found next to '{path}' (looked for '{tomlPath}'). Use metadata='guess' to open with guessed offsets, or metadata='guess_offsets'.");
             return OpenProceed(session, path, gameCode, recognized, "toml", File.ReadAllLines(tomlPath), false);
          case "guess":
-            return OpenProceed(session, path, gameCode, recognized, recognized ? "builtin" : "guessed", hasToml ? File.ReadAllLines(tomlPath) : null, warnGuess: !recognized && !hasToml);
+            return OpenProceed(session, path, gameCode, recognized, hasToml ? "toml" : (recognized ? "builtin" : "guessed"), hasToml ? File.ReadAllLines(tomlPath) : null, warnGuess: !recognized && !hasToml);
          case "auto":
          default:
             if (recognized || hasToml)

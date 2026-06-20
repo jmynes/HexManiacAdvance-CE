@@ -118,12 +118,12 @@ namespace HavenSoft.HexManiac.WPF.Windows {
                var outPath = StrOrNull(p, "outPath");
                if (!string.IsNullOrEmpty(outPath)) {
                   System.IO.File.WriteAllBytes(outPath, vp.Model.RawData);
-                  return Ok(new { ok = true, path = outPath, overwrote = false });
+                  return Ok(new { ok = true, path = outPath, overwrote = false, length = vp.Model.RawData.Length });
                }
                if (!Bool(p, "overwrite", false))
                   return new AutoResponse(false, null, "Refusing to overwrite the loaded ROM in place. Pass outPath to save a copy, or overwrite=true to save over the source.");
                vp.Save.Execute(GuiFileSystem());
-               return Ok(new { ok = true, saved = vp.FullFileName ?? vp.Name, overwrote = true });
+               return Ok(new { ok = true, saved = vp.FullFileName ?? vp.Name, overwrote = true, length = vp.Model.RawData.Length });
             }
             case "list_shortcuts": {
                var vp = ResolveTab(p);
