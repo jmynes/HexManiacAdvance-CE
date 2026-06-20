@@ -157,6 +157,18 @@ namespace HavenSoft.HexManiac.WPF.Windows {
                vp.SelectionEnd = vp.ConvertAddressToViewPoint(last);
                return Ok(new { ok = true, table = Str(p, "table"), index, count, start, length = last - start + 1 });
             }
+            case "clipboard_copy": {
+               var vp = ResolveTab(p); if (vp == null) return NoTab();
+               var fs = GuiFileSystem();
+               vp.Copy.Execute(fs);
+               return Ok(new { ok = true, text = fs.CopyText ?? "" });
+            }
+            case "clipboard_paste": {
+               var vp = ResolveTab(p); if (vp == null) return NoTab();
+               var text = GuiFileSystem().CopyText ?? "";
+               if (text.Length > 0) { vp.Edit(text); vp.ChangeHistory.ChangeCompleted(); }
+               return Ok(new { ok = true, pasted = text.Length });
+            }
             default:
                return new AutoResponse(false, null, $"Unknown method: {req.Method}");
          }

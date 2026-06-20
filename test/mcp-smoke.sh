@@ -67,13 +67,14 @@ echo "== 2-6. drive server =="
   printf '%s\n' '{"jsonrpc":"2.0","id":29,"method":"tools/call","params":{"name":"read_table","arguments":{"name":"data.pokemon.stats","start":4,"count":1}}}'; sleep 1
   printf '%s\n' '{"jsonrpc":"2.0","id":30,"method":"tools/call","params":{"name":"read_table","arguments":{"name":"data.pokemon.stats","start":1,"count":1}}}'; sleep 1
   printf '%s\n' '{"jsonrpc":"2.0","id":31,"method":"tools/call","params":{"name":"select","arguments":{"table":"data.pokemon.stats","index":1,"count":2}}}'; sleep 1
+  printf '%s\n' '{"jsonrpc":"2.0","id":32,"method":"tools/call","params":{"name":"clipboard_copy","arguments":{}}}'; sleep 1
   printf '%s\n' '{"jsonrpc":"2.0","id":14,"method":"tools/call","params":{"name":"list_shortcuts","arguments":{}}}'; sleep 2
   printf '%s\n' '{"jsonrpc":"2.0","id":15,"method":"tools/call","params":{"name":"goto","arguments":{"target":"Pokemon"}}}'; sleep 2
 } | "./$EXE" > "$OUT" 2>"$ERR"
 
 echo "== assertions =="
 # 2. protocol + tools/list
-[ "$(jq -rs 'map(select(.id==2))[0].result.tools|length' "$OUT" 2>/dev/null)" = "15" ] && ok "tools/list shows 15 tools" || bad "tools/list"
+[ "$(jq -rs 'map(select(.id==2))[0].result.tools|length' "$OUT" 2>/dev/null)" = "17" ] && ok "tools/list shows 17 tools" || bad "tools/list"
 # 3. open + read known value
 [ "$(is_error 3)" = "false" ] && ok "open_rom" || bad "open_rom"
 [ "$(result_text 4 | jq -r '.rows[0].hp' 2>/dev/null)" = "45" ] && ok "read_table Bulbasaur hp=45" || bad "read_table known value"
@@ -107,6 +108,8 @@ echo "== assertions =="
 [ "$(result_text 15 | jq -r '.error' 2>/dev/null | grep -ci 'live GUI')" -ge 1 ] && ok "goto headless live-only error" || bad "goto headless error"
 # select (headless): live-only error
 [ "$(result_text 31 | jq -r '.error' 2>/dev/null | grep -ci 'live GUI')" -ge 1 ] && ok "select live-only in headless" || bad "select headless error"
+# clipboard_copy (headless): live-only error
+[ "$(result_text 32 | jq -r '.error' 2>/dev/null | grep -ci 'live GUI')" -ge 1 ] && ok "clipboard_copy live-only in headless" || bad "clipboard headless error"
 
 echo "================="
 echo "PASS=$PASS  FAIL=$FAIL"

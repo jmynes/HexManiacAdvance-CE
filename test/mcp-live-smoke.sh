@@ -47,6 +47,7 @@ echo "== drive MCP =="
   printf '%s\n' '{"jsonrpc":"2.0","id":9,"method":"tools/call","params":{"name":"write_value","arguments":{"table":"data.pokemon.moves.names","index":19,"field":"name","value":"LIVESTR"}}}'; sleep 1
   printf '%s\n' '{"jsonrpc":"2.0","id":10,"method":"tools/call","params":{"name":"read_table","arguments":{"name":"data.pokemon.moves.names","start":19,"count":1}}}'; sleep 1
   printf '%s\n' '{"jsonrpc":"2.0","id":11,"method":"tools/call","params":{"name":"select","arguments":{"table":"data.pokemon.stats","index":1,"count":2}}}'; sleep 1
+  printf '%s\n' '{"jsonrpc":"2.0","id":12,"method":"tools/call","params":{"name":"clipboard_copy","arguments":{}}}'; sleep 1
 } | "./$MCP" > "$OUT" 2>/dev/null
 
 rt(){ jq -rs --argjson id "$1" 'map(select(.id==$id))[0].result.content[0].text//empty' "$OUT"; }
@@ -70,6 +71,8 @@ echo "== assertions =="
 [ "$(rt 10 | jq -r '.rows[0].name' 2>/dev/null)" = "LIVESTR" ] && ok "live string read-back" || bad "live string read-back"
 [ "$(rt 11 | jq -r '.mode' 2>/dev/null)" = "live" ] && ok "select mode=live" || bad "select not live"
 [ "$(rt 11 | jq -r '.count' 2>/dev/null)" = "2" ] && ok "select count=2" || bad "select count"
+[ "$(rt 12 | jq -r '.mode' 2>/dev/null)" = "live" ] && ok "clipboard_copy mode=live" || bad "clipboard_copy not live"
+[ -n "$(rt 12 | jq -r '.text // empty' 2>/dev/null)" ] && ok "clipboard_copy returns text" || bad "clipboard_copy text"
 
 taskkill //F //IM HexManiacAdvance.exe >/dev/null 2>&1 || true
 echo "================="

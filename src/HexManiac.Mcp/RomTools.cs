@@ -160,6 +160,18 @@ public sealed class RomTools {
       return Dispatch("paste_rows", p, tab, tabFile, () => RomAutomation.PasteRows(session.Require(), () => session.Token, table, index, hex));
    }
 
+   [McpServerTool(Name = "clipboard_copy")]
+   [Description("Copy the live GUI's current selection to the system clipboard; returns the copied text. Live GUI only.")]
+   public string ClipboardCopy(RomSession session, [Description("Target GUI tab by index")] int? tab = null, [Description("Target GUI tab by filename substring")] string? tabFile = null) {
+      return Dispatch("clipboard_copy", new Dictionary<string, object?>(), tab, tabFile, () => RomAutomation.Err("clipboard_copy requires the live GUI."));
+   }
+
+   [McpServerTool(Name = "clipboard_paste")]
+   [Description("Paste the system clipboard at the live GUI's current selection (undoable). Live GUI only.")]
+   public string ClipboardPaste(RomSession session, [Description("Target GUI tab by index")] int? tab = null, [Description("Target GUI tab by filename substring")] string? tabFile = null) {
+      return Dispatch("clipboard_paste", new Dictionary<string, object?>(), tab, tabFile, () => RomAutomation.Err("clipboard_paste requires the live GUI."));
+   }
+
    [McpServerTool(Name = "select")]
    [Description("Select rows in the live GUI: 'count' rows from 'index', or the whole table if 'index' is omitted. Live GUI only.")]
    public string Select(RomSession session, [Description("Anchor/table name")] string table,
