@@ -107,7 +107,12 @@ options). Works live (visible + undoable in the GUI) and headless.
 ### ROM/tab lifecycle
 
 - `open_rom` — live: opens the `.gba` as a new tab in the running GUI; headless:
-  loads it as the single session ROM.
+  loads it as the single session ROM. Also reports `gameCode`/`recognized`/`metadataSource`.
+  For a ROM that is NOT a recognized base game (FireRed/Emerald/...) and has no sidecar
+  `.toml`, `metadata='auto'` (default) returns a `needsMetadataChoice` warning instead of
+  opening — re-call with `metadata='find_toml'` (use a `.toml` next to the ROM),
+  `metadata='guess'` (open with guessed offsets anyway), or `metadata='guess_offsets'`
+  (auto-detect — not yet implemented).
 - `duplicate_tab` — open a second tab on the resolved tab's ROM (like Ctrl+T),
   sharing its model and undo history. **Live only.** `close_rom` then closes all
   tabs of that ROM at once.
