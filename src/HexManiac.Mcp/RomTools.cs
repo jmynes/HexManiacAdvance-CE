@@ -104,7 +104,7 @@ public sealed class RomTools {
    }
 
    [McpServerTool(Name = "undo")]
-   [Description("Undo up to 'count' edits on the active tab's change history (same stack as Ctrl+Z). Live GUI when present; else headless.")]
+   [Description("Undo up to 'count' steps on the active tab's change history (same stack as Ctrl+Z). One step reverts the whole uncommitted batch of edits since the last commit boundary (a save_rom, run_script, or prior undo/redo), not necessarily a single write_value. Live GUI when present; else headless.")]
    public string Undo(RomSession session, [Description("How many steps to undo")] int count = 1,
       [Description("Target GUI tab by index")] int? tab = null, [Description("Target GUI tab by filename substring")] string? tabFile = null) {
       var p = new Dictionary<string, object?> { ["count"] = count };
@@ -112,7 +112,7 @@ public sealed class RomTools {
    }
 
    [McpServerTool(Name = "redo")]
-   [Description("Redo up to 'count' edits on the active tab's change history (same stack as Ctrl+Y). Live GUI when present; else headless.")]
+   [Description("Redo up to 'count' steps on the active tab's change history (same stack as Ctrl+Y); a step replays a whole previously-undone batch. Live GUI when present; else headless.")]
    public string Redo(RomSession session, [Description("How many steps to redo")] int count = 1,
       [Description("Target GUI tab by index")] int? tab = null, [Description("Target GUI tab by filename substring")] string? tabFile = null) {
       var p = new Dictionary<string, object?> { ["count"] = count };
