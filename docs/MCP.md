@@ -1,0 +1,278 @@
+# HexManiacAdvance MCP
+
+HexManiacAdvance MCP is a Model Context Protocol server that exposes the HexManiacAdvance GBA ROM editor as a set of AI-callable tools. It lets an LLM (or any MCP client) read and edit Pokémon GBA ROM data — tables, values, scripts, and more — via structured JSON-RPC calls. It operates in two modes: **live** (targeting an open HexManiacAdvance GUI) and **headless** (loading a ROM directly from disk). Every tool response includes a `mode` field so you always know which mode was active.
+
+## Quick start
+
+Add the server to your `.mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "hexmaniac": {
+      "command": "artifacts/HexManiac.Mcp/bin/Release/net8.0/HexManiac.Mcp.exe",
+      "args": []
+    }
+  }
+}
+```
+
+After a rebuild, reconnect with `/mcp` in Claude Code. Then open a ROM and start calling tools:
+
+```json
+{"name": "open_rom", "arguments": {"path": "C:/roms/firered.gba"}}
+{"name": "read_table", "arguments": {"name": "data.pokemon.stats", "start": 1, "count": 5}}
+```
+
+## Live vs headless
+
+When the HexManiacAdvance GUI (built from this fork) is running, MCP tools automatically target its open tabs — this is **live mode** (`"mode": "live"`). Edits appear immediately in the GUI and are fully undoable there with Ctrl+Z.
+
+When no GUI is running, tools fall back to **headless mode** (`"mode": "headless"`): `open_rom` loads a ROM from disk into an in-process session, and all reads/writes go through that session. Some tools are live-only (e.g. `goto`, `select`, `close_tab`) and return an error in headless mode.
+
+Every tool response includes `"mode": "live"` or `"mode": "headless"` so you always know which mode was active.
+
+Use `tab` (index) or `tabFile` (filename substring) to target a specific GUI tab when running live.
+
+## Open a ROM first
+
+Call `open_rom` with the absolute path to a `.gba` file before using any table tools in headless mode.
+
+```json
+{"name": "open_rom", "arguments": {"path": "C:/roms/firered.gba"}}
+```
+
+- **Live mode**: opens the ROM as a new tab in the running GUI.
+- **Headless mode**: loads the ROM into the in-process session (replaces any previously loaded ROM).
+
+**Recognized games** (FireRed BPRE, LeafGreen BPGE, Emerald BPEE, Ruby AXVE, Sapphire AXPE) load with full built-in metadata — tables, anchors, and type information are all known. The response includes `"recognized": true` and `"metadataSource": "builtin"`.
+
+**Unrecognized ROMs** (no matching game code, no sidecar `.toml`) trigger a `needsMetadataChoice` warning under the default `metadata="auto"`. Re-call with one of:
+- `metadata="find_toml"` — use a `.toml` file placed next to the ROM.
+- `metadata="guess"` — open anyway with guessed offsets (reads/writes may be inaccurate).
+- `metadata="guess_offsets"` — auto-detect offsets (not yet implemented).
+
+## Reading data
+
+Three tools expose table data:
+
+**`list_tables`** — list all named anchors in the open ROM. Optionally filter by substring:
+
+```json
+{"name": "list_tables", "arguments": {"filter": "pokemon"}}
+```
+
+**`read_table`** — read rows as JSON. Use `start`/`count` for paging (default: first 25 rows):
+
+```json
+{"name": "read_table", "arguments": {"name": "data.pokemon.stats", "start": 0, "count": 10}}
+```
+
+Each row is a JSON object with one key per field (e.g. `hp`, `attack`, `type1`). Field values use their display form — enum fields show the name (e.g. `"FIRE"`), text fields show the string.
+
+**`export_table`** — dump an entire table (all rows, no paging) to a JSON file on disk:
+
+```json
+{"name": "export_table", "arguments": {"name": "data.trainers.stats", "outPath": "C:/out/trainers.json"}}
+```
+
+## Editing values (write_value)
+
+`write_value` sets a single field on a table row. The `value` parameter is interpreted by the field's type:
+
+| Field type | Pass as `value` | Example |
+|---|---|---|
+| Text / name | string | `"Bulbasaur"` |
+| Integer (power, hp, pp) | number | `120` |
+| Enum (type, category) | enum name (string) or index (number) | `"FIRE"` or `10` |
+| Bit-array checkbox | `true` / `false` + `flag="<name>"` | `true`, `flag="Makes Contact"` |
+
+Examples:
+
+```json
+{"name": "write_value", "arguments": {"table": "data.pokemon.moves.names", "index": 19, "field": "name", "value": "SMOKETEST"}}
+{"name": "write_value", "arguments": {"table": "data.pokemon.stats", "index": 1, "field": "hp", "value": 99}}
+{"name": "write_value", "arguments": {"table": "data.pokemon.stats", "index": 6, "field": "type1", "value": "FIRE"}}
+{"name": "write_value", "arguments": {"table": "data.pokemon.moves.stats.battle", "index": 1, "field": "info", "flag": "Makes Contact", "value": false}}
+```
+
+Bad enum values return a clear error listing the valid options. Flag names are matched case-insensitively, ignoring surrounding quotes that HexManiac uses for names with spaces.
+
+Live mode: edits are visible in the GUI immediately and are undoable with Ctrl+Z or the `undo` tool.
+
+## Navigation
+
+**`list_shortcuts`** — list the GUI's "Goto" shortcut buttons as `{display, anchor}` pairs (e.g. Pokemon, Trainers, Moves, Items, Maps). Works in both live and headless.
+
+```json
+{"name": "list_shortcuts", "arguments": {}}
+```
+
+**`goto`** — navigate the active GUI tab to a target: a shortcut label (e.g. `Pokemon`), an anchor name (e.g. `data.pokemon.stats`), or a hex address. **Live GUI only** — returns an error in headless mode.
+
+```json
+{"name": "goto", "arguments": {"target": "data.pokemon.stats"}}
+```
+
+## Undo / redo, select, copy/paste
+
+**`undo`** / **`redo`** — apply up to `count` steps on the active tab's change history (same stack as Ctrl+Z / Ctrl+Y). One step reverts/replays a whole uncommitted batch of edits. Works live and headless. Returns `{"applied": N}`.
+
+```json
+{"name": "undo", "arguments": {"count": 1}}
+{"name": "redo", "arguments": {"count": 1}}
+```
+
+**`select`** — select `count` rows from `index` in the GUI (or the whole table if `index` is omitted). **Live only.**
+
+```json
+{"name": "select", "arguments": {"table": "data.pokemon.stats", "index": 1, "count": 3}}
+```
+
+**`copy_rows`** / **`paste_rows`** — copy `count` rows to a hex byte string (cached), then paste onto another row index (undoable). Clones rows. Works live and headless.
+
+```json
+{"name": "copy_rows", "arguments": {"table": "data.pokemon.stats", "index": 6, "count": 1}}
+{"name": "paste_rows", "arguments": {"table": "data.pokemon.stats", "index": 151}}
+```
+
+**`clipboard_copy`** / **`clipboard_paste`** — drive the GUI's real Copy / Paste over the current selection, sharing the system clipboard with Ctrl+C / Ctrl+V. **Live only.**
+
+## ROM/tab lifecycle
+
+**`open_rom`** — open a `.gba` file. Live: new GUI tab; headless: single session ROM. See "Open a ROM first" for metadata options.
+
+**`list_open_roms`** — list currently open ROMs: GUI tabs if live, otherwise the headless session ROM (or empty).
+
+**`save_rom`** — write the ROM to disk. Two modes:
+- Pass `outPath` to save a copy to a new path (safe).
+- Pass `overwrite=true` (no `outPath`) to save over the loaded/open ROM in place.
+- With neither, it refuses — it will not silently overwrite the source.
+
+```json
+{"name": "save_rom", "arguments": {"outPath": "C:/out/firered_edited.gba"}}
+{"name": "save_rom", "arguments": {"overwrite": true}}
+```
+
+**`close_tab`** — close one tab in the live GUI (default: active tab). Refuses if the tab has unsaved changes unless `force=true` (which discards them). **Live only.**
+
+**`close_rom`** — close ALL tabs showing the resolved tab's ROM. Same `force` semantics. **Live only.**
+
+**`duplicate_tab`** — open a second tab on the same ROM (like Ctrl+T), sharing its model and undo history. **Live only.** `close_rom` then closes all such tabs at once.
+
+## Scripts
+
+**`run_script`** — run an HMA script. Provide inline `script` text or a `path` to a `.hma` file (`path` takes precedence). Works live and headless.
+
+```json
+{"name": "run_script", "arguments": {"script": "#pokemon\n@data.pokemon.stats[1]/hp = 55"}}
+{"name": "run_script", "arguments": {"path": "resources/Scripts/Add Mechanics From Later Generations/AnyGame_PixilateStyleAbilities.hma"}}
+```
+
+Returns `{"ok": true/false, "errors": [...], "messages": [...]}`.
+
+## Metadata & unrecognized ROMs
+
+When `open_rom` is called with `metadata="auto"` (the default) on a ROM that is not a recognized base game and has no sidecar `.toml`, it returns a warning instead of opening:
+
+```json
+{"ok": false, "needsMetadataChoice": true, "gameCode": "ZZZZ", "recognized": false, ...}
+```
+
+Re-call with:
+- `metadata="find_toml"` — expects a `.toml` file next to the ROM; fails if missing.
+- `metadata="guess"` — opens the ROM with guessed metadata; reads/writes may be inaccurate.
+- `metadata="guess_offsets"` — auto-detect offsets (not yet implemented; returns an error).
+
+To supply your own metadata, place a `.toml` next to the ROM and use `metadata="find_toml"`.
+
+## Saving & backups safety
+
+`save_rom` will not silently overwrite the source ROM. Without an `outPath` or `overwrite=true`, it refuses with an error. This prevents accidental data loss when the AI calls `save_rom` without an explicit intent to overwrite.
+
+Recommended workflow:
+1. Open the ROM.
+2. Edit with `write_value` / `run_script`.
+3. Save a copy: `save_rom(outPath="path/to/backup.gba")`.
+4. Or save in place explicitly: `save_rom(overwrite=true)`.
+
+## Recipes
+
+**Rename a move (headless):**
+```json
+{"name": "open_rom", "arguments": {"path": "C:/roms/firered.gba"}}
+{"name": "write_value", "arguments": {"table": "data.pokemon.moves.names", "index": 1, "field": "name", "value": "MYNAME"}}
+{"name": "save_rom", "arguments": {"outPath": "C:/out/firered_edited.gba"}}
+```
+
+**Make a move Fire-type with 120 power:**
+```json
+{"name": "write_value", "arguments": {"table": "data.pokemon.stats.moves", "index": 5, "field": "power", "value": 120}}
+{"name": "write_value", "arguments": {"table": "data.pokemon.stats.moves", "index": 5, "field": "type", "value": "FIRE"}}
+```
+
+**Clone a row (copy Bulbasaur stats to slot 152):**
+```json
+{"name": "copy_rows", "arguments": {"table": "data.pokemon.stats", "index": 1, "count": 1}}
+{"name": "paste_rows", "arguments": {"table": "data.pokemon.stats", "index": 152}}
+```
+
+**Open and edit a second ROM (live, using tabFile):**
+```json
+{"name": "open_rom", "arguments": {"path": "C:/roms/emerald.gba"}}
+{"name": "write_value", "arguments": {"table": "data.pokemon.stats", "index": 1, "field": "hp", "value": 60, "tabFile": "emerald"}}
+```
+
+**Toggle a move contact flag:**
+```json
+{"name": "write_value", "arguments": {"table": "data.pokemon.moves.stats.battle", "index": 1, "field": "info", "flag": "Makes Contact", "value": false}}
+```
+
+## Tools index
+
+All 20 tools exposed by this MCP server:
+
+| Tool | Description |
+|---|---|
+| `open_rom` | Open a GBA ROM. Live: new GUI tab; headless: single session. For ROMs that are NOT a recognized base game (FireRed/Emerald/...) AND have no sidecar .toml, HexManiac guesses table offsets; under metadata='auto' this returns a warning with choices instead of opening. metadata: 'auto' (default) \| 'find_toml' \| 'guess_offsets' \| 'guess'. |
+| `list_open_roms` | List the ROMs currently open: the running GUI's tabs if a GUI is up, otherwise the headless-loaded ROM (or empty). |
+| `list_shortcuts` | List the GUI 'Goto' shortcut buttons (e.g. Pokemon, Trainers) as {display, anchor}. Targets the GUI's active tab when live; else headless. |
+| `goto` | Navigate the live GUI to a target: a shortcut label (e.g. Pokemon), an anchor name (e.g. data.pokemon.stats), or a hex address. Live GUI only; headless returns an error. |
+| `list_tables` | List the named data tables (anchors) in the open ROM. Targets the GUI's active tab when live; optional substring filter and tab selector. |
+| `read_table` | Read a named table as JSON rows. Targets the GUI's active tab when live. Use start/count to page; tab/tabFile to pick a tab. |
+| `write_value` | Set a field on a table row. value is a string (text/enum name), number (integer/enum index), or true/false. For a bit-array checkbox, pass flag="<name>" with value true/false. Live GUI when present (visible+undoable); else headless. |
+| `export_table` | Export an entire table (all rows, no paging) to a JSON file on disk. Targets the GUI's active tab when live; else headless. |
+| `run_script` | Run an HMA script. Provide inline 'script' text OR 'path' to a .hma file. Targets the GUI's active tab when live; else headless. |
+| `undo` | Undo up to 'count' steps on the active tab's change history (same stack as Ctrl+Z). One step reverts the whole uncommitted batch of edits since the last commit boundary (a save_rom, run_script, or prior undo/redo), not necessarily a single write_value. Live GUI when present; else headless. |
+| `redo` | Redo up to 'count' steps on the active tab's change history (same stack as Ctrl+Y); a step replays a whole previously-undone batch. Live GUI when present; else headless. |
+| `select` | Select rows in the live GUI: 'count' rows from 'index', or the whole table if 'index' is omitted. Live GUI only. |
+| `copy_rows` | Copy 'count' table rows starting at 'index' as a hex byte string (cached for paste_rows). Live GUI when present; else headless. |
+| `paste_rows` | Paste row bytes onto the table starting at 'index' (undoable). 'data' is hex; if omitted, uses the last copy_rows result. Live GUI when present; else headless. |
+| `clipboard_copy` | Copy the live GUI's current selection to the system clipboard; returns the copied text. Live GUI only. |
+| `clipboard_paste` | Paste the system clipboard at the live GUI's current selection (undoable). Live GUI only. |
+| `close_tab` | Close one tab in the live GUI (default: active tab). Refuses if the tab has unsaved changes unless force=true (which discards them). Live GUI only. |
+| `close_rom` | Close ALL tabs showing the resolved tab's ROM in the live GUI. Refuses if any of those tabs has unsaved changes unless force=true (which discards them). Live GUI only. |
+| `duplicate_tab` | Open a second tab on the same ROM as the resolved tab (like Ctrl+T) — shares the ROM's model and undo history; close_rom then closes all such tabs. Live GUI only. |
+| `save_rom` | Write the ROM to disk. Pass outPath to save a COPY there; pass overwrite=true (no outPath) to save over the loaded/open ROM. With neither, it refuses (won't silently overwrite the source). Live targets the resolved tab; else headless. |
+
+Call `help` with no arguments for the full guide, or `help(topic="<section>")` for a specific section.
+
+## Troubleshooting
+
+**Server not found / tools don't appear:**
+After building the MCP project, reconnect with `/mcp` in Claude Code. The server is a stdio executable — the MCP client launches it automatically.
+
+**"needsMetadataChoice" warning on open_rom:**
+The ROM is not a recognized base game and has no sidecar `.toml`. Re-call with `metadata="guess"` to open anyway, or place a `.toml` next to the ROM and use `metadata="find_toml"`.
+
+**Live vs headless confusion:**
+Check the `mode` field in any tool response. If you expect `"live"` but see `"headless"`, the GUI is not running or is not built from this fork. Launch `artifacts/HexManiac.WPF/bin/Release/net6.0-windows/HexManiacAdvance.exe` and wait for it to start before calling tools.
+
+**Edits not appearing in the GUI (live mode):**
+Make sure `tab` or `tabFile` targets the correct tab. Use `list_open_roms` to see all open tabs and their indices.
+
+**goto / select / clipboard tools return "live GUI only" error:**
+These tools require the live GUI. They cannot operate in headless mode — there is no GUI view to navigate or select in.
+
+**Rebuild and reconnect:**
+If you rebuild the MCP server, the running process must be restarted. Claude Code will relaunch it automatically on the next `/mcp` reconnect.

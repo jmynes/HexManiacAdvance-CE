@@ -20,6 +20,11 @@
     <ProjectReference Include="..\HexManiac.Core\HexManiac.Core.csproj" />
   </ItemGroup>
 
+  <!-- Embed the MCP user guide so the help tool can serve it at runtime. -->
+  <ItemGroup>
+    <EmbeddedResource Include="..\..\docs\MCP.md" Link="MCP.md" LogicalName="HexManiac.Mcp.MCP.md" />
+  </ItemGroup>
+
   <!-- HexManiac.Core's Singletons loads reference files (scriptReference.txt, hma.py,
        *.toml, etc.) from a "resources/" folder relative to the working directory.
        Ship that folder next to the exe so the headless server can find it. -->

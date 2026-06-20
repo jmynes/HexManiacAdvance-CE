@@ -84,11 +84,14 @@ echo "== 2-6. drive server =="
   printf '%s\n' '{"jsonrpc":"2.0","id":42,"method":"tools/call","params":{"name":"save_rom","arguments":{}}}'; sleep 1
   printf '%s\n' "{\"jsonrpc\":\"2.0\",\"id\":43,\"method\":\"tools/call\",\"params\":{\"name\":\"open_rom\",\"arguments\":{\"path\":\"$OR\"}}}"; sleep 15
   printf '%s\n' '{"jsonrpc":"2.0","id":44,"method":"tools/call","params":{"name":"save_rom","arguments":{"overwrite":true}}}'; sleep 2
+  printf '%s\n' '{"jsonrpc":"2.0","id":45,"method":"tools/call","params":{"name":"help","arguments":{}}}'; sleep 1
+  printf '%s\n' '{"jsonrpc":"2.0","id":46,"method":"tools/call","params":{"name":"help","arguments":{"topic":"write_value"}}}'; sleep 1
+  printf '%s\n' '{"jsonrpc":"2.0","id":47,"method":"tools/call","params":{"name":"help","arguments":{"topic":"nonsense_zzz"}}}'; sleep 1
 } | "./$EXE" > "$OUT" 2>"$ERR"
 
 echo "== assertions =="
 # 2. protocol + tools/list
-[ "$(jq -rs 'map(select(.id==2))[0].result.tools|length' "$OUT" 2>/dev/null)" = "20" ] && ok "tools/list shows 20 tools" || bad "tools/list"
+[ "$(jq -rs 'map(select(.id==2))[0].result.tools|length' "$OUT" 2>/dev/null)" = "21" ] && ok "tools/list shows 21 tools" || bad "tools/list"
 # 3. open + read known value
 [ "$(is_error 3)" = "false" ] && ok "open_rom" || bad "open_rom"
 [ "$(result_text 4 | jq -r '.rows[0].hp' 2>/dev/null)" = "45" ] && ok "read_table Bulbasaur hp=45" || bad "read_table known value"
@@ -141,6 +144,10 @@ echo "== assertions =="
 [ "$(result_text 42 | jq -r '.error' 2>/dev/null | grep -ci 'Refusing to overwrite')" -ge 1 ] && ok "save_rom guards in-place overwrite" || bad "save_rom guard"
 [ "$(result_text 44 | jq -r '.ok' 2>/dev/null)" = "true" ] && ok "save_rom overwrite=true saves in place" || bad "save_rom overwrite"
 [ "$(result_text 44 | jq -r '.overwrote' 2>/dev/null)" = "true" ] && ok "save_rom reports overwrote" || bad "save_rom overwrote flag"
+# help tool
+[ "$(result_text 45 2>/dev/null | grep -ci 'open_rom')" -ge 1 ] && ok "help overview mentions open_rom" || bad "help overview"
+[ "$(result_text 46 2>/dev/null | grep -ci 'write_value')" -ge 1 ] && ok "help topic returns section" || bad "help topic"
+[ "$(result_text 47 2>/dev/null | grep -ci 'section')" -ge 1 ] && ok "help unknown topic lists sections" || bad "help unknown topic"
 
 echo "================="
 echo "PASS=$PASS  FAIL=$FAIL"

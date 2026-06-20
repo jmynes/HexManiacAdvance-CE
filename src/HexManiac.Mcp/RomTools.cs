@@ -327,6 +327,13 @@ public sealed class RomTools {
       return new { ok = true, path = session.RomPath, overwrote = true, length = model.RawData.Length };
    }
 
+   [McpServerTool(Name = "help")]
+   [Description("Show how to use this MCP. No topic: the full guide. topic: a tool name or section heading (e.g. 'write_value', 'lifecycle') returns that section. Works live or headless.")]
+   public string Help([Description("Optional tool name or section heading")] string? topic = null) {
+      var text = string.IsNullOrWhiteSpace(topic) ? Docs.Guide() : Docs.Section(topic);
+      return Stamp(JsonSerializer.Serialize(new { ok = true, text }, Json), GuiBridge.IsGuiRunning() ? "live" : "headless");
+   }
+
    // ---- helpers ----
 
    // Prefer the live GUI (if reachable) for `method`; fall back to a headless
