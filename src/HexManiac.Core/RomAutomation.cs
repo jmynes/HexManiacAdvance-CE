@@ -61,19 +61,72 @@ namespace HavenSoft.HexManiac.Core.Models {
          };
       }
 
-      public static object WriteValue(IDataModel model, Func<ModelDelta> token, string table, int index, string field, int value) {
+      public static object WriteValue(IDataModel model, Func<ModelDelta> token,
+            string table, int index, string field, object value, string flag = null) {
          var t = model.GetTableModel(table, token);
          if (t == null) return Err($"No table named '{table}'.");
          if (index < 0 || index >= t.Count) return Err($"index {index} out of range (0..{t.Count - 1}).");
-         var row = t[index];
-         if (!row.HasField(field)) return Err($"No field '{field}' on table '{table}'.");
-         int oldValue = row.GetValue(field);
-         row.SetValue(field, value);
-         int newValue = t[index].GetValue(field);
-         return new Dictionary<string, object?> {
+         var element = t[index];
+         if (!element.HasField(field)) return Err($"No field '{field}' on table '{table}'.");
+         var seg = element.Table.ElementContent.First(s => s.Name == field);
+         try {
+            if (flag != null) {
+               var flags = FlagNames(model, seg);
+               if (flags == null) return Err($"Field '{field}' is not a bit-array; 'flag' only applies to bit-array fields.");
+               if (!flags.Contains(flag)) return Err($"Unknown flag '{flag}' on field '{field}'. Flags: {string.Join(", ", flags)}");
+               if (value is not bool && value is not int) return Err($"Flag '{flag}' expects true/false (or 0/1).");
+               var oldFlag = ((ModelTupleElement)element[field])[flag];
+               ((ModelTupleElement)element[field])[flag] = value;
+               var newFlag = ((ModelTupleElement)t[index][field])[flag];
+               return WriteResult(table, index, field, flag, oldFlag, newFlag);
+            }
+            if (seg is ArrayRunEnumSegment enumSeg) {
+               if (value is string es) {
+                  if (!enumSeg.TryParse(model, es, out _))
+                     return Err($"Unknown value '{es}' for enum field '{field}'. Options: {string.Join(", ", enumSeg.GetOptions(model))}");
+                  var old = element[field];
+                  element[field] = es;
+                  return WriteResult(table, index, field, null, old, t[index][field]);
+               }
+               if (value is int ei) {
+                  var old = element[field];
+                  element[field] = ei;
+                  return WriteResult(table, index, field, null, old, t[index][field]);
+               }
+               return Err($"Field '{field}' is an enum; provide a name (string) or index (number).");
+            }
+            if (seg.Type == ElementContentType.PCS || seg.Type == ElementContentType.Pointer) {
+               if (value is not string ps) return Err($"Field '{field}' is text; provide a string value.");
+               var old = element.GetStringValue(field);
+               element[field] = ps;
+               return WriteResult(table, index, field, null, old, t[index].GetStringValue(field));
+            }
+            if (seg.Type == ElementContentType.Integer) {
+               if (value is not int iv) return Err($"Field '{field}' is an integer; provide a number value.");
+               var old = element.GetValue(field);
+               element[field] = iv;
+               return WriteResult(table, index, field, null, old, t[index].GetValue(field));
+            }
+            if (seg is ArrayRunBitArraySegment || seg is ArrayRunTupleSegment)
+               return Err($"Field '{field}' is a bit-array; specify 'flag' to set a checkbox.");
+            return Err($"Field '{field}' has a type that cannot be written.");
+         } catch (Exception ex) {
+            return Err($"Failed to set '{field}': {ex.Message}");
+         }
+      }
+
+      private static IReadOnlyList<string> FlagNames(IDataModel model, ArrayRunElementSegment seg) =>
+         seg is ArrayRunBitArraySegment b ? b.GetOptions(model)
+         : seg is ArrayRunTupleSegment tp ? tp.Elements.Where(e => !string.IsNullOrEmpty(e.Name)).Select(e => e.Name).ToList()
+         : null;
+
+      private static Dictionary<string, object?> WriteResult(string table, int index, string field, string flag, object oldV, object newV) {
+         var d = new Dictionary<string, object?> {
             ["ok"] = true, ["table"] = table, ["index"] = index, ["field"] = field,
-            ["oldValue"] = oldValue, ["newValue"] = newValue,
+            ["oldValue"] = oldV, ["newValue"] = newV,
          };
+         if (flag != null) d["flag"] = flag;
+         return d;
       }
 
       public static object ListShortcuts(IDataModel model) {
