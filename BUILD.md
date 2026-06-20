@@ -78,3 +78,17 @@ Verify the two modes:
 bash test/mcp-smoke.sh        # headless gate -> ALL GREEN
 bash test/mcp-live-smoke.sh   # live gate (launches the GUI) -> LIVE GREEN
 ```
+
+### Typed write_value
+
+`write_value` sets any field, not just integers. `value` is interpreted by the
+field's type:
+
+- text (name) and pointer-to-text (description, effect) ← a **string**
+- integer (power, accuracy, pp) ← a **number**
+- enum (type) ← the option **name** (e.g. `"FLYING"`) or a number index
+- bit-array checkbox (e.g. a move's `target`) ← pass `flag="<name>"` with
+  `value` `true`/`false`
+
+Bad values return a clear error (e.g. an unknown enum value lists the valid
+options). Works live (visible + undoable in the GUI) and headless.
