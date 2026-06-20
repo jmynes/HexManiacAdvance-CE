@@ -93,6 +93,10 @@ field's type:
 Bad values return a clear error (e.g. an unknown enum value lists the valid
 options). Works live (visible + undoable in the GUI) and headless.
 
+- Bit-array checkbox flags are matched by friendly name, case-insensitive and
+  ignoring the quotes HexManiac uses for names with spaces — e.g.
+  `write_value(..., field="info", flag="Makes Contact", value=true)`.
+
 ### Editor operations
 
 - `undo` / `redo` — apply up to `count` steps on the active tab's change history
