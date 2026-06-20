@@ -30,7 +30,8 @@ public static class Program {
             services
                .AddMcpServer()
                .WithStdioServerTransport()
-               .WithToolsFromAssembly();
+               .WithToolsFromAssembly()
+               .WithResourcesFromAssembly();
          });
 
       await builder.Build().RunAsync();

@@ -87,6 +87,8 @@ echo "== 2-6. drive server =="
   printf '%s\n' '{"jsonrpc":"2.0","id":45,"method":"tools/call","params":{"name":"help","arguments":{}}}'; sleep 1
   printf '%s\n' '{"jsonrpc":"2.0","id":46,"method":"tools/call","params":{"name":"help","arguments":{"topic":"write_value"}}}'; sleep 1
   printf '%s\n' '{"jsonrpc":"2.0","id":47,"method":"tools/call","params":{"name":"help","arguments":{"topic":"nonsense_zzz"}}}'; sleep 1
+  printf '%s\n' '{"jsonrpc":"2.0","id":48,"method":"resources/list","params":{}}'; sleep 1
+  printf '%s\n' '{"jsonrpc":"2.0","id":49,"method":"resources/read","params":{"uri":"hexmaniac://guide"}}'; sleep 1
 } | "./$EXE" > "$OUT" 2>"$ERR"
 
 echo "== assertions =="
@@ -148,6 +150,9 @@ echo "== assertions =="
 [ "$(result_text 45 2>/dev/null | grep -ci 'open_rom')" -ge 1 ] && ok "help overview mentions open_rom" || bad "help overview"
 [ "$(result_text 46 2>/dev/null | grep -ci 'write_value')" -ge 1 ] && ok "help topic returns section" || bad "help topic"
 [ "$(result_text 47 2>/dev/null | grep -ci 'section')" -ge 1 ] && ok "help unknown topic lists sections" || bad "help unknown topic"
+# resources
+[ "$(jq -rs 'map(select(.id==48))[0].result.resources | map(.uri) | join(" ")' "$OUT" 2>/dev/null | grep -ci 'hexmaniac://guide')" -ge 1 ] && ok "resources/list has guide" || bad "resources/list"
+[ "$(jq -rs 'map(select(.id==49))[0].result.contents[0].text // empty' "$OUT" 2>/dev/null | grep -ci 'open_rom')" -ge 1 ] && ok "resources/read guide non-empty" || bad "resources/read"
 
 echo "================="
 echo "PASS=$PASS  FAIL=$FAIL"
