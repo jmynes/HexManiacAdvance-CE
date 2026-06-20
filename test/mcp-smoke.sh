@@ -89,11 +89,14 @@ echo "== 2-6. drive server =="
   printf '%s\n' '{"jsonrpc":"2.0","id":47,"method":"tools/call","params":{"name":"help","arguments":{"topic":"nonsense_zzz"}}}'; sleep 1
   printf '%s\n' '{"jsonrpc":"2.0","id":48,"method":"resources/list","params":{}}'; sleep 1
   printf '%s\n' '{"jsonrpc":"2.0","id":49,"method":"resources/read","params":{"uri":"hexmaniac://guide"}}'; sleep 1
+  printf '%s\n' "{\"jsonrpc\":\"2.0\",\"id\":50,\"method\":\"tools/call\",\"params\":{\"name\":\"open_rom\",\"arguments\":{\"path\":\"$OR\"}}}"; sleep 15
+  printf '%s\n' '{"jsonrpc":"2.0","id":51,"method":"tools/call","params":{"name":"backup_rom","arguments":{}}}'; sleep 2
+  printf '%s\n' '{"jsonrpc":"2.0","id":52,"method":"tools/call","params":{"name":"save_rom","arguments":{"overwrite":true}}}'; sleep 2
 } | "./$EXE" > "$OUT" 2>"$ERR"
 
 echo "== assertions =="
 # 2. protocol + tools/list
-[ "$(jq -rs 'map(select(.id==2))[0].result.tools|length' "$OUT" 2>/dev/null)" = "21" ] && ok "tools/list shows 21 tools" || bad "tools/list"
+[ "$(jq -rs 'map(select(.id==2))[0].result.tools|length' "$OUT" 2>/dev/null)" = "22" ] && ok "tools/list shows 22 tools" || bad "tools/list"
 # 3. open + read known value
 [ "$(is_error 3)" = "false" ] && ok "open_rom" || bad "open_rom"
 [ "$(result_text 4 | jq -r '.rows[0].hp' 2>/dev/null)" = "45" ] && ok "read_table Bulbasaur hp=45" || bad "read_table known value"
@@ -153,6 +156,8 @@ echo "== assertions =="
 # resources
 [ "$(jq -rs 'map(select(.id==48))[0].result.resources | map(.uri) | join(" ")' "$OUT" 2>/dev/null | grep -ci 'hexmaniac://guide')" -ge 1 ] && ok "resources/list has guide" || bad "resources/list"
 [ "$(jq -rs 'map(select(.id==49))[0].result.contents[0].text // empty' "$OUT" 2>/dev/null | grep -ci 'open_rom')" -ge 1 ] && ok "resources/read guide non-empty" || bad "resources/read"
+[ "$(result_text 51 | jq -r '.files | length' 2>/dev/null)" -ge 1 ] && ok "backup_rom created files" || bad "backup_rom files"
+[ "$(result_text 52 | jq -r '.backedUp | length' 2>/dev/null)" -ge 1 ] && ok "save_rom overwrite auto-backs-up" || bad "save_rom backedUp"
 
 echo "================="
 echo "PASS=$PASS  FAIL=$FAIL"

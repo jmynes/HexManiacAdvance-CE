@@ -300,6 +300,20 @@ public sealed class RomTools {
       return new { ok = errors.Count == 0, errors, messages = session.Messages.ToList() };
    }
 
+   [McpServerTool(Name = "backup_rom")]
+   [Description("Make a timestamped backup of the ROM (plus its .toml and matching .sav, if present) under a backups/ folder next to it. Live targets the resolved tab; else headless.")]
+   public string BackupRom(RomSession session,
+      [Description("Target GUI tab by index")] int? tab = null,
+      [Description("Target GUI tab by filename substring")] string? tabFile = null) {
+      return Dispatch("backup_rom", new Dictionary<string, object?>(), tab, tabFile, () => {
+         if (string.IsNullOrEmpty(session.RomPath)) return RomAutomation.Err("No ROM loaded to back up.");
+         var stamp = System.DateTime.Now;
+         var files = RomBackup.Create(session.RomPath, stamp);
+         if (files.Count == 0) return RomAutomation.Err($"Nothing to back up (file not found: {session.RomPath}).");
+         return new { ok = true, timestamp = stamp.ToString("yyyyMMdd-HHmmss"), files };
+      });
+   }
+
    [McpServerTool(Name = "save_rom")]
    [Description("Write the ROM to disk. Pass outPath to save a COPY there; pass overwrite=true (no outPath) to save over the loaded/open ROM. With neither, it refuses (won't silently overwrite the source). Live targets the resolved tab; else headless.")]
    public string SaveRom(
@@ -316,15 +330,19 @@ public sealed class RomTools {
    private static object SaveRomHeadless(RomSession session, string? outPath, bool overwrite) {
       var model = session.Require();
       session.RequireViewPort().ChangeHistory.ChangeCompleted();
+      IReadOnlyList<string> Backup(string target) =>
+         File.Exists(target) ? RomBackup.Create(target, System.DateTime.Now) : System.Array.Empty<string>();
       if (!string.IsNullOrEmpty(outPath)) {
+         var backed = Backup(outPath);
          File.WriteAllBytes(outPath, model.RawData);
-         return new { ok = true, path = outPath, overwrote = false, length = model.RawData.Length };
+         return new { ok = true, path = outPath, overwrote = false, length = model.RawData.Length, backedUp = backed };
       }
       if (!overwrite)
          return RomAutomation.Err("Refusing to overwrite the loaded ROM in place. Pass outPath to save a copy, or overwrite=true to save over the source.");
       if (string.IsNullOrEmpty(session.RomPath)) return RomAutomation.Err("No loaded ROM path to overwrite.");
+      var backed2 = Backup(session.RomPath);
       File.WriteAllBytes(session.RomPath, model.RawData);
-      return new { ok = true, path = session.RomPath, overwrote = true, length = model.RawData.Length };
+      return new { ok = true, path = session.RomPath, overwrote = true, length = model.RawData.Length, backedUp = backed2 };
    }
 
    [McpServerTool(Name = "help")]

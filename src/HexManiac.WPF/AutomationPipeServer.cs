@@ -112,18 +112,31 @@ namespace HavenSoft.HexManiac.WPF.Windows {
                }
                return Ok(new { ok = errs.Count == 0, errors = errs, ranOn = vp.FullFileName ?? vp.Name });
             }
+            case "backup_rom": {
+               var vp = ResolveTab(p); if (vp == null) return NoTab();
+               var file = vp.FullFileName;
+               if (string.IsNullOrEmpty(file)) return new AutoResponse(false, null, "This tab has no on-disk file to back up.");
+               var stamp = System.DateTime.Now;
+               var files = RomBackup.Create(file, stamp);
+               if (files.Count == 0) return new AutoResponse(false, null, $"Nothing to back up (file not found: {file}).");
+               return Ok(new { ok = true, timestamp = stamp.ToString("yyyyMMdd-HHmmss"), files });
+            }
             case "save_rom": {
                var vp = ResolveTab(p);
                if (vp == null) return NoTab();
                var outPath = StrOrNull(p, "outPath");
+               IReadOnlyList<string> Backup(string target) =>
+                  !string.IsNullOrEmpty(target) && System.IO.File.Exists(target) ? RomBackup.Create(target, System.DateTime.Now) : System.Array.Empty<string>();
                if (!string.IsNullOrEmpty(outPath)) {
+                  var backed = Backup(outPath);
                   System.IO.File.WriteAllBytes(outPath, vp.Model.RawData);
-                  return Ok(new { ok = true, path = outPath, overwrote = false, length = vp.Model.RawData.Length });
+                  return Ok(new { ok = true, path = outPath, overwrote = false, length = vp.Model.RawData.Length, backedUp = backed });
                }
                if (!Bool(p, "overwrite", false))
                   return new AutoResponse(false, null, "Refusing to overwrite the loaded ROM in place. Pass outPath to save a copy, or overwrite=true to save over the source.");
+               var backed2 = Backup(vp.FullFileName);
                vp.Save.Execute(GuiFileSystem());
-               return Ok(new { ok = true, saved = vp.FullFileName ?? vp.Name, overwrote = true, length = vp.Model.RawData.Length });
+               return Ok(new { ok = true, saved = vp.FullFileName ?? vp.Name, overwrote = true, length = vp.Model.RawData.Length, backedUp = backed2 });
             }
             case "list_shortcuts": {
                var vp = ResolveTab(p);
