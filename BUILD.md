@@ -92,3 +92,14 @@ field's type:
 
 Bad values return a clear error (e.g. an unknown enum value lists the valid
 options). Works live (visible + undoable in the GUI) and headless.
+
+### Editor operations
+
+- `undo` / `redo` — apply up to `count` steps on the active tab's change history
+  (same stack as Ctrl+Z/Y). Live + headless. Returns how many steps applied.
+- `select` — select `count` rows from `index`, or the whole table if `index` is
+  omitted; scrolls into view. **Live only.**
+- `copy_rows` / `paste_rows` — copy `count` rows to a hex string (cached), then
+  paste onto another index (undoable). Clones rows; live + headless.
+- `clipboard_copy` / `clipboard_paste` — drive the GUI's real Copy/Paste over the
+  current selection, sharing the system clipboard with manual Ctrl+C/V. **Live only.**
