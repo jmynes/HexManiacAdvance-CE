@@ -92,11 +92,14 @@ echo "== 2-6. drive server =="
   printf '%s\n' "{\"jsonrpc\":\"2.0\",\"id\":50,\"method\":\"tools/call\",\"params\":{\"name\":\"open_rom\",\"arguments\":{\"path\":\"$OR\"}}}"; sleep 15
   printf '%s\n' '{"jsonrpc":"2.0","id":51,"method":"tools/call","params":{"name":"backup_rom","arguments":{}}}'; sleep 2
   printf '%s\n' '{"jsonrpc":"2.0","id":52,"method":"tools/call","params":{"name":"save_rom","arguments":{"overwrite":true}}}'; sleep 2
+  printf '%s\n' "{\"jsonrpc\":\"2.0\",\"id\":53,\"method\":\"tools/call\",\"params\":{\"name\":\"open_rom\",\"arguments\":{\"path\":\"$OR\"}}}"; sleep 15
+  printf '%s\n' '{"jsonrpc":"2.0","id":54,"method":"tools/call","params":{"name":"write_value","arguments":{"table":"data.pokemon.stats","index":1,"field":"hp","value":"55"}}}'; sleep 1
+  printf '%s\n' '{"jsonrpc":"2.0","id":55,"method":"tools/call","params":{"name":"launch_rom","arguments":{}}}'; sleep 1
 } | "./$EXE" > "$OUT" 2>"$ERR"
 
 echo "== assertions =="
 # 2. protocol + tools/list
-[ "$(jq -rs 'map(select(.id==2))[0].result.tools|length' "$OUT" 2>/dev/null)" = "22" ] && ok "tools/list shows 22 tools" || bad "tools/list"
+[ "$(jq -rs 'map(select(.id==2))[0].result.tools|length' "$OUT" 2>/dev/null)" = "23" ] && ok "tools/list shows 23 tools" || bad "tools/list"
 # 3. open + read known value
 [ "$(is_error 3)" = "false" ] && ok "open_rom" || bad "open_rom"
 [ "$(result_text 4 | jq -r '.rows[0].hp' 2>/dev/null)" = "45" ] && ok "read_table Bulbasaur hp=45" || bad "read_table known value"
@@ -158,6 +161,7 @@ echo "== assertions =="
 [ "$(jq -rs 'map(select(.id==49))[0].result.contents[0].text // empty' "$OUT" 2>/dev/null | grep -ci 'open_rom')" -ge 1 ] && ok "resources/read guide non-empty" || bad "resources/read"
 [ "$(result_text 51 | jq -r '.files | length' 2>/dev/null)" -ge 1 ] && ok "backup_rom created files" || bad "backup_rom files"
 [ "$(result_text 52 | jq -r '.backedUp | length' 2>/dev/null)" -ge 1 ] && ok "save_rom overwrite auto-backs-up" || bad "save_rom backedUp"
+[ "$(result_text 55 | jq -r '.error' 2>/dev/null | grep -ci 'unsaved changes')" -ge 1 ] && ok "launch_rom refuses when unsaved" || bad "launch_rom unsaved guard"
 
 echo "================="
 echo "PASS=$PASS  FAIL=$FAIL"

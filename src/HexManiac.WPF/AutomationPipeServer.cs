@@ -232,6 +232,17 @@ namespace HavenSoft.HexManiac.WPF.Windows {
                foreach (var t in editor) { if (ReferenceEquals(t, child)) { index = i; break; } i++; }
                return Ok(new { ok = true, index, file = child.FullFileName ?? child.Name });
             }
+            case "launch_rom": {
+               var vp = ResolveTab(p); if (vp == null) return NoTab();
+               var file = vp.FullFileName;
+               if (string.IsNullOrEmpty(file) || !System.IO.File.Exists(file))
+                  return new AutoResponse(false, null, "This tab has no saved on-disk ROM to launch.");
+               if (vp.ChangeHistory.HasDataChange && !Bool(p, "force", false))
+                  return new AutoResponse(false, null, "ROM has unsaved changes; save first (save_rom), or pass force=true to launch the last-saved file on disk.");
+               var full = System.IO.Path.GetFullPath(file);
+               GuiFileSystem().LaunchProcess(full);
+               return Ok(new { ok = true, launched = full });
+            }
             default:
                return new AutoResponse(false, null, $"Unknown method: {req.Method}");
          }

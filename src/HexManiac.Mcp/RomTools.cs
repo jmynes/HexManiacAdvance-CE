@@ -345,6 +345,31 @@ public sealed class RomTools {
       return new { ok = true, path = session.RomPath, overwrote = true, length = model.RawData.Length, backedUp = backed2 };
    }
 
+   [McpServerTool(Name = "launch_rom")]
+   [Description("Launch the ROM in your default GBA program (like HexManiacAdvance's play button) by shell-opening the on-disk file. Refuses if the ROM has unsaved edits unless force=true (launches the last-saved file). Returns the launched path. Live or headless.")]
+   public string LaunchRom(RomSession session,
+      [Description("Target GUI tab by index")] int? tab = null,
+      [Description("Target GUI tab by filename substring")] string? tabFile = null,
+      [Description("Launch the last-saved file even if there are unsaved edits")] bool force = false) {
+      var p = new Dictionary<string, object?> { ["force"] = force };
+      return Dispatch("launch_rom", p, tab, tabFile, () => LaunchRomHeadless(session, force));
+   }
+
+   private static object LaunchRomHeadless(RomSession session, bool force) {
+      var path = session.RomPath;
+      if (string.IsNullOrEmpty(path) || !File.Exists(path))
+         return RomAutomation.Err("No saved ROM on disk to launch.");
+      if (session.RequireViewPort().ChangeHistory.HasDataChange && !force)
+         return RomAutomation.Err("ROM has unsaved changes; save first (save_rom), or pass force=true to launch the last-saved file on disk.");
+      var full = Path.GetFullPath(path);
+      try {
+         HavenSoft.HexManiac.Core.NativeProcess.Start(full);
+      } catch (System.ComponentModel.Win32Exception ex) {
+         return RomAutomation.Err($"Could not launch '{full}': {ex.Message} (is a program associated with .gba?).");
+      }
+      return new { ok = true, launched = full };
+   }
+
    [McpServerTool(Name = "help")]
    [Description("Show how to use this MCP. No topic: the full guide. topic: a tool name or section heading (e.g. 'write_value', 'lifecycle') returns that section. Works live or headless.")]
    public string Help([Description("Optional tool name or section heading")] string? topic = null) {
