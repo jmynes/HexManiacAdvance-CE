@@ -228,6 +228,17 @@ namespace HavenSoft.HexManiac.Core.ViewModels {
          return (int)left;
       }
 
+      /// <summary>
+      /// Navigate a tab and close the goto-shortcut overlay panel, mirroring a click on a
+      /// goto shortcut button. Used by the MCP automation server's <c>goto</c> so navigation
+      /// is visible (not hidden behind the start-screen panel).
+      /// </summary>
+      public void GotoAndCloseShortcutsPanel(IViewPort tab, string target) {
+         GotoViewModel.ControlVisible = false;
+         GotoViewModel.ShowAll = false;
+         tab.Goto.Execute(target);
+      }
+
       public void RunQuickEdit(IQuickEditItem edit) {
          var tab = tabs[SelectedIndex];
          if (tab is MapEditorViewModel map) tab = map.ViewPort;

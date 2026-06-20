@@ -302,6 +302,25 @@ namespace HavenSoft.HexManiac.Tests {
       }
 
       [Fact]
+      public void GotoAndCloseShortcutsPanel_ClosesOverlay() {
+         // Regression test: MCP goto handler must close the start-screen overlay panel,
+         // mirroring the behaviour of GotoShortcutViewModel.Goto().
+         var test = new BaseViewModelTestClass();
+         var tab = test.ViewPort;
+         editor.Add(tab);
+
+         // Force the overlay open, as it would be at app start
+         editor.GotoViewModel.ControlVisible = true;
+         editor.GotoViewModel.ShowAll = true;
+
+         // Navigate via the new method — must close the overlay
+         editor.GotoAndCloseShortcutsPanel(tab, "0");
+
+         Assert.False(editor.GotoViewModel.ControlVisible);
+         Assert.False(editor.GotoViewModel.ShowAll);
+      }
+
+      [Fact]
       public void ActiveTabCanTellEditorToSwitch() {
          var tab0 = new StubTabContent();
          var tab1 = new StubTabContent();

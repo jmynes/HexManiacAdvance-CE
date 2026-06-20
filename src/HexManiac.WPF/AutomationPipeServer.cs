@@ -124,7 +124,7 @@ namespace HavenSoft.HexManiac.WPF.Windows {
                   return new AutoResponse(false, null, "Provide a 'target' (shortcut label, anchor, or address).");
                if (!TryResolveGotoTarget(vp.Model, target, out var resolved))
                   return new AutoResponse(false, null, $"Unknown goto target '{target}'. Use list_shortcuts, or a valid anchor/address.");
-               vp.Goto.Execute(resolved);
+               editor.GotoAndCloseShortcutsPanel(vp, resolved);
                return Ok(new { ok = true, target, resolved, tab = vp.FullFileName ?? vp.Name });
             }
             default:
