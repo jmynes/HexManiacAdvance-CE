@@ -72,11 +72,12 @@ echo "== 2-6. drive server =="
   printf '%s\n' '{"jsonrpc":"2.0","id":15,"method":"tools/call","params":{"name":"goto","arguments":{"target":"Pokemon"}}}'; sleep 2
   printf '%s\n' '{"jsonrpc":"2.0","id":33,"method":"tools/call","params":{"name":"close_tab","arguments":{}}}'; sleep 1
   printf '%s\n' '{"jsonrpc":"2.0","id":34,"method":"tools/call","params":{"name":"close_rom","arguments":{}}}'; sleep 1
+  printf '%s\n' '{"jsonrpc":"2.0","id":35,"method":"tools/call","params":{"name":"duplicate_tab","arguments":{}}}'; sleep 1
 } | "./$EXE" > "$OUT" 2>"$ERR"
 
 echo "== assertions =="
 # 2. protocol + tools/list
-[ "$(jq -rs 'map(select(.id==2))[0].result.tools|length' "$OUT" 2>/dev/null)" = "19" ] && ok "tools/list shows 19 tools" || bad "tools/list"
+[ "$(jq -rs 'map(select(.id==2))[0].result.tools|length' "$OUT" 2>/dev/null)" = "20" ] && ok "tools/list shows 20 tools" || bad "tools/list"
 # 3. open + read known value
 [ "$(is_error 3)" = "false" ] && ok "open_rom" || bad "open_rom"
 [ "$(result_text 4 | jq -r '.rows[0].hp' 2>/dev/null)" = "45" ] && ok "read_table Bulbasaur hp=45" || bad "read_table known value"
@@ -115,6 +116,7 @@ echo "== assertions =="
 # close_tab/close_rom (headless): live-only errors
 [ "$(result_text 33 | jq -r '.error' 2>/dev/null | grep -ci 'live GUI')" -ge 1 ] && ok "close_tab live-only in headless" || bad "close_tab headless error"
 [ "$(result_text 34 | jq -r '.error' 2>/dev/null | grep -ci 'live GUI')" -ge 1 ] && ok "close_rom live-only in headless" || bad "close_rom headless error"
+[ "$(result_text 35 | jq -r '.error' 2>/dev/null | grep -ci 'live GUI')" -ge 1 ] && ok "duplicate_tab live-only in headless" || bad "duplicate_tab headless error"
 
 echo "================="
 echo "PASS=$PASS  FAIL=$FAIL"

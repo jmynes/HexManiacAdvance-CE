@@ -53,6 +53,9 @@ echo "== drive MCP =="
   printf '%s\n' '{"jsonrpc":"2.0","id":14,"method":"tools/call","params":{"name":"list_open_roms","arguments":{}}}'; sleep 1
   printf '%s\n' '{"jsonrpc":"2.0","id":15,"method":"tools/call","params":{"name":"close_tab","arguments":{"tab":1}}}'; sleep 1
   printf '%s\n' '{"jsonrpc":"2.0","id":16,"method":"tools/call","params":{"name":"list_open_roms","arguments":{}}}'; sleep 1
+  printf '%s\n' '{"jsonrpc":"2.0","id":17,"method":"tools/call","params":{"name":"duplicate_tab","arguments":{}}}'; sleep 1
+  printf '%s\n' '{"jsonrpc":"2.0","id":18,"method":"tools/call","params":{"name":"list_open_roms","arguments":{}}}'; sleep 1
+  printf '%s\n' '{"jsonrpc":"2.0","id":19,"method":"tools/call","params":{"name":"close_rom","arguments":{"tab":0,"force":true}}}'; sleep 1
 } | "./$MCP" > "$OUT" 2>/dev/null
 
 rt(){ jq -rs --argjson id "$1" 'map(select(.id==$id))[0].result.content[0].text//empty' "$OUT"; }
@@ -84,6 +87,10 @@ echo "== assertions =="
 [ "$(rt 15 | jq -r '.ok' 2>/dev/null)" = "true" ] && ok "close_tab ok" || bad "close_tab"
 [ "$(rt 15 | jq -r '.mode' 2>/dev/null)" = "live" ] && ok "close_tab mode=live" || bad "close_tab not live"
 [ "$(rt 16 | jq -r '.tabs | length' 2>/dev/null)" = "1" ] && ok "one tab after close_tab" || bad "close_tab did not remove tab"
+[ "$(rt 17 | jq -r '.mode' 2>/dev/null)" = "live" ] && ok "duplicate_tab mode=live" || bad "duplicate_tab not live"
+[ "$(rt 17 | jq -r '.ok' 2>/dev/null)" = "true" ] && ok "duplicate_tab ok" || bad "duplicate_tab ok"
+[ "$(rt 18 | jq -r '.tabs | length' 2>/dev/null)" = "2" ] && ok "two tabs after duplicate" || bad "duplicate did not add tab"
+[ "$(rt 19 | jq -r '.closedCount' 2>/dev/null)" = "2" ] && ok "close_rom closed both duplicate tabs" || bad "close_rom closedCount"
 
 taskkill //F //IM HexManiacAdvance.exe >/dev/null 2>&1 || true
 echo "================="

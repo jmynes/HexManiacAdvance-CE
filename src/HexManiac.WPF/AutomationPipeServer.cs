@@ -203,6 +203,15 @@ namespace HavenSoft.HexManiac.WPF.Windows {
                foreach (var v in group) CloseTabNoPrompt(v);
                return Ok(new { ok = true, closedCount = group.Count, remaining = CountTabs() });
             }
+            case "duplicate_tab": {
+               var vp = ResolveTab(p); if (vp == null) return NoTab();
+               if (!vp.CanDuplicate) return new AutoResponse(false, null, $"Tab '{vp.FullFileName ?? vp.Name}' cannot be duplicated.");
+               var child = vp.CreateDuplicate();
+               editor.Add(child);
+               int index = -1, i = 0;
+               foreach (var t in editor) { if (ReferenceEquals(t, child)) { index = i; break; } i++; }
+               return Ok(new { ok = true, index, file = child.FullFileName ?? child.Name });
+            }
             default:
                return new AutoResponse(false, null, $"Unknown method: {req.Method}");
          }

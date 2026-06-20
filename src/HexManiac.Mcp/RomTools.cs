@@ -181,6 +181,13 @@ public sealed class RomTools {
       return Dispatch("close_rom", p, tab, tabFile, () => RomAutomation.Err("close_rom requires the live GUI."));
    }
 
+   [McpServerTool(Name = "duplicate_tab")]
+   [Description("Open a second tab on the same ROM as the resolved tab (like Ctrl+T) — shares the ROM's model and undo history; close_rom then closes all such tabs. Live GUI only.")]
+   public string DuplicateTab(RomSession session, [Description("Target GUI tab by index")] int? tab = null,
+      [Description("Target GUI tab by filename substring")] string? tabFile = null) {
+      return Dispatch("duplicate_tab", new Dictionary<string, object?>(), tab, tabFile, () => RomAutomation.Err("duplicate_tab requires the live GUI."));
+   }
+
    [McpServerTool(Name = "clipboard_copy")]
    [Description("Copy the live GUI's current selection to the system clipboard; returns the copied text. Live GUI only.")]
    public string ClipboardCopy(RomSession session, [Description("Target GUI tab by index")] int? tab = null, [Description("Target GUI tab by filename substring")] string? tabFile = null) {
