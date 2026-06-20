@@ -75,7 +75,7 @@ namespace HavenSoft.HexManiac.WPF.Windows {
                // Edit through the tab's change token so it enters GUI undo history
                // and renders immediately.
                return Ok(RomAutomation.WriteValue(vp.Model, () => vp.CurrentChange,
-                  Str(p, "table"), Int(p, "index", -1), Str(p, "field"), Int(p, "value", 0)));
+                  Str(p, "table"), Int(p, "index", -1), Str(p, "field"), Val(p, "value"), StrOrNull(p, "flag")));
             }
             case "export_table": {
                var vp = ResolveTab(p);
@@ -194,5 +194,17 @@ namespace HavenSoft.HexManiac.WPF.Windows {
       private static int Int(JsonElement p, string key, int fallback) =>
          p.ValueKind == JsonValueKind.Object && p.TryGetProperty(key, out var v) && v.ValueKind == JsonValueKind.Number
             ? v.GetInt32() : fallback;
+
+      // Read a JSON scalar param as the CLR value the engine expects.
+      private static object Val(JsonElement p, string key) {
+         if (p.ValueKind != JsonValueKind.Object || !p.TryGetProperty(key, out var v)) return 0;
+         return v.ValueKind switch {
+            JsonValueKind.String => v.GetString(),
+            JsonValueKind.Number => v.TryGetInt32(out var i) ? i : (object)v.GetDouble(),
+            JsonValueKind.True => true,
+            JsonValueKind.False => false,
+            _ => v.ToString(),
+         };
+      }
    }
 }
