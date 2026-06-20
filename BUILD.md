@@ -103,3 +103,13 @@ options). Works live (visible + undoable in the GUI) and headless.
   paste onto another index (undoable). Clones rows; live + headless.
 - `clipboard_copy` / `clipboard_paste` — drive the GUI's real Copy/Paste over the
   current selection, sharing the system clipboard with manual Ctrl+C/V. **Live only.**
+
+### ROM/tab lifecycle
+
+- `open_rom` — live: opens the `.gba` as a new tab in the running GUI; headless:
+  loads it as the single session ROM.
+- `save_rom` — saves the resolved tab to its file (live) / the loaded ROM (headless).
+- `close_tab` — close one tab (default: active). **Live only.** Refuses on unsaved
+  changes unless `force=true` (which discards them; no disk write, no dialog).
+- `close_rom` — close ALL tabs showing the resolved tab's ROM. **Live only.** Same
+  unsaved-change guard / `force` semantics.
