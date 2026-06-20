@@ -160,6 +160,16 @@ public sealed class RomTools {
       return Dispatch("paste_rows", p, tab, tabFile, () => RomAutomation.PasteRows(session.Require(), () => session.Token, table, index, hex));
    }
 
+   [McpServerTool(Name = "select")]
+   [Description("Select rows in the live GUI: 'count' rows from 'index', or the whole table if 'index' is omitted. Live GUI only.")]
+   public string Select(RomSession session, [Description("Anchor/table name")] string table,
+      [Description("First row index (omit for the whole table)")] int? index = null, [Description("How many rows")] int count = 1,
+      [Description("Target GUI tab by index")] int? tab = null, [Description("Target GUI tab by filename substring")] string? tabFile = null) {
+      var p = new Dictionary<string, object?> { ["table"] = table, ["count"] = count };
+      if (index.HasValue) p["index"] = index.Value;
+      return Dispatch("select", p, tab, tabFile, () => RomAutomation.Err("select requires the live GUI (no view to select in headless mode)."));
+   }
+
    [McpServerTool(Name = "export_table")]
    [Description("Export an entire table (all rows, no paging) to a JSON file on disk. Targets the GUI's active tab when live; else headless.")]
    public string ExportTable(

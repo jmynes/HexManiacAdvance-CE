@@ -8,6 +8,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Windows;
 using HavenSoft.HexManiac.Core.Models;
+using HavenSoft.HexManiac.Core.Models.Runs;
 using HavenSoft.HexManiac.Core.ViewModels;
 using HavenSoft.HexManiac.Core.ViewModels.DataFormats;
 
@@ -142,6 +143,19 @@ namespace HavenSoft.HexManiac.WPF.Windows {
             case "paste_rows": {
                var vp = ResolveTab(p); if (vp == null) return NoTab();
                return Ok(RomAutomation.PasteRows(vp.Model, () => vp.CurrentChange, Str(p, "table"), Int(p, "index", -1), Str(p, "data")));
+            }
+            case "select": {
+               var vp = ResolveTab(p); if (vp == null) return NoTab();
+               var t = vp.Model.GetTableModel(Str(p, "table"));
+               if (t == null) return new AutoResponse(false, null, $"No table named '{Str(p, "table")}'.");
+               int index = Int(p, "index", 0), count = Int(p, "count", 1);
+               // index omitted (null) => whole table
+               if (p.ValueKind == JsonValueKind.Object && (!p.TryGetProperty("index", out var iv) || iv.ValueKind == JsonValueKind.Null)) { index = 0; count = t.Count; }
+               if (index < 0 || count < 1 || index + count > t.Count) return new AutoResponse(false, null, $"rows {index}..{index + count - 1} out of range (0..{t.Count - 1}).");
+               int start = t[index].Start, last = t[index + count - 1].Start + t[index + count - 1].Length - 1;
+               vp.SelectionStart = vp.ConvertAddressToViewPoint(start);
+               vp.SelectionEnd = vp.ConvertAddressToViewPoint(last);
+               return Ok(new { ok = true, table = Str(p, "table"), index, count, start, length = last - start + 1 });
             }
             default:
                return new AutoResponse(false, null, $"Unknown method: {req.Method}");

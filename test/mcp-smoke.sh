@@ -66,13 +66,14 @@ echo "== 2-6. drive server =="
   printf '%s\n' '{"jsonrpc":"2.0","id":28,"method":"tools/call","params":{"name":"paste_rows","arguments":{"table":"data.pokemon.stats","index":4}}}'; sleep 1
   printf '%s\n' '{"jsonrpc":"2.0","id":29,"method":"tools/call","params":{"name":"read_table","arguments":{"name":"data.pokemon.stats","start":4,"count":1}}}'; sleep 1
   printf '%s\n' '{"jsonrpc":"2.0","id":30,"method":"tools/call","params":{"name":"read_table","arguments":{"name":"data.pokemon.stats","start":1,"count":1}}}'; sleep 1
+  printf '%s\n' '{"jsonrpc":"2.0","id":31,"method":"tools/call","params":{"name":"select","arguments":{"table":"data.pokemon.stats","index":1,"count":2}}}'; sleep 1
   printf '%s\n' '{"jsonrpc":"2.0","id":14,"method":"tools/call","params":{"name":"list_shortcuts","arguments":{}}}'; sleep 2
   printf '%s\n' '{"jsonrpc":"2.0","id":15,"method":"tools/call","params":{"name":"goto","arguments":{"target":"Pokemon"}}}'; sleep 2
 } | "./$EXE" > "$OUT" 2>"$ERR"
 
 echo "== assertions =="
 # 2. protocol + tools/list
-[ "$(jq -rs 'map(select(.id==2))[0].result.tools|length' "$OUT" 2>/dev/null)" = "14" ] && ok "tools/list shows 14 tools" || bad "tools/list"
+[ "$(jq -rs 'map(select(.id==2))[0].result.tools|length' "$OUT" 2>/dev/null)" = "15" ] && ok "tools/list shows 15 tools" || bad "tools/list"
 # 3. open + read known value
 [ "$(is_error 3)" = "false" ] && ok "open_rom" || bad "open_rom"
 [ "$(result_text 4 | jq -r '.rows[0].hp' 2>/dev/null)" = "45" ] && ok "read_table Bulbasaur hp=45" || bad "read_table known value"
@@ -104,6 +105,8 @@ echo "== assertions =="
 # 8. goto (headless): live-only error + correct mode
 [ "$(result_text 15 | jq -r '.mode' 2>/dev/null)" = "headless" ] && ok "goto mode=headless" || bad "goto mode"
 [ "$(result_text 15 | jq -r '.error' 2>/dev/null | grep -ci 'live GUI')" -ge 1 ] && ok "goto headless live-only error" || bad "goto headless error"
+# select (headless): live-only error
+[ "$(result_text 31 | jq -r '.error' 2>/dev/null | grep -ci 'live GUI')" -ge 1 ] && ok "select live-only in headless" || bad "select headless error"
 
 echo "================="
 echo "PASS=$PASS  FAIL=$FAIL"
