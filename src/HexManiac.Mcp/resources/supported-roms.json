@@ -1,0 +1,27 @@
+{
+  "description": "Pokemon GBA base games and HexManiacAdvance support levels.",
+  "recognition": "HMA identifies games by the 4-char header game code + version byte (e.g. BPRE0), not by hash. A romhack of a supported base keeps that code and stays supported. CRC32/SHA1 match HMA's hash tool format (uppercase).",
+  "supportTiers": {
+    "prime": "Primary, best-supported targets (FireRed v1.0 BPRE0, Emerald BPEE0).",
+    "full": "Complete reference tables in HMA (tableReference.txt / HardcodeTablesModel).",
+    "reduced": "Default metadata only (reduced features).",
+    "none": "No game-aware support; opens as a plain hex editor."
+  },
+  "roms": [
+    { "game": "FireRed", "revision": "Rev 0 (v1.0)", "headerCode": "BPRE0", "noIntroName": "Pokemon - FireRed Version (USA).gba", "md5": "e26ee0d44e809351c8ce2d73c7400cdd", "sha1": "41CB23D8DCCC8EBD7C649CD8FBB58EEACE6E2FDC", "crc32": "DD88761C", "hmaSupport": "prime" },
+    { "game": "FireRed", "revision": "Rev 1 (v1.1)", "headerCode": "BPRE1", "noIntroName": "Pokemon - FireRed Version (USA, Europe) (Rev 1).gba", "md5": "51901a6e40661b3914aa333c802e24e8", "sha1": "DD5945DB9B930750CB39D00C84DA8571FEEBF417", "crc32": "84EE4776", "hmaSupport": "full" },
+    { "game": "Emerald", "revision": "Rev 0", "headerCode": "BPEE0", "noIntroName": "Pokemon - Emerald Version (USA, Europe).gba", "md5": "605b89b67018abcea91e693a4dd25be3", "sha1": "F3AE088181BF583E55DAF962A92BB46F4F1D07B7", "crc32": "1F1C08FB", "hmaSupport": "prime" },
+    { "game": "Ruby", "revision": "Rev 0 (v1.0)", "headerCode": "AXVE0", "noIntroName": "Pokemon - Ruby Version (USA, Europe).gba", "md5": "53d1a2027ab49df34a689faa1fb14726", "sha1": "F28B6FFC97847E94A6C21A63CACF633EE5C8DF1E", "crc32": "F0815EE7", "hmaSupport": "full" },
+    { "game": "Ruby", "revision": "Rev 1 (v1.1)", "headerCode": "AXVE1", "noIntroName": "Pokemon - Ruby Version (USA, Europe) (Rev 1).gba", "md5": "e0503182a2e699678bcf25a6897a24d6", "sha1": "610B96A9C9A7D03D2BAFB655E7560CCFF1A6D894", "crc32": "61641576", "hmaSupport": "full" },
+    { "game": "Sapphire", "revision": "Rev 0 (v1.0)", "headerCode": "AXPE0", "noIntroName": "Pokemon - Sapphire Version (USA, Europe).gba", "md5": "f34e91399c719812e66e2c828a2e93d7", "sha1": "3CCBBD45F8553C36463F13B938E833F652B793E4", "crc32": "554DEDC4", "hmaSupport": "full" },
+    { "game": "Sapphire", "revision": "Rev 1 (v1.1)", "headerCode": "AXPE1", "noIntroName": "Pokemon - Sapphire Version (USA, Europe) (Rev 1).gba", "md5": "3a32fd98b065283d09eeba1ce0542888", "sha1": "4722EFB8CD45772CA32555B98FD3B9719F8E60A9", "crc32": "BAFEDAE5", "hmaSupport": "full" },
+    { "game": "LeafGreen", "revision": "Rev 0 (v1.0)", "headerCode": "BPGE0", "noIntroName": "Pokemon - LeafGreen Version (USA).gba", "md5": "612ca9473451fa42b51d1711031ed5f6", "sha1": "574FA542FFEBB14BE69902D1D36F1EC0A4AFD71E", "crc32": "D69C96CC", "hmaSupport": "full" },
+    { "game": "LeafGreen", "revision": "Rev 1 (v1.1)", "headerCode": "BPGE1", "noIntroName": "Pokemon - LeafGreen Version (USA, Europe) (Rev 1).gba", "md5": "9d33a02159e018d09073e700e1fd10fd", "sha1": "7862C67BDECBE21D1D69CE082CE34327E1C6ED5E", "crc32": "DAFFECEC", "hmaSupport": "full" }
+  ],
+  "alsoSupported": [],
+  "notSupported": [
+    { "headerCode": "AXVE2", "game": "Ruby Rev 2", "hmaSupport": "none" },
+    { "headerCode": "AXPE2", "game": "Sapphire Rev 2", "hmaSupport": "none" },
+    { "headerCode": "BPEF0/BPEI0/BPRF0/...", "game": "Non-English R/S/E/FR/LG language variants", "hmaSupport": "reduced" }
+  ]
+}

@@ -377,6 +377,13 @@ public sealed class RomTools {
       return Stamp(JsonSerializer.Serialize(new { ok = true, text }, Json), GuiBridge.IsGuiRunning() ? "live" : "headless");
    }
 
+   [McpServerTool(Name = "supported_roms")]
+   [Description("Reference of the Pokemon GBA base games HexManiacAdvance supports: header codes, No-Intro names, md5/sha1/crc32, and support tier. No code: the whole reference. code (e.g. 'BPRE0' or 'bpre'): matching entries.")]
+   public string SupportedRoms_([Description("Optional header code filter, e.g. BPRE0")] string? code = null) {
+      var text = string.IsNullOrWhiteSpace(code) ? SupportedRoms.Json() : SupportedRoms.Lookup(code);
+      return Stamp(JsonSerializer.Serialize(new { ok = true, text }, Json), GuiBridge.IsGuiRunning() ? "live" : "headless");
+   }
+
    // ---- helpers ----
 
    // Prefer the live GUI (if reachable) for `method`; fall back to a headless

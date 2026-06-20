@@ -95,11 +95,15 @@ echo "== 2-6. drive server =="
   printf '%s\n' "{\"jsonrpc\":\"2.0\",\"id\":53,\"method\":\"tools/call\",\"params\":{\"name\":\"open_rom\",\"arguments\":{\"path\":\"$OR\"}}}"; sleep 15
   printf '%s\n' '{"jsonrpc":"2.0","id":54,"method":"tools/call","params":{"name":"write_value","arguments":{"table":"data.pokemon.stats","index":1,"field":"hp","value":"55"}}}'; sleep 1
   printf '%s\n' '{"jsonrpc":"2.0","id":55,"method":"tools/call","params":{"name":"launch_rom","arguments":{}}}'; sleep 1
+  printf '%s\n' '{"jsonrpc":"2.0","id":56,"method":"tools/call","params":{"name":"supported_roms","arguments":{}}}'; sleep 1
+  printf '%s\n' '{"jsonrpc":"2.0","id":57,"method":"tools/call","params":{"name":"supported_roms","arguments":{"code":"BPEE0"}}}'; sleep 1
+  printf '%s\n' '{"jsonrpc":"2.0","id":58,"method":"resources/list","params":{}}'; sleep 1
+  printf '%s\n' '{"jsonrpc":"2.0","id":59,"method":"resources/read","params":{"uri":"hexmaniac://supported-roms"}}'; sleep 1
 } | "./$EXE" > "$OUT" 2>"$ERR"
 
 echo "== assertions =="
 # 2. protocol + tools/list
-[ "$(jq -rs 'map(select(.id==2))[0].result.tools|length' "$OUT" 2>/dev/null)" = "23" ] && ok "tools/list shows 23 tools" || bad "tools/list"
+[ "$(jq -rs 'map(select(.id==2))[0].result.tools|length' "$OUT" 2>/dev/null)" = "24" ] && ok "tools/list shows 24 tools" || bad "tools/list"
 # 3. open + read known value
 [ "$(is_error 3)" = "false" ] && ok "open_rom" || bad "open_rom"
 [ "$(result_text 4 | jq -r '.rows[0].hp' 2>/dev/null)" = "45" ] && ok "read_table Bulbasaur hp=45" || bad "read_table known value"
@@ -162,6 +166,10 @@ echo "== assertions =="
 [ "$(result_text 51 | jq -r '.files | length' 2>/dev/null)" -ge 1 ] && ok "backup_rom created files" || bad "backup_rom files"
 [ "$(result_text 52 | jq -r '.backedUp | length' 2>/dev/null)" -ge 1 ] && ok "save_rom overwrite auto-backs-up" || bad "save_rom backedUp"
 [ "$(result_text 55 | jq -r '.error' 2>/dev/null | grep -ci 'unsaved changes')" -ge 1 ] && ok "launch_rom refuses when unsaved" || bad "launch_rom unsaved guard"
+[ "$(result_text 56 | grep -ci 'BPRE0')" -ge 1 ] && ok "supported_roms lists BPRE0" || bad "supported_roms all"
+[ "$(result_text 57 | grep -ci 'Emerald')" -ge 1 ] && ok "supported_roms code filter" || bad "supported_roms code"
+[ "$(jq -rs 'map(select(.id==58))[0].result.resources|map(.uri)|join(" ")' "$OUT" 2>/dev/null | grep -ci 'hexmaniac://supported-roms')" -ge 1 ] && ok "resources/list has supported-roms" || bad "resources/list roms"
+[ "$(jq -rs 'map(select(.id==59))[0].result.contents[0].text // empty' "$OUT" 2>/dev/null | grep -ci 'BPRE0')" -ge 1 ] && ok "resources/read supported-roms" || bad "resources/read roms"
 
 echo "================="
 echo "PASS=$PASS  FAIL=$FAIL"

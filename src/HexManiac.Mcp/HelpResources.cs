@@ -18,4 +18,14 @@ public static class HelpResources {
       MimeType = "text/markdown",
       Text     = Docs.Guide(),
    };
+
+   [McpServerResource(
+      UriTemplate = "hexmaniac://supported-roms",
+      Name        = "HexManiacAdvance supported ROMs",
+      MimeType    = "application/json")]
+   public static TextResourceContents GetSupportedRoms() => new() {
+      Uri      = "hexmaniac://supported-roms",
+      MimeType = "application/json",
+      Text     = SupportedRoms.Json(),
+   };
 }
