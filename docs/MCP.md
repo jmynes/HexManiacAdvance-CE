@@ -207,8 +207,8 @@ Recommended workflow:
 
 **Make a move Fire-type with 120 power:**
 ```json
-{"name": "write_value", "arguments": {"table": "data.pokemon.stats.moves", "index": 5, "field": "power", "value": 120}}
-{"name": "write_value", "arguments": {"table": "data.pokemon.stats.moves", "index": 5, "field": "type", "value": "FIRE"}}
+{"name": "write_value", "arguments": {"table": "data.pokemon.moves.stats.battle", "index": 5, "field": "power", "value": 120}}
+{"name": "write_value", "arguments": {"table": "data.pokemon.moves.stats.battle", "index": 5, "field": "type", "value": "FIRE"}}
 ```
 
 **Clone a row (copy Bulbasaur stats to slot 152):**
