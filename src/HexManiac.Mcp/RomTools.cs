@@ -86,19 +86,31 @@ public sealed class RomTools {
    }
 
    [McpServerTool(Name = "write_value")]
-   [Description("Set a single integer field on a table row. Targets the GUI's active tab when live (visible + undoable there); else headless. Returns old/new values.")]
+   [Description("Set a field on a table row. value is a string (text/enum name), number (integer/enum index), or true/false. For a bit-array checkbox, pass flag=\"<name>\" with value true/false. Live GUI when present (visible+undoable); else headless.")]
    public string WriteValue(
       RomSession session,
       [Description("Anchor/table name")] string table,
       [Description("Row index")] int index,
       [Description("Field name within the row")] string field,
-      [Description("New integer value")] int value,
+      [Description("New value: string, number, or true/false (type decided by the field)")] JsonElement value,
+      [Description("Optional: name of one checkbox within a bit-array field")] string? flag = null,
       [Description("Target GUI tab by index (default: active tab)")] int? tab = null,
       [Description("Target GUI tab by filename substring")] string? tabFile = null) {
-      var p = new Dictionary<string, object?> { ["table"] = table, ["index"] = index, ["field"] = field, ["value"] = value };
+      var v = JsonToValue(value);
+      var p = new Dictionary<string, object?> { ["table"] = table, ["index"] = index, ["field"] = field, ["value"] = v };
+      if (!string.IsNullOrEmpty(flag)) p["flag"] = flag;
       return Dispatch("write_value", p, tab, tabFile,
-         () => RomAutomation.WriteValue(session.Require(), () => session.Token, table, index, field, value));
+         () => RomAutomation.WriteValue(session.Require(), () => session.Token, table, index, field, v, flag));
    }
+
+   // Convert a JSON scalar argument to the CLR value the engine expects.
+   private static object? JsonToValue(JsonElement v) => v.ValueKind switch {
+      JsonValueKind.String => v.GetString(),
+      JsonValueKind.Number => v.TryGetInt32(out var i) ? (object?)i : v.GetDouble(),
+      JsonValueKind.True => true,
+      JsonValueKind.False => false,
+      _ => v.ToString(),
+   };
 
    [McpServerTool(Name = "export_table")]
    [Description("Export an entire table (all rows, no paging) to a JSON file on disk. Targets the GUI's active tab when live; else headless.")]

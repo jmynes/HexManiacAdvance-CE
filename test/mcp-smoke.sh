@@ -46,6 +46,10 @@ echo "== 2-6. drive server =="
   printf '%s\n' "{\"jsonrpc\":\"2.0\",\"id\":3,\"method\":\"tools/call\",\"params\":{\"name\":\"open_rom\",\"arguments\":{\"path\":\"$R\"}}}"; sleep 15
   printf '%s\n' '{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"read_table","arguments":{"name":"data.pokemon.stats","start":1,"count":1}}}'; sleep 2
   printf '%s\n' '{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"write_value","arguments":{"table":"data.pokemon.stats","index":1,"field":"hp","value":99}}}'; sleep 2
+  printf '%s\n' '{"jsonrpc":"2.0","id":20,"method":"tools/call","params":{"name":"write_value","arguments":{"table":"data.pokemon.moves.names","index":19,"field":"name","value":"SMOKETEST"}}}'; sleep 2
+  printf '%s\n' '{"jsonrpc":"2.0","id":21,"method":"tools/call","params":{"name":"read_table","arguments":{"name":"data.pokemon.moves.names","start":19,"count":1}}}'; sleep 2
+  printf '%s\n' '{"jsonrpc":"2.0","id":22,"method":"tools/call","params":{"name":"write_value","arguments":{"table":"data.pokemon.stats","index":1,"field":"type1","value":"FLYING"}}}'; sleep 2
+  printf '%s\n' '{"jsonrpc":"2.0","id":23,"method":"tools/call","params":{"name":"write_value","arguments":{"table":"data.pokemon.stats","index":1,"field":"type1","value":"NOTATYPE"}}}'; sleep 2
   printf '%s\n' "{\"jsonrpc\":\"2.0\",\"id\":6,\"method\":\"tools/call\",\"params\":{\"name\":\"save_rom\",\"arguments\":{\"outPath\":\"$OR\"}}}"; sleep 2
   printf '%s\n' "{\"jsonrpc\":\"2.0\",\"id\":7,\"method\":\"tools/call\",\"params\":{\"name\":\"open_rom\",\"arguments\":{\"path\":\"$OR\"}}}"; sleep 15
   printf '%s\n' '{"jsonrpc":"2.0","id":8,"method":"tools/call","params":{"name":"read_table","arguments":{"name":"data.pokemon.stats","start":1,"count":1}}}'; sleep 2
@@ -69,6 +73,11 @@ echo "== assertions =="
 [ "$(is_error 5)" = "false" ] && ok "write_value" || bad "write_value (TODO)"
 [ "$(is_error 6)" = "false" ] && [ -f "$OUTROM" ] && ok "save_rom wrote file" || bad "save_rom (TODO)"
 [ "$(result_text 8 | jq -r '.rows[0].hp' 2>/dev/null)" = "99" ] && ok "edit persisted (hp=99 after reload)" || bad "edit did not persist (TODO)"
+# typed writes (string + enum-by-name) and a bad-enum error
+[ "$(result_text 20 | jq -r '.newValue' 2>/dev/null)" = "SMOKETEST" ] && ok "write_value string newValue" || bad "write_value string"
+[ "$(result_text 21 | jq -r '.rows[0].name' 2>/dev/null)" = "SMOKETEST" ] && ok "string write read-back" || bad "string write read-back"
+[ "$(result_text 22 | jq -r '.newValue' 2>/dev/null)" = "FLYING" ] && ok "write_value enum-by-name" || bad "write_value enum"
+[ "$(result_text 23 | jq -r '.error' 2>/dev/null | grep -ci 'Options')" -ge 1 ] && ok "bad enum lists options" || bad "bad enum error"
 # 5. exports
 [ "$(is_error 10)" = "false" ] && [ -s "$ENC" ] && ok "export encounters" || bad "export encounters (TODO)"
 [ "$(is_error 11)" = "false" ] && [ -s "$TRN" ] && ok "export trainers" || bad "export trainers (TODO)"
