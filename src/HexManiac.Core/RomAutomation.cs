@@ -150,6 +150,51 @@ namespace HavenSoft.HexManiac.Core.Models {
          return d;
       }
 
+      public static object RowRange(IDataModel model, string table, int index, int count) {
+         var t = model.GetTableModel(table);
+         if (t == null) return Err($"No table named '{table}'.");
+         if (count < 1) return Err("count must be at least 1.");
+         if (index < 0 || index + count > t.Count) return Err($"rows {index}..{index + count - 1} out of range (0..{t.Count - 1}).");
+         var first = t[index];
+         int length = 0;
+         for (int i = 0; i < count; i++) length += t[index + i].Length;
+         return new Dictionary<string, object?> {
+            ["ok"] = true, ["table"] = table, ["index"] = index, ["count"] = count,
+            ["start"] = first.Start, ["length"] = length,
+         };
+      }
+
+      public static object CopyRows(IDataModel model, string table, int index, int count) {
+         var range = RowRange(model, table, index, count);
+         if (range is Dictionary<string, object?> e && e.ContainsKey("error")) return range;
+         var r = (Dictionary<string, object?>)range;
+         int start = (int)r["start"]!, length = (int)r["length"]!;
+         var sb = new System.Text.StringBuilder(length * 2);
+         for (int i = 0; i < length; i++) sb.Append(model.RawData[start + i].ToString("X2"));
+         return new Dictionary<string, object?> {
+            ["ok"] = true, ["table"] = table, ["index"] = index, ["count"] = count,
+            ["bytes"] = sb.ToString(), ["elementLength"] = length / count,
+         };
+      }
+
+      public static object PasteRows(IDataModel model, Func<ModelDelta> token, string table, int index, string hex) {
+         if (string.IsNullOrEmpty(hex) || hex.Length % 2 != 0) return Err("paste data must be a non-empty hex string with an even length.");
+         var bytes = new byte[hex.Length / 2];
+         for (int i = 0; i < bytes.Length; i++) {
+            if (!byte.TryParse(hex.Substring(i * 2, 2), System.Globalization.NumberStyles.HexNumber, null, out bytes[i]))
+               return Err($"paste data is not valid hex at byte {i}.");
+         }
+         var t = model.GetTableModel(table, token);
+         if (t == null) return Err($"No table named '{table}'.");
+         if (index < 0 || index >= t.Count) return Err($"index {index} out of range (0..{t.Count - 1}).");
+         int elementLength = t[index].Length;
+         if (bytes.Length % elementLength != 0) return Err($"paste size {bytes.Length} is not a multiple of the element length {elementLength}.");
+         int count = bytes.Length / elementLength;
+         if (index + count > t.Count) return Err($"pasting {count} rows at {index} exceeds the table (0..{t.Count - 1}).");
+         token().ChangeData(model, t[index].Start, bytes);
+         return new Dictionary<string, object?> { ["ok"] = true, ["table"] = table, ["index"] = index, ["count"] = count };
+      }
+
       public static object ListShortcuts(IDataModel model) {
          var shortcuts = model.GotoShortcuts
             .Select(s => new Dictionary<string, object?> { ["display"] = s.DisplayText, ["anchor"] = s.GotoAnchor })
