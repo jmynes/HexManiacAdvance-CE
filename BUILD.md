@@ -108,6 +108,9 @@ options). Works live (visible + undoable in the GUI) and headless.
 
 - `open_rom` — live: opens the `.gba` as a new tab in the running GUI; headless:
   loads it as the single session ROM.
+- `duplicate_tab` — open a second tab on the resolved tab's ROM (like Ctrl+T),
+  sharing its model and undo history. **Live only.** `close_rom` then closes all
+  tabs of that ROM at once.
 - `save_rom` — saves the resolved tab to its file (live) / the loaded ROM (headless).
 - `close_tab` — close one tab (default: active). **Live only.** Refuses on unsaved
   changes unless `force=true` (which discards them; no disk write, no dialog).
