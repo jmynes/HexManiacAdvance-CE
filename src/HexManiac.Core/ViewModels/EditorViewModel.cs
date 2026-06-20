@@ -777,36 +777,34 @@ namespace HavenSoft.HexManiac.Core.ViewModels {
                var importSuccessful = SelectedTab.TryImport(file, fileSystem);
                if (importSuccessful) return;
             }
-            UpdateRecentFiles(file.Name);
-            string[] metadataText = new string[0];
-            if (allowLoadingMetadata) {
-               metadataText = fileSystem.MetadataFor(file.Name) ?? new string[0];
-            }
-            StoredMetadata metadata;
-            try {
-               metadata = new StoredMetadata(metadataText);
-            } catch (ArgumentNullException nullEx) {
-               ErrorMessage = nullEx.Message;
-               return;
-            } catch (ArgumentOutOfRangeException rangeEx) {
-               ErrorMessage = rangeEx.Message;
-               return;
-            }
-            IDataModel model = file.Name.ToLower().EndsWith(".gba") ?
-               new HardcodeTablesModel(Singletons, file.Contents, metadata) :
-               new PokemonModel(file.Contents, metadata, Singletons);
-            var viewPort = new ViewPort(file.Name, model, workDispatcher, Singletons, MapTutorials, FileSystem, PythonTool);
-            if (metadata.IsEmpty || StoredMetadata.NeedVersionUpdate(metadata.Version, Singletons.MetadataInfo.VersionNumber)) {
-               _ = viewPort.Model.InitializationWorkload.ContinueWith(task => {
-                  if (!Singletons.GameReferenceTables.TryGetValue(model.GetGameCode(), out var refTable)) refTable = null;
-                  fileSystem.SaveMetadata(file.Name, viewPort.Model.ExportMetadata(refTable, Singletons.MetadataInfo).Serialize());
-                  Debug.Assert(viewPort.ChangeHistory.IsSaved, "Put a breakpoint in ChangeHistory.CurrentChange, because a changable token is being created too soon!");
-               }, TaskContinuationOptions.ExecuteSynchronously);
-            }
-            Add(viewPort);
+            OpenFileAsTab(file);
          } catch (IOException ex) {
             ErrorMessage = ex.Message;
          }
+      }
+
+      public IViewPort OpenFileAsTab(LoadedFile file) {
+         if (file == null) return null;
+         UpdateRecentFiles(file.Name);
+         string[] metadataText = new string[0];
+         if (allowLoadingMetadata) metadataText = fileSystem.MetadataFor(file.Name) ?? new string[0];
+         StoredMetadata metadata;
+         try {
+            metadata = new StoredMetadata(metadataText);
+         } catch (System.ArgumentNullException nullEx) { ErrorMessage = nullEx.Message; return null; }
+           catch (System.ArgumentOutOfRangeException rangeEx) { ErrorMessage = rangeEx.Message; return null; }
+         IDataModel model = file.Name.ToLower().EndsWith(".gba")
+            ? new HardcodeTablesModel(Singletons, file.Contents, metadata)
+            : new PokemonModel(file.Contents, metadata, Singletons);
+         var viewPort = new ViewPort(file.Name, model, workDispatcher, Singletons, MapTutorials, FileSystem, PythonTool);
+         if (metadata.IsEmpty || StoredMetadata.NeedVersionUpdate(metadata.Version, Singletons.MetadataInfo.VersionNumber)) {
+            _ = viewPort.Model.InitializationWorkload.ContinueWith(task => {
+               if (!Singletons.GameReferenceTables.TryGetValue(model.GetGameCode(), out var refTable)) refTable = null;
+               fileSystem.SaveMetadata(file.Name, viewPort.Model.ExportMetadata(refTable, Singletons.MetadataInfo).Serialize());
+            }, System.Threading.Tasks.TaskContinuationOptions.ExecuteSynchronously);
+         }
+         Add(viewPort);
+         return viewPort;
       }
 
       private void ImplementFindCommands() {
