@@ -175,6 +175,28 @@ Before overwriting an existing file, `save_rom` automatically backs up the curre
 {"name": "launch_rom", "arguments": {"force": true}}
 ```
 
+## ROM reference
+
+**`supported_roms`** — list the supported Pokémon GBA ROMs with their header codes, No-Intro names, and checksums. Call with no arguments to get all 9 ROMs, or pass `code` to look up a single entry:
+
+```json
+{"name": "supported_roms", "arguments": {}}
+{"name": "supported_roms", "arguments": {"code": "BPRE0"}}
+```
+
+Does not require a ROM to be open. The same data is available as the `hexmaniac://supported-roms` MCP resource. Human-readable table: see [docs/SUPPORTED-ROMS.md](../docs/SUPPORTED-ROMS.md).
+
+**`identify_rom`** — check the currently open ROM against known clean dumps. Returns:
+- `isCleanDump` — `true` if MD5, SHA1, and CRC32 all match the known clean dump for this game.
+- `baseGame` — the recognized base game (e.g. `"FireRed Rev 0 (v1.0)"`), or `null` if the header code is not recognized.
+- `headerCode` — the 5-character code read from the ROM (e.g. `"BPRE0"`).
+
+```json
+{"name": "identify_rom", "arguments": {}}
+```
+
+This is useful for detecting whether a loaded ROM is an unmodified clean dump or a romhack derived from a known base game. A romhack will show `isCleanDump: false` but still report the correct `baseGame` (since HMA identifies by header code, not hash).
+
 ## Scripts
 
 **`run_script`** — run an HMA script. Provide inline `script` text or a `path` to a `.hma` file (`path` takes precedence). Works live and headless.
@@ -254,7 +276,7 @@ Recommended workflow:
 
 ## Tools index
 
-All 23 tools exposed by this MCP server:
+All 25 tools exposed by this MCP server:
 
 | Tool | Description |
 |---|---|
@@ -280,6 +302,8 @@ All 23 tools exposed by this MCP server:
 | `save_rom` | Write the ROM to disk. Pass outPath to save a COPY there; pass overwrite=true (no outPath) to save over the loaded/open ROM. With neither, it refuses (won't silently overwrite the source). Before overwriting an existing file, auto-backs-up the current .gba + .toml + .sav into a timestamped backups/ subdirectory; result includes backedUp list. Live targets the resolved tab; else headless. |
 | `backup_rom` | Explicitly snapshot the loaded ROM (.gba + sidecar .toml + .sav) into a timestamped backups/ subdirectory next to the ROM, without saving any pending edits. Returns the list of files written. Live or headless. |
 | `launch_rom` | Shell-open the resolved ROM's on-disk file in the default GBA program (like HexManiacAdvance's play button). The ROM must be saved; pass force=true to launch the last-saved file even with unsaved edits. Returns { ok, launched, mode }. Live or headless. |
+| `supported_roms` | List the supported Pokémon GBA ROMs (header codes, No-Intro names, checksums). Pass code="BPRE0" to look up a single entry. Does not require an open ROM. |
+| `identify_rom` | Identify the currently open ROM: reports isCleanDump (MD5/SHA1/CRC32 match), baseGame (e.g. "FireRed Rev 0 (v1.0)"), and headerCode. Detects clean dumps vs romhacks of a known base. |
 | `help` | Return the full MCP guide or a specific section. Call with no arguments for the full guide; pass topic="<section-heading>" for a specific section (e.g. topic="Saving & backups safety"). |
 
 Call `help` with no arguments for the full guide, or `help(topic="<section>")` for a specific section.

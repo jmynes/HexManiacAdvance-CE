@@ -2,6 +2,8 @@
 
 > **Using the MCP server?** See [docs/MCP.md](docs/MCP.md) for setup and the tool guide (or call the `help` tool).
 
+> Which ROMs are supported, with clean-dump checksums: see [docs/SUPPORTED-ROMS.md](docs/SUPPORTED-ROMS.md), or call the `supported_roms` / `identify_rom` MCP tools.
+
 HexManiacAdvance is an all-purpose editor designed for editing Pokemon GBA games. It specifically targets the English games Ruby (AXVE), Sapphire (AXPE), FireRed (BPRE), LeafGreen (BPGE), and Emerald (BPEE). It has a reduced set of features when opening other files.
 
 Other than standard hex editor features like view/edit, copy/paste, and diff, it also provides improved navigation, display, and editing for working with data within the files. It also has custom editors for complex data like code, images, maps, and the pokedex.

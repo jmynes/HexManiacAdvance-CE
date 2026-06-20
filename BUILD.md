@@ -137,3 +137,18 @@ options). Works live (visible + undoable in the GUI) and headless.
   program (like the play button). The ROM must already be saved; pass `force=true`
   to launch the last-saved file even if there are unsaved edits. Returns
   `{ ok, launched, mode }` with the path that was launched. Works live and headless.
+
+### ROM reference tools
+
+- `supported_roms` — returns the list of supported Pokemon GBA ROMs with game codes,
+  No-Intro names, and checksums. Call with no arguments for all 9 ROMs, or pass
+  `code="BPRE0"` (any header code) to filter to a single entry. Does not require a
+  ROM to be open.
+- `identify_rom` — identifies the currently open ROM: reports `isCleanDump` (true if
+  MD5/SHA1/CRC32 all match a known clean dump), `baseGame` (e.g. `"FireRed Rev 0 (v1.0)"`),
+  and `headerCode`. Useful for detecting whether a ROM is an unmodified dump or a
+  romhack of a known base.
+
+The `hexmaniac://supported-roms` MCP resource exposes the raw JSON from
+`src/HexManiac.Mcp/resources/supported-roms.json`. Human-readable table: see
+[docs/SUPPORTED-ROMS.md](docs/SUPPORTED-ROMS.md).
