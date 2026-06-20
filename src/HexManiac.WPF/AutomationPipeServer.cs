@@ -135,6 +135,14 @@ namespace HavenSoft.HexManiac.WPF.Windows {
             }
             case "undo": return Ok(ApplyHistory(ResolveTab(p), Int(p, "count", 1), redo: false));
             case "redo": return Ok(ApplyHistory(ResolveTab(p), Int(p, "count", 1), redo: true));
+            case "copy_rows": {
+               var vp = ResolveTab(p); if (vp == null) return NoTab();
+               return Ok(RomAutomation.CopyRows(vp.Model, Str(p, "table"), Int(p, "index", -1), Int(p, "count", 1)));
+            }
+            case "paste_rows": {
+               var vp = ResolveTab(p); if (vp == null) return NoTab();
+               return Ok(RomAutomation.PasteRows(vp.Model, () => vp.CurrentChange, Str(p, "table"), Int(p, "index", -1), Str(p, "data")));
+            }
             default:
                return new AutoResponse(false, null, $"Unknown method: {req.Method}");
          }

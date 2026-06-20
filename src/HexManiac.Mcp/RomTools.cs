@@ -137,6 +137,29 @@ public sealed class RomTools {
       _ => v.ToString(),
    };
 
+   private static string _lastCopiedHex = "";
+
+   [McpServerTool(Name = "copy_rows")]
+   [Description("Copy 'count' table rows starting at 'index' as a hex byte string (cached for paste_rows). Live GUI when present; else headless.")]
+   public string CopyRows(RomSession session, [Description("Anchor/table name")] string table,
+      [Description("First row index")] int index, [Description("How many rows")] int count = 1,
+      [Description("Target GUI tab by index")] int? tab = null, [Description("Target GUI tab by filename substring")] string? tabFile = null) {
+      var p = new Dictionary<string, object?> { ["table"] = table, ["index"] = index, ["count"] = count };
+      var json = Dispatch("copy_rows", p, tab, tabFile, () => RomAutomation.CopyRows(session.Require(), table, index, count));
+      try { var hex = System.Text.Json.Nodes.JsonNode.Parse(json)?["bytes"]?.GetValue<string>(); if (!string.IsNullOrEmpty(hex)) _lastCopiedHex = hex; } catch { }
+      return json;
+   }
+
+   [McpServerTool(Name = "paste_rows")]
+   [Description("Paste row bytes onto the table starting at 'index' (undoable). 'data' is hex; if omitted, uses the last copy_rows result. Live GUI when present; else headless.")]
+   public string PasteRows(RomSession session, [Description("Anchor/table name")] string table,
+      [Description("Destination row index")] int index, [Description("Hex bytes to paste (default: last copy_rows)")] string? data = null,
+      [Description("Target GUI tab by index")] int? tab = null, [Description("Target GUI tab by filename substring")] string? tabFile = null) {
+      var hex = string.IsNullOrEmpty(data) ? _lastCopiedHex : data;
+      var p = new Dictionary<string, object?> { ["table"] = table, ["index"] = index, ["data"] = hex };
+      return Dispatch("paste_rows", p, tab, tabFile, () => RomAutomation.PasteRows(session.Require(), () => session.Token, table, index, hex));
+   }
+
    [McpServerTool(Name = "export_table")]
    [Description("Export an entire table (all rows, no paging) to a JSON file on disk. Targets the GUI's active tab when live; else headless.")]
    public string ExportTable(

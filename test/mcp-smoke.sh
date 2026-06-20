@@ -62,13 +62,17 @@ echo "== 2-6. drive server =="
   printf '%s\n' '{"jsonrpc":"2.0","id":24,"method":"tools/call","params":{"name":"write_value","arguments":{"table":"data.pokemon.stats","index":1,"field":"hp","value":123}}}'; sleep 1
   printf '%s\n' '{"jsonrpc":"2.0","id":25,"method":"tools/call","params":{"name":"undo","arguments":{}}}'; sleep 1
   printf '%s\n' '{"jsonrpc":"2.0","id":26,"method":"tools/call","params":{"name":"read_table","arguments":{"name":"data.pokemon.stats","start":1,"count":1}}}'; sleep 1
+  printf '%s\n' '{"jsonrpc":"2.0","id":27,"method":"tools/call","params":{"name":"copy_rows","arguments":{"table":"data.pokemon.stats","index":1,"count":1}}}'; sleep 1
+  printf '%s\n' '{"jsonrpc":"2.0","id":28,"method":"tools/call","params":{"name":"paste_rows","arguments":{"table":"data.pokemon.stats","index":4}}}'; sleep 1
+  printf '%s\n' '{"jsonrpc":"2.0","id":29,"method":"tools/call","params":{"name":"read_table","arguments":{"name":"data.pokemon.stats","start":4,"count":1}}}'; sleep 1
+  printf '%s\n' '{"jsonrpc":"2.0","id":30,"method":"tools/call","params":{"name":"read_table","arguments":{"name":"data.pokemon.stats","start":1,"count":1}}}'; sleep 1
   printf '%s\n' '{"jsonrpc":"2.0","id":14,"method":"tools/call","params":{"name":"list_shortcuts","arguments":{}}}'; sleep 2
   printf '%s\n' '{"jsonrpc":"2.0","id":15,"method":"tools/call","params":{"name":"goto","arguments":{"target":"Pokemon"}}}'; sleep 2
 } | "./$EXE" > "$OUT" 2>"$ERR"
 
 echo "== assertions =="
 # 2. protocol + tools/list
-[ "$(jq -rs 'map(select(.id==2))[0].result.tools|length' "$OUT" 2>/dev/null)" = "12" ] && ok "tools/list shows 12 tools" || bad "tools/list"
+[ "$(jq -rs 'map(select(.id==2))[0].result.tools|length' "$OUT" 2>/dev/null)" = "14" ] && ok "tools/list shows 14 tools" || bad "tools/list"
 # 3. open + read known value
 [ "$(is_error 3)" = "false" ] && ok "open_rom" || bad "open_rom"
 [ "$(result_text 4 | jq -r '.rows[0].hp' 2>/dev/null)" = "45" ] && ok "read_table Bulbasaur hp=45" || bad "read_table known value"
@@ -84,6 +88,10 @@ echo "== assertions =="
 # undo/redo
 [ "$(result_text 25 | jq -r '.applied' 2>/dev/null)" -ge 1 ] && ok "undo applied >=1" || bad "undo applied"
 [ "$(result_text 26 | jq -r '.rows[0].hp' 2>/dev/null)" != "123" ] && ok "undo reverted hp write" || bad "undo did not revert"
+# copy_rows / paste_rows
+[ -n "$(result_text 27 | jq -r '.bytes // empty' 2>/dev/null)" ] && ok "copy_rows returns bytes" || bad "copy_rows bytes"
+[ "$(result_text 28 | jq -r '.ok' 2>/dev/null)" = "true" ] && ok "paste_rows ok" || bad "paste_rows"
+[ "$(result_text 29 | jq -r '.rows[0].hp' 2>/dev/null)" = "$(result_text 30 | jq -r '.rows[0].hp' 2>/dev/null)" ] && ok "paste cloned row (hp matches)" || bad "paste clone"
 # 5. exports
 [ "$(is_error 10)" = "false" ] && [ -s "$ENC" ] && ok "export encounters" || bad "export encounters (TODO)"
 [ "$(is_error 11)" = "false" ] && [ -s "$TRN" ] && ok "export trainers" || bad "export trainers (TODO)"
