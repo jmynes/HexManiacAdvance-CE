@@ -10,7 +10,7 @@ cd "$(dirname "$0")/.." || exit 2
 export PATH="/c/Program Files/dotnet:$PATH"
 export DOTNET_CLI_TELEMETRY_OPTOUT=1 DOTNET_NOLOGO=1
 
-ROM="$(pwd)/test/roms/firered.gba"
+ROM="$(pwd)/test/roms/Pokemon - FireRed Version (USA).gba"
 TMP="$(pwd)/test/.tmp"
 OUT="$TMP/out.jsonl"
 ERR="$TMP/err.txt"

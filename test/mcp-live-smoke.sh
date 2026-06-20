@@ -11,7 +11,7 @@ export DOTNET_CLI_TELEMETRY_OPTOUT=1 DOTNET_NOLOGO=1
 GUI="artifacts/HexManiac.WPF/bin/Release/net6.0-windows/HexManiacAdvance.exe"
 MCP="artifacts/HexManiac.Mcp/bin/Release/net8.0/HexManiac.Mcp.exe"
 GUIW="$(cygpath -w "$(pwd)/$GUI")"
-ROMW="$(cygpath -w "$(pwd)/test/roms/firered.gba")"
+ROMW="$(cygpath -w "$(pwd)/test/roms/Pokemon - FireRed Version (USA).gba")"
 COPYW="$(cygpath -m "$(pwd)/test/.tmp/live-savecopy.gba")"
 ROMW_JSON=$(printf '%s' "$ROMW" | awk 'BEGIN{FS=""}{for(i=1;i<=NF;i++){if($i=="\\")printf "\\\\"; else printf $i}; print ""}')
 TMP="test/.tmp"; mkdir -p "$TMP"; OUT="$TMP/live.jsonl"
