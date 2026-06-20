@@ -1,3 +1,4 @@
+using HavenSoft.HexManiac.Core.Models;
 using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
 

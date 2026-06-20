@@ -23,7 +23,6 @@
   <!-- Embed the MCP user guide so the help tool can serve it at runtime. -->
   <ItemGroup>
     <EmbeddedResource Include="..\..\docs\MCP.md" Link="MCP.md" LogicalName="HexManiac.Mcp.MCP.md" />
-    <EmbeddedResource Include="resources\supported-roms.json" LogicalName="HexManiac.Mcp.supported-roms.json" />
   </ItemGroup>
 
   <!-- HexManiac.Core's Singletons loads reference files (scriptReference.txt, hma.py,

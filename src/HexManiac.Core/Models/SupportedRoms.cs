@@ -4,7 +4,7 @@ using System.Linq;
 using System.Reflection;
 using System.Text.Json;
 
-namespace HavenSoft.HexManiac.Mcp {
+namespace HavenSoft.HexManiac.Core.Models {
    public static class SupportedRoms {
       private static string _cache;
       public static string Json() {

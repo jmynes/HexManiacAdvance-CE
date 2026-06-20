@@ -4,7 +4,7 @@ HexManiacAdvance supports the five main English Pokémon GBA games (FireRed, Lea
 
 **How HMA identifies ROMs:** HexManiacAdvance recognises a ROM by the 4-character header game code and version byte encoded in the cartridge header (e.g. `BPRE0` for FireRed v1.0), **not** by hash. A romhack that is based on a supported game keeps that same code and stays fully supported regardless of what changes were made to the data.
 
-> Source of truth: [`src/HexManiac.Mcp/resources/supported-roms.json`](../src/HexManiac.Mcp/resources/supported-roms.json).
+> Source of truth: [`src/HexManiac.Core/Models/Code/supported-roms.json`](../src/HexManiac.Core/Models/Code/supported-roms.json).
 > The MCP server exposes this data via the `supported_roms` tool, the `identify_rom` tool, and the `hexmaniac://supported-roms` resource.
 
 ---

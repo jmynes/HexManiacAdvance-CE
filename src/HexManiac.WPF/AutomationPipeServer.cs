@@ -250,7 +250,7 @@ namespace HavenSoft.HexManiac.WPF.Windows {
                var md5 = string.Concat(System.Security.Cryptography.MD5.HashData(bytes).Select(x => x.ToString("x2")));
                var sha1 = string.Concat(System.Security.Cryptography.SHA1.HashData(bytes).Select(x => x.ToString("X2")));
                var crc32 = Force.Crc32.Crc32Algorithm.Compute(bytes).ToString("X8");
-               return Ok(IdentifyMatch(code, md5, sha1, crc32));
+               return Ok(SupportedRoms.Match(code, md5, sha1, crc32));
             }
             default:
                return new AutoResponse(false, null, $"Unknown method: {req.Method}");
@@ -267,42 +267,6 @@ namespace HavenSoft.HexManiac.WPF.Windows {
             i++;
          }
          return list;
-      }
-
-      // Identify a ROM by its hashes against the embedded supported-roms.json.
-      private static object IdentifyMatch(string gameCode, string md5, string sha1, string crc32) {
-         var asm = System.Reflection.Assembly.GetExecutingAssembly();
-         var name = asm.GetManifestResourceNames().FirstOrDefault(n => n.EndsWith("supported-roms.json", StringComparison.OrdinalIgnoreCase));
-         string json = "{}";
-         if (name != null) {
-            using var stream = asm.GetManifestResourceStream(name);
-            using var reader = new System.IO.StreamReader(stream);
-            json = reader.ReadToEnd();
-         }
-         using var doc = System.Text.Json.JsonDocument.Parse(json);
-         System.Text.Json.JsonElement? byCode = null, byMd5 = null;
-         foreach (var section in new[] { "roms", "notSupported", "alsoSupported" }) {
-            if (!doc.RootElement.TryGetProperty(section, out var arr)) continue;
-            foreach (var e in arr.EnumerateArray()) {
-               if (e.TryGetProperty("headerCode", out var c) && string.Equals(c.GetString(), gameCode, StringComparison.OrdinalIgnoreCase)) byCode = e.Clone();
-               if (e.TryGetProperty("md5", out var m) && string.Equals(m.GetString(), md5, StringComparison.OrdinalIgnoreCase)) byMd5 = e.Clone();
-            }
-         }
-         string Get(System.Text.Json.JsonElement? el, string p) => el is System.Text.Json.JsonElement j && j.TryGetProperty(p, out var v) ? v.GetString() : null;
-         var baseGame = Get(byCode, "game");
-         var note = baseGame == null
-            ? $"Unrecognized header code '{gameCode}'; HMA opens this as a plain hex editor."
-            : (byMd5 != null ? "Clean No-Intro dump." : "Header matches a supported base, but the bytes don't match any known clean dump — edited / romhack.");
-         return new {
-            ok = true,
-            headerCode = gameCode,
-            baseGame,
-            revision = Get(byCode, "revision"),
-            hmaSupport = Get(byCode, "hmaSupport"),
-            isCleanDump = byMd5 != null,
-            matchedNoIntro = Get(byMd5, "noIntroName"),
-            md5, sha1, crc32, note
-         };
       }
 
       // Pick the target ROM tab: by "tab" index or filename substring, else the
