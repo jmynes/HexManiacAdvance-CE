@@ -50,9 +50,6 @@ echo "== 2-6. drive server =="
   printf '%s\n' '{"jsonrpc":"2.0","id":21,"method":"tools/call","params":{"name":"read_table","arguments":{"name":"data.pokemon.moves.names","start":19,"count":1}}}'; sleep 2
   printf '%s\n' '{"jsonrpc":"2.0","id":22,"method":"tools/call","params":{"name":"write_value","arguments":{"table":"data.pokemon.stats","index":1,"field":"type1","value":"FLYING"}}}'; sleep 2
   printf '%s\n' '{"jsonrpc":"2.0","id":23,"method":"tools/call","params":{"name":"write_value","arguments":{"table":"data.pokemon.stats","index":1,"field":"type1","value":"NOTATYPE"}}}'; sleep 2
-  printf '%s\n' '{"jsonrpc":"2.0","id":24,"method":"tools/call","params":{"name":"write_value","arguments":{"table":"data.pokemon.stats","index":1,"field":"hp","value":123}}}'; sleep 1
-  printf '%s\n' '{"jsonrpc":"2.0","id":25,"method":"tools/call","params":{"name":"undo","arguments":{}}}'; sleep 1
-  printf '%s\n' '{"jsonrpc":"2.0","id":26,"method":"tools/call","params":{"name":"read_table","arguments":{"name":"data.pokemon.stats","start":1,"count":1}}}'; sleep 1
   printf '%s\n' "{\"jsonrpc\":\"2.0\",\"id\":6,\"method\":\"tools/call\",\"params\":{\"name\":\"save_rom\",\"arguments\":{\"outPath\":\"$OR\"}}}"; sleep 2
   printf '%s\n' "{\"jsonrpc\":\"2.0\",\"id\":7,\"method\":\"tools/call\",\"params\":{\"name\":\"open_rom\",\"arguments\":{\"path\":\"$OR\"}}}"; sleep 15
   printf '%s\n' '{"jsonrpc":"2.0","id":8,"method":"tools/call","params":{"name":"read_table","arguments":{"name":"data.pokemon.stats","start":1,"count":1}}}'; sleep 2
@@ -62,6 +59,9 @@ echo "== 2-6. drive server =="
   printf '%s\n' "{\"jsonrpc\":\"2.0\",\"id\":11,\"method\":\"tools/call\",\"params\":{\"name\":\"export_table\",\"arguments\":{\"name\":\"data.trainers.stats\",\"outPath\":\"$TRNW\"}}}"; sleep 2
   printf '%s\n' "{\"jsonrpc\":\"2.0\",\"id\":12,\"method\":\"tools/call\",\"params\":{\"name\":\"export_table\",\"arguments\":{\"name\":\"data.pokedex.stats\",\"outPath\":\"$DEXW\"}}}"; sleep 2
   printf '%s\n' '{"jsonrpc":"2.0","id":13,"method":"tools/call","params":{"name":"run_script","arguments":{"script":"","path":"resources/Scripts/Add Mechanics From Later Generations/AnyGame_PixilateStyleAbilities.hma"}}}'; sleep 8
+  printf '%s\n' '{"jsonrpc":"2.0","id":24,"method":"tools/call","params":{"name":"write_value","arguments":{"table":"data.pokemon.stats","index":1,"field":"hp","value":123}}}'; sleep 1
+  printf '%s\n' '{"jsonrpc":"2.0","id":25,"method":"tools/call","params":{"name":"undo","arguments":{}}}'; sleep 1
+  printf '%s\n' '{"jsonrpc":"2.0","id":26,"method":"tools/call","params":{"name":"read_table","arguments":{"name":"data.pokemon.stats","start":1,"count":1}}}'; sleep 1
   printf '%s\n' '{"jsonrpc":"2.0","id":14,"method":"tools/call","params":{"name":"list_shortcuts","arguments":{}}}'; sleep 2
   printf '%s\n' '{"jsonrpc":"2.0","id":15,"method":"tools/call","params":{"name":"goto","arguments":{"target":"Pokemon"}}}'; sleep 2
 } | "./$EXE" > "$OUT" 2>"$ERR"
