@@ -120,7 +120,8 @@ options). Works live (visible + undoable in the GUI) and headless.
 - `duplicate_tab` — open a second tab on the resolved tab's ROM (like Ctrl+T),
   sharing its model and undo history. **Live only.** `close_rom` then closes all
   tabs of that ROM at once.
-- `save_rom` — saves the resolved tab to its file (live) / the loaded ROM (headless).
+- `save_rom` — pass `outPath` to save a COPY, or `overwrite=true` to save over the
+  loaded/open ROM. With neither it refuses (won't silently overwrite the source).
 - `close_tab` — close one tab (default: active). **Live only.** Refuses on unsaved
   changes unless `force=true` (which discards them; no disk write, no dialog).
 - `close_rom` — close ALL tabs showing the resolved tab's ROM. **Live only.** Same
