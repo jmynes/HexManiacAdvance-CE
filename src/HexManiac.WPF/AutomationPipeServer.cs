@@ -133,6 +133,8 @@ namespace HavenSoft.HexManiac.WPF.Windows {
                editor.GotoAndCloseShortcutsPanel(vp, resolved);
                return Ok(new { ok = true, target, resolved, tab = vp.FullFileName ?? vp.Name });
             }
+            case "undo": return Ok(ApplyHistory(ResolveTab(p), Int(p, "count", 1), redo: false));
+            case "redo": return Ok(ApplyHistory(ResolveTab(p), Int(p, "count", 1), redo: true));
             default:
                return new AutoResponse(false, null, $"Unknown method: {req.Method}");
          }
@@ -184,6 +186,15 @@ namespace HavenSoft.HexManiac.WPF.Windows {
 
       private static AutoResponse NoTab() =>
          new AutoResponse(false, null, "No open ROM tab in the GUI.");
+
+      private static object ApplyHistory(ViewPort vp, int count, bool redo) {
+         if (vp == null) return new { error = "No open ROM tab in the GUI." };
+         vp.ChangeHistory.ChangeCompleted();            // commit any in-progress edit so it is on the stack
+         var cmd = redo ? vp.Redo : vp.Undo;
+         int applied = 0;
+         while (applied < count && cmd.CanExecute(null)) { cmd.Execute(null); applied++; }
+         return new { ok = true, applied };
+      }
 
       private static IFileSystem GuiFileSystem() =>
          ((MainWindow)Application.Current.MainWindow).FileSystem;

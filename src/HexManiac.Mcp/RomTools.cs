@@ -103,6 +103,31 @@ public sealed class RomTools {
          () => RomAutomation.WriteValue(session.Require(), () => session.Token, table, index, field, v, flag));
    }
 
+   [McpServerTool(Name = "undo")]
+   [Description("Undo up to 'count' edits on the active tab's change history (same stack as Ctrl+Z). Live GUI when present; else headless.")]
+   public string Undo(RomSession session, [Description("How many steps to undo")] int count = 1,
+      [Description("Target GUI tab by index")] int? tab = null, [Description("Target GUI tab by filename substring")] string? tabFile = null) {
+      var p = new Dictionary<string, object?> { ["count"] = count };
+      return Dispatch("undo", p, tab, tabFile, () => HistoryHeadless(session, count, redo: false));
+   }
+
+   [McpServerTool(Name = "redo")]
+   [Description("Redo up to 'count' edits on the active tab's change history (same stack as Ctrl+Y). Live GUI when present; else headless.")]
+   public string Redo(RomSession session, [Description("How many steps to redo")] int count = 1,
+      [Description("Target GUI tab by index")] int? tab = null, [Description("Target GUI tab by filename substring")] string? tabFile = null) {
+      var p = new Dictionary<string, object?> { ["count"] = count };
+      return Dispatch("redo", p, tab, tabFile, () => HistoryHeadless(session, count, redo: true));
+   }
+
+   private static object HistoryHeadless(RomSession session, int count, bool redo) {
+      var vp = session.RequireViewPort();
+      vp.ChangeHistory.ChangeCompleted();
+      var cmd = redo ? vp.Redo : vp.Undo;
+      int applied = 0;
+      while (applied < count && cmd.CanExecute(null)) { cmd.Execute(null); applied++; }
+      return new { ok = true, applied };
+   }
+
    // Convert a JSON scalar argument to the CLR value the engine expects.
    private static object? JsonToValue(JsonElement v) => v.ValueKind switch {
       JsonValueKind.String => v.GetString(),

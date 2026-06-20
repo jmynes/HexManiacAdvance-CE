@@ -50,6 +50,9 @@ echo "== 2-6. drive server =="
   printf '%s\n' '{"jsonrpc":"2.0","id":21,"method":"tools/call","params":{"name":"read_table","arguments":{"name":"data.pokemon.moves.names","start":19,"count":1}}}'; sleep 2
   printf '%s\n' '{"jsonrpc":"2.0","id":22,"method":"tools/call","params":{"name":"write_value","arguments":{"table":"data.pokemon.stats","index":1,"field":"type1","value":"FLYING"}}}'; sleep 2
   printf '%s\n' '{"jsonrpc":"2.0","id":23,"method":"tools/call","params":{"name":"write_value","arguments":{"table":"data.pokemon.stats","index":1,"field":"type1","value":"NOTATYPE"}}}'; sleep 2
+  printf '%s\n' '{"jsonrpc":"2.0","id":24,"method":"tools/call","params":{"name":"write_value","arguments":{"table":"data.pokemon.stats","index":1,"field":"hp","value":123}}}'; sleep 1
+  printf '%s\n' '{"jsonrpc":"2.0","id":25,"method":"tools/call","params":{"name":"undo","arguments":{}}}'; sleep 1
+  printf '%s\n' '{"jsonrpc":"2.0","id":26,"method":"tools/call","params":{"name":"read_table","arguments":{"name":"data.pokemon.stats","start":1,"count":1}}}'; sleep 1
   printf '%s\n' "{\"jsonrpc\":\"2.0\",\"id\":6,\"method\":\"tools/call\",\"params\":{\"name\":\"save_rom\",\"arguments\":{\"outPath\":\"$OR\"}}}"; sleep 2
   printf '%s\n' "{\"jsonrpc\":\"2.0\",\"id\":7,\"method\":\"tools/call\",\"params\":{\"name\":\"open_rom\",\"arguments\":{\"path\":\"$OR\"}}}"; sleep 15
   printf '%s\n' '{"jsonrpc":"2.0","id":8,"method":"tools/call","params":{"name":"read_table","arguments":{"name":"data.pokemon.stats","start":1,"count":1}}}'; sleep 2
@@ -65,7 +68,7 @@ echo "== 2-6. drive server =="
 
 echo "== assertions =="
 # 2. protocol + tools/list
-[ "$(jq -rs 'map(select(.id==2))[0].result.tools|length' "$OUT" 2>/dev/null)" = "10" ] && ok "tools/list shows 10 tools" || bad "tools/list"
+[ "$(jq -rs 'map(select(.id==2))[0].result.tools|length' "$OUT" 2>/dev/null)" = "12" ] && ok "tools/list shows 12 tools" || bad "tools/list"
 # 3. open + read known value
 [ "$(is_error 3)" = "false" ] && ok "open_rom" || bad "open_rom"
 [ "$(result_text 4 | jq -r '.rows[0].hp' 2>/dev/null)" = "45" ] && ok "read_table Bulbasaur hp=45" || bad "read_table known value"
@@ -78,6 +81,9 @@ echo "== assertions =="
 [ "$(result_text 21 | jq -r '.rows[0].name' 2>/dev/null)" = "SMOKETEST" ] && ok "string write read-back" || bad "string write read-back"
 [ "$(result_text 22 | jq -r '.newValue' 2>/dev/null)" = "FLYING" ] && ok "write_value enum-by-name" || bad "write_value enum"
 [ "$(result_text 23 | jq -r '.error' 2>/dev/null | grep -ci 'Options')" -ge 1 ] && ok "bad enum lists options" || bad "bad enum error"
+# undo/redo
+[ "$(result_text 25 | jq -r '.applied' 2>/dev/null)" -ge 1 ] && ok "undo applied >=1" || bad "undo applied"
+[ "$(result_text 26 | jq -r '.rows[0].hp' 2>/dev/null)" != "123" ] && ok "undo reverted hp write" || bad "undo did not revert"
 # 5. exports
 [ "$(is_error 10)" = "false" ] && [ -s "$ENC" ] && ok "export encounters" || bad "export encounters (TODO)"
 [ "$(is_error 11)" = "false" ] && [ -s "$TRN" ] && ok "export trainers" || bad "export trainers (TODO)"
