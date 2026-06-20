@@ -78,6 +78,9 @@ echo "== 2-6. drive server =="
   printf '%s\n' "{\"jsonrpc\":\"2.0\",\"id\":36,\"method\":\"tools/call\",\"params\":{\"name\":\"open_rom\",\"arguments\":{\"path\":\"$R\",\"metadata\":\"guess_offsets\"}}}"; sleep 2
   printf '%s\n' "{\"jsonrpc\":\"2.0\",\"id\":37,\"method\":\"tools/call\",\"params\":{\"name\":\"open_rom\",\"arguments\":{\"path\":\"$FAKEW\"}}}"; sleep 2
   printf '%s\n' "{\"jsonrpc\":\"2.0\",\"id\":38,\"method\":\"tools/call\",\"params\":{\"name\":\"open_rom\",\"arguments\":{\"path\":\"$FAKEW\",\"metadata\":\"guess\"}}}"; sleep 8
+  printf '%s\n' "{\"jsonrpc\":\"2.0\",\"id\":41,\"method\":\"tools/call\",\"params\":{\"name\":\"open_rom\",\"arguments\":{\"path\":\"$R\"}}}"; sleep 15
+  printf '%s\n' '{"jsonrpc":"2.0","id":39,"method":"tools/call","params":{"name":"write_value","arguments":{"table":"data.pokemon.moves.stats.battle","index":1,"field":"info","value":false,"flag":"Makes Contact"}}}'; sleep 1
+  printf '%s\n' '{"jsonrpc":"2.0","id":40,"method":"tools/call","params":{"name":"write_value","arguments":{"table":"data.pokemon.moves.stats.battle","index":1,"field":"target","value":true,"flag":"Both"}}}'; sleep 1
 } | "./$EXE" > "$OUT" 2>"$ERR"
 
 echo "== assertions =="
@@ -128,6 +131,9 @@ echo "== assertions =="
 [ "$(result_text 36 | jq -r '.error' 2>/dev/null | grep -ci 'not yet implemented')" -ge 1 ] && ok "guess_offsets not-implemented notice" || bad "guess_offsets notice"
 [ "$(result_text 37 | jq -r '.needsMetadataChoice' 2>/dev/null)" = "true" ] && ok "unrecognized auto -> needsMetadataChoice" || bad "unrecognized warning"
 [ "$(result_text 38 | jq -r '.ok' 2>/dev/null)" = "true" ] && ok "guess opens unrecognized rom" || bad "guess open"
+[ "$(result_text 39 | jq -r '.ok' 2>/dev/null)" = "true" ] && ok "checkbox by spaced friendly name" || bad "spaced flag name"
+[ "$(result_text 39 | jq -r '.flag' 2>/dev/null)" = "Makes Contact" ] && ok "flag reported unquoted" || bad "flag unquoted report"
+[ "$(result_text 40 | jq -r '.ok' 2>/dev/null)" = "true" ] && ok "single-word flag still works" || bad "single-word flag"
 
 echo "================="
 echo "PASS=$PASS  FAIL=$FAIL"

@@ -73,12 +73,14 @@ namespace HavenSoft.HexManiac.Core.Models {
             if (flag != null) {
                var flags = FlagNames(model, seg);
                if (flags == null) return Err($"Field '{field}' is not a bit-array; 'flag' only applies to bit-array fields.");
-               if (!flags.Contains(flag)) return Err($"Unknown flag '{flag}' on field '{field}'. Flags: {string.Join(", ", flags)}");
+               static string NormFlag(string s) => s.Trim().Trim('"');
+               var match = flags.FirstOrDefault(f => NormFlag(f).Equals(NormFlag(flag), StringComparison.OrdinalIgnoreCase));
+               if (match == null) return Err($"Unknown flag '{flag}' on field '{field}'. Flags: {string.Join(", ", flags.Select(NormFlag))}");
                if (!TryCoerceFlag(value, out var flagVal)) return Err($"Flag '{flag}' expects true/false (or 0/1).");
-               var oldFlag = ((ModelTupleElement)element[field])[flag];
-               ((ModelTupleElement)element[field])[flag] = flagVal;
-               var newFlag = ((ModelTupleElement)t[index][field])[flag];
-               return WriteResult(table, index, field, flag, oldFlag, newFlag);
+               var oldFlag = ((ModelTupleElement)element[field])[match];
+               ((ModelTupleElement)element[field])[match] = flagVal;
+               var newFlag = ((ModelTupleElement)t[index][field])[match];
+               return WriteResult(table, index, field, NormFlag(match), oldFlag, newFlag);
             }
             if (seg is ArrayRunEnumSegment enumSeg) {
                if (value is string es) {
