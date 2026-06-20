@@ -163,6 +163,24 @@ public sealed class RomTools {
       return Dispatch("paste_rows", p, tab, tabFile, () => RomAutomation.PasteRows(session.Require(), () => session.Token, table, index, hex));
    }
 
+   [McpServerTool(Name = "close_tab")]
+   [Description("Close one tab in the live GUI (default: active tab). Refuses if the tab has unsaved changes unless force=true (which discards them). Live GUI only.")]
+   public string CloseTab(RomSession session, [Description("Target GUI tab by index")] int? tab = null,
+      [Description("Target GUI tab by filename substring")] string? tabFile = null,
+      [Description("Discard unsaved changes")] bool force = false) {
+      var p = new Dictionary<string, object?> { ["force"] = force };
+      return Dispatch("close_tab", p, tab, tabFile, () => RomAutomation.Err("close_tab requires the live GUI."));
+   }
+
+   [McpServerTool(Name = "close_rom")]
+   [Description("Close ALL tabs showing the resolved tab's ROM in the live GUI. Refuses if any of those tabs has unsaved changes unless force=true (which discards them). Live GUI only.")]
+   public string CloseRom(RomSession session, [Description("Target GUI tab by index")] int? tab = null,
+      [Description("Target GUI tab by filename substring")] string? tabFile = null,
+      [Description("Discard unsaved changes")] bool force = false) {
+      var p = new Dictionary<string, object?> { ["force"] = force };
+      return Dispatch("close_rom", p, tab, tabFile, () => RomAutomation.Err("close_rom requires the live GUI."));
+   }
+
    [McpServerTool(Name = "clipboard_copy")]
    [Description("Copy the live GUI's current selection to the system clipboard; returns the copied text. Live GUI only.")]
    public string ClipboardCopy(RomSession session, [Description("Target GUI tab by index")] int? tab = null, [Description("Target GUI tab by filename substring")] string? tabFile = null) {

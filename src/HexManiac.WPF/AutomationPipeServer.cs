@@ -182,6 +182,27 @@ namespace HavenSoft.HexManiac.WPF.Windows {
                foreach (var t in editor) { if (ReferenceEquals(t, vp)) { index = i; break; } i++; }
                return Ok(new { ok = true, path = full, index, file = vp.FullFileName ?? vp.Name });
             }
+            case "close_tab": {
+               var vp = ResolveTab(p); if (vp == null) return NoTab();
+               bool force = Bool(p, "force", false);
+               if (vp.ChangeHistory.HasDataChange && !force)
+                  return new AutoResponse(false, null, $"Tab '{vp.FullFileName ?? vp.Name}' has unsaved changes; pass force=true to discard.");
+               var file = vp.FullFileName ?? vp.Name;
+               CloseTabNoPrompt(vp);
+               return Ok(new { ok = true, closed = file, remaining = CountTabs() });
+            }
+            case "close_rom": {
+               var vp = ResolveTab(p); if (vp == null) return NoTab();
+               bool force = Bool(p, "force", false);
+               var group = new List<ViewPort>();
+               foreach (var t in editor) if (t is ViewPort v && ReferenceEquals(v.Model, vp.Model)) group.Add(v);
+               if (!force) {
+                  var dirty = group.FirstOrDefault(v => v.ChangeHistory.HasDataChange);
+                  if (dirty != null) return new AutoResponse(false, null, $"ROM has unsaved changes in tab '{dirty.FullFileName ?? dirty.Name}'; pass force=true to discard.");
+               }
+               foreach (var v in group) CloseTabNoPrompt(v);
+               return Ok(new { ok = true, closedCount = group.Count, remaining = CountTabs() });
+            }
             default:
                return new AutoResponse(false, null, $"Unknown method: {req.Method}");
          }
@@ -226,6 +247,30 @@ namespace HavenSoft.HexManiac.WPF.Windows {
          if (model.GetAddressFromAnchor(new NoDataChangeDeltaModel(), -1, target) != Pointer.NULL) return true;
          if (target.TryParseHex(out _)) return true;
          return false;
+      }
+
+      // Close a tab without ever showing a save dialog: tag the history saved (so
+      // CloseExecuted skips its TrySavePrompt) then run the tab's Close. Discards
+      // unsaved edits (no disk write). Caller already enforced the force gate.
+      private void CloseTabNoPrompt(ViewPort vp) {
+         if (vp.ChangeHistory.HasDataChange) vp.ChangeHistory.TagAsSaved();
+         vp.Close.Execute(GuiFileSystem());
+      }
+
+      private int CountTabs() {
+         int n = 0;
+         foreach (var t in editor) if (t is ViewPort) n++;
+         return n;
+      }
+
+      private static bool Bool(JsonElement p, string key, bool fallback) {
+         if (p.ValueKind != JsonValueKind.Object || !p.TryGetProperty(key, out var v)) return fallback;
+         return v.ValueKind switch {
+            JsonValueKind.True => true,
+            JsonValueKind.False => false,
+            JsonValueKind.String => bool.TryParse(v.GetString(), out var b) ? b : fallback,
+            _ => fallback,
+         };
       }
 
       private static AutoResponse Ok(object result) =>

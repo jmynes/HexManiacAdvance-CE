@@ -51,6 +51,8 @@ echo "== drive MCP =="
   printf '%s\n' '{"jsonrpc":"2.0","id":12,"method":"tools/call","params":{"name":"clipboard_copy","arguments":{}}}'; sleep 1
   printf '%s\n' "{\"jsonrpc\":\"2.0\",\"id\":13,\"method\":\"tools/call\",\"params\":{\"name\":\"open_rom\",\"arguments\":{\"path\":\"$ROMW_JSON\"}}}"; sleep 8
   printf '%s\n' '{"jsonrpc":"2.0","id":14,"method":"tools/call","params":{"name":"list_open_roms","arguments":{}}}'; sleep 1
+  printf '%s\n' '{"jsonrpc":"2.0","id":15,"method":"tools/call","params":{"name":"close_tab","arguments":{"tab":1}}}'; sleep 1
+  printf '%s\n' '{"jsonrpc":"2.0","id":16,"method":"tools/call","params":{"name":"list_open_roms","arguments":{}}}'; sleep 1
 } | "./$MCP" > "$OUT" 2>/dev/null
 
 rt(){ jq -rs --argjson id "$1" 'map(select(.id==$id))[0].result.content[0].text//empty' "$OUT"; }
@@ -79,6 +81,9 @@ echo "== assertions =="
 [ "$(rt 13 | jq -r '.mode' 2>/dev/null)" = "live" ] && ok "open_rom mode=live" || bad "open_rom not live"
 [ "$(rt 13 | jq -r '.ok' 2>/dev/null)" = "true" ] && ok "open_rom ok" || bad "open_rom ok"
 [ "$(rt 14 | jq -r '.tabs | length' 2>/dev/null)" -ge 2 ] && ok "two tabs open after open_rom" || bad "open_rom did not add a tab"
+[ "$(rt 15 | jq -r '.ok' 2>/dev/null)" = "true" ] && ok "close_tab ok" || bad "close_tab"
+[ "$(rt 15 | jq -r '.mode' 2>/dev/null)" = "live" ] && ok "close_tab mode=live" || bad "close_tab not live"
+[ "$(rt 16 | jq -r '.tabs | length' 2>/dev/null)" = "1" ] && ok "one tab after close_tab" || bad "close_tab did not remove tab"
 
 taskkill //F //IM HexManiacAdvance.exe >/dev/null 2>&1 || true
 echo "================="
