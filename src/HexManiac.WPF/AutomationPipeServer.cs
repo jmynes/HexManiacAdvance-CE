@@ -273,9 +273,12 @@ namespace HavenSoft.HexManiac.WPF.Windows {
       private static object IdentifyMatch(string gameCode, string md5, string sha1, string crc32) {
          var asm = System.Reflection.Assembly.GetExecutingAssembly();
          var name = asm.GetManifestResourceNames().FirstOrDefault(n => n.EndsWith("supported-roms.json", StringComparison.OrdinalIgnoreCase));
-         string json = name != null
-            ? new System.IO.StreamReader(asm.GetManifestResourceStream(name)).ReadToEnd()
-            : "{}";
+         string json = "{}";
+         if (name != null) {
+            using var stream = asm.GetManifestResourceStream(name);
+            using var reader = new System.IO.StreamReader(stream);
+            json = reader.ReadToEnd();
+         }
          using var doc = System.Text.Json.JsonDocument.Parse(json);
          System.Text.Json.JsonElement? byCode = null, byMd5 = null;
          foreach (var section in new[] { "roms", "notSupported", "alsoSupported" }) {

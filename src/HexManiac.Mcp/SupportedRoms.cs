@@ -44,13 +44,18 @@ namespace HavenSoft.HexManiac.Mcp {
       }
 
       // Return the rom entries whose headerCode contains `code` (case-insensitive), as a JSON array string.
+      // Searches roms, alsoSupported, and notSupported sections (any present).
       public static string Lookup(string code) {
          using var doc = JsonDocument.Parse(Json());
-         if (!doc.RootElement.TryGetProperty("roms", out var roms)) return "[]";
-         var matches = roms.EnumerateArray()
-            .Where(e => e.TryGetProperty("headerCode", out var c) && c.GetString() is string s
-                        && s.IndexOf(code, StringComparison.OrdinalIgnoreCase) >= 0)
-            .Select(e => e.GetRawText());
+         var matches = new System.Collections.Generic.List<string>();
+         foreach (var section in new[] { "roms", "alsoSupported", "notSupported" }) {
+            if (!doc.RootElement.TryGetProperty(section, out var arr)) continue;
+            foreach (var e in arr.EnumerateArray()) {
+               if (e.TryGetProperty("headerCode", out var c) && c.GetString() is string s
+                   && s.IndexOf(code, StringComparison.OrdinalIgnoreCase) >= 0)
+                  matches.Add(e.GetRawText());
+            }
+         }
          return "[" + string.Join(",", matches) + "]";
       }
    }
