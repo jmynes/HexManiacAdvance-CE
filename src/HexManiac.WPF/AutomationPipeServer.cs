@@ -74,8 +74,14 @@ namespace HavenSoft.HexManiac.WPF.Windows {
                if (vp == null) return NoTab();
                // Edit through the tab's change token so it enters GUI undo history
                // and renders immediately.
-               return Ok(RomAutomation.WriteValue(vp.Model, () => vp.CurrentChange,
-                  Str(p, "table"), Int(p, "index", -1), Str(p, "field"), Val(p, "value"), StrOrNull(p, "flag")));
+               var table = Str(p, "table");
+               var index = Int(p, "index", -1);
+               var result = RomAutomation.WriteValue(vp.Model, () => vp.CurrentChange,
+                  table, index, Str(p, "field"), Val(p, "value"), StrOrNull(p, "flag"));
+               // On success, focus the edited row in the GUI so the change is visible.
+               if (result is System.Collections.IDictionary d && !d.Contains("error"))
+                  vp.Goto.Execute($"{table}/{index}");
+               return Ok(result);
             }
             case "export_table": {
                var vp = ResolveTab(p);

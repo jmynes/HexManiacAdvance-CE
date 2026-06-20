@@ -74,9 +74,9 @@ namespace HavenSoft.HexManiac.Core.Models {
                var flags = FlagNames(model, seg);
                if (flags == null) return Err($"Field '{field}' is not a bit-array; 'flag' only applies to bit-array fields.");
                if (!flags.Contains(flag)) return Err($"Unknown flag '{flag}' on field '{field}'. Flags: {string.Join(", ", flags)}");
-               if (value is not bool && value is not int) return Err($"Flag '{flag}' expects true/false (or 0/1).");
+               if (!TryCoerceFlag(value, out var flagVal)) return Err($"Flag '{flag}' expects true/false (or 0/1).");
                var oldFlag = ((ModelTupleElement)element[field])[flag];
-               ((ModelTupleElement)element[field])[flag] = value;
+               ((ModelTupleElement)element[field])[flag] = flagVal;
                var newFlag = ((ModelTupleElement)t[index][field])[flag];
                return WriteResult(table, index, field, flag, oldFlag, newFlag);
             }
@@ -102,7 +102,7 @@ namespace HavenSoft.HexManiac.Core.Models {
                return WriteResult(table, index, field, null, old, t[index].GetStringValue(field));
             }
             if (seg.Type == ElementContentType.Integer) {
-               if (value is not int iv) return Err($"Field '{field}' is an integer; provide a number value.");
+               if (!TryCoerceInt(value, out var iv)) return Err($"Field '{field}' is an integer; provide a number value.");
                var old = element.GetValue(field);
                element[field] = iv;
                return WriteResult(table, index, field, null, old, t[index].GetValue(field));
@@ -112,6 +112,27 @@ namespace HavenSoft.HexManiac.Core.Models {
             return Err($"Field '{field}' has a type that cannot be written.");
          } catch (Exception ex) {
             return Err($"Failed to set '{field}': {ex.Message}");
+         }
+      }
+
+      // The MCP client serializes the value argument as a JSON string (untyped schema),
+      // so a numeric/bool string must coerce to the field's type. Raw int/bool (from a
+      // typed JSON client) still work.
+      private static bool TryCoerceInt(object value, out int result) {
+         switch (value) {
+            case int i: result = i; return true;
+            case string s when int.TryParse(s, out result): return true;
+            default: result = 0; return false;
+         }
+      }
+
+      private static bool TryCoerceFlag(object value, out int result) {
+         switch (value) {
+            case bool b: result = b ? 1 : 0; return true;
+            case int i: result = i; return true;
+            case string s when bool.TryParse(s, out var bs): result = bs ? 1 : 0; return true;
+            case string s when int.TryParse(s, out result): return true;
+            default: result = 0; return false;
          }
       }
 

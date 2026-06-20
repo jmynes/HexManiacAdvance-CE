@@ -50,5 +50,23 @@ namespace HavenSoft.HexManiac.Tests {
          var r = Write(this, "power", "abc");
          Assert.True(r.ContainsKey("error"));
       }
+
+      // The MCP client serializes the value argument as a JSON string (untyped
+      // schema), so the engine must coerce a numeric/bool string to the field's type.
+      [Fact] public void SetsIntegerFromNumericString() {
+         Setup();
+         var r = Write(this, "power", "120");
+         Assert.Equal(true, r["ok"]); Assert.Equal(120, r["newValue"]);
+      }
+      [Fact] public void SetsFlagFromBoolString() {
+         Setup();
+         var r = Write(this, "flags", "true", flag: "b");
+         Assert.Equal(true, r["ok"]); Assert.Equal(1, r["newValue"]);
+      }
+      [Fact] public void SetsEnumFromNumericString() {
+         Setup();
+         var r = Write(this, "kind", "2");
+         Assert.Equal("FLYING", r["newValue"]);
+      }
    }
 }
