@@ -55,6 +55,17 @@ namespace HavenSoft.HexManiac.Tests {
          Assert.Equal(0x0070, Model.ReadMultiByteValue(0, 2));
       }
 
+      // pythonnet uses .NET reflection, not the DLR DynamicObject protocol, so the
+      // IronPython-era __len__/__getindex__ helpers were dropped. Confirm len(table)
+      // and string-key column access still resolve through the .NET members.
+      [Fact]
+      public void Table_LenAndElementAccess_WorkUnderPythonnet() {
+         ViewPort.Edit("^elements[a: b:]3 1 2 3 4 5 6 "); // rows: (1,2) (3,4) (5,6)
+
+         Assert.Equal("3", Execute("len(table['elements'])").Trim()); // removed __len__ -> via .NET Count
+         Assert.Equal("5", Execute("table['elements'][2].a").Trim()); // row 2, field a
+      }
+
       [SkippableFact]
       public void BundledPackage_ImportRequests_Succeeds() {
          // guards the pip-bootstrap pipeline in Directory.Build.targets: the embeddable
