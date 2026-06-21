@@ -18,7 +18,6 @@ namespace HavenSoft.HexManiac.Core.Models {
       private readonly ITableRun run;
 
       public int Count => run?.ElementCount ?? 0;
-      public int __len__() => Count; // for python
 
       public ITableRun Run => run;
 
@@ -223,8 +222,6 @@ namespace HavenSoft.HexManiac.Core.Models {
          return new ModelTupleElement(model, table, arrayIndex, segmentOffset, (ArrayRunTupleSegment)seg, tokenFactory);
       }
 
-      public object __getindex__(string key) => this[key];                     // for python
-      public void __setindex__(string key, object value) => this[key] = value; // for python
       public object this[string fieldName] {
          get {
             var seg = table.ElementContent.FirstOrDefault(segment => segment.Name == fieldName);
@@ -252,15 +249,15 @@ namespace HavenSoft.HexManiac.Core.Models {
             if (seg is ArrayRunEnumSegment) {
                if (value is string str) SetEnumValue(fieldName, str);
                else if (value is BigInteger big) SetValue(fieldName, (int)big);
-               else SetValue(fieldName, (int)value);
+               else SetValue(fieldName, Convert.ToInt32(value));
             } else if (seg.Type == ElementContentType.Pointer) {
                if (value is string str) {
                   SetStringValue(fieldName, str);
                } else {
-                  SetAddress(fieldName, (int)value);
+                  SetAddress(fieldName, Convert.ToInt32(value));
                }
             } else if (seg.Type == ElementContentType.PCS) SetStringValue(fieldName, (string)value);
-            else SetValue(fieldName, (int)value);
+            else SetValue(fieldName, Convert.ToInt32(value));
          }
       }
 
@@ -455,7 +452,7 @@ namespace HavenSoft.HexManiac.Core.Models {
                var tup = tuple.Elements.First(seg => seg.Name == matchName);
                if (TryConvertEnumTextToValue(tup, s, out var result)) value = result;
             }
-            SetValue(fieldName, (int)value);
+            SetValue(fieldName, Convert.ToInt32(value));
          }
       }
 
@@ -587,7 +584,6 @@ namespace HavenSoft.HexManiac.Core.Models {
       private EggMoveRun eggRun;
 
       public int Count => eggRun.Length / 2;
-      public int __len__() => Count; // for python
 
       public EggMoveRun Run => eggRun;
 

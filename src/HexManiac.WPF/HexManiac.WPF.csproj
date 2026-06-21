@@ -11,6 +11,8 @@
     <Nullable>annotations</Nullable>
   <ApplicationIcon>Resources\AppIcon.ico</ApplicationIcon>
   <Platforms>AnyCPU;x86;x64</Platforms>
+  <BundlePythonRuntimeX64>true</BundlePythonRuntimeX64>
+  <BundlePythonRuntimeX86>true</BundlePythonRuntimeX86>
   </PropertyGroup>
   <ItemGroup>
     <None Remove="Resources\HMA_Splash.xcf" />
@@ -50,7 +52,6 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Crc32.NET" Version="1.2.0" />
-    <PackageReference Include="IronPython" Version="3.4.0" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="$(SolutionDir)src\HexManiac.Core\HexManiac.Core.csproj" />
@@ -82,9 +83,6 @@
       rmdir /s /q "$(TargetDir)Scripts"
       rmdir "$(TargetDir)Models\Code"
       rmdir "$(TargetDir)Models"
-      del "$(TargetDir)IronPython.SQLite.dll"
-      del "$(TargetDir)Mono.Unix.dll"
-      rmdir "$(TargetDir)runtimes" /s /q
     </PostBuildEvent>
   </PropertyGroup>
 </Project>

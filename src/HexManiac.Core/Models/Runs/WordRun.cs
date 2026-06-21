@@ -2,7 +2,6 @@
 using System;
 using System.Diagnostics;
 using System.Text;
-using static IronPython.Runtime.Profiler;
 
 namespace HavenSoft.HexManiac.Core.Models.Runs {
    public class WordRun : BaseRun, IAppendToBuilderRun {

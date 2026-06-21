@@ -155,6 +155,17 @@ namespace HavenSoft.HexManiac.Core {
          foreach (var item in items) set.Add(item);
       }
 
+      public static void AddRange<T>(this IList<T> list, IEnumerable<T> items) {
+         foreach (var item in items) list.Add(item);
+      }
+
+      public static int FindIndex<T>(this IList<T> list, Predicate<T> match) {
+         for (int i = 0; i < list.Count; i++) {
+            if (match(list[i])) return i;
+         }
+         return -1;
+      }
+
       public static bool All<T>(this ReadOnlySpan<T> span, Func<T,bool> predicate) {
          var match = true;
          for (int i = 0; match && i < span.Length; i++) {
