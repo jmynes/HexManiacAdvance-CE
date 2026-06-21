@@ -1,7 +1,6 @@
 ﻿using HavenSoft.HexManiac.Core.Models.Runs.Sprites;
 using HexManiac.Core.Models.Runs.Factory;
 using HexManiac.Core.Models.Runs.Sprites;
-using Microsoft.Scripting.Interpreter;
 using System.Collections.Generic;
 
 namespace HavenSoft.HexManiac.Core.Models.Runs.Factory {

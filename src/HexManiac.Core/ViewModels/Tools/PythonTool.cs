@@ -1,15 +1,19 @@
-﻿using HavenSoft.HexManiac.Core.Models;
+using HavenSoft.HexManiac.Core.Models;
 using HavenSoft.HexManiac.Core.Models.Runs;
-using Microsoft.Scripting.Hosting;
+using Python.Runtime;
 using System;
-using System.Collections;
 using System.Diagnostics;
 using System.Dynamic;
+using System.IO;
+using System.Linq;
+using System.Text.RegularExpressions;
 
 namespace HavenSoft.HexManiac.Core.ViewModels.Tools {
    public class PythonTool : ViewModelCore {
-      private Lazy<ScriptEngine> engine;
-      private Lazy<ScriptScope> scope;
+      private static readonly object engineLock = new();
+      private static volatile bool engineInitialized;
+
+      private readonly Lazy<PyModule> scope;
       private readonly EditorViewModel editor;
       private readonly TextEditorViewModel content;
 
@@ -21,32 +25,53 @@ namespace HavenSoft.HexManiac.Core.ViewModels.Tools {
       public PythonTool(EditorViewModel editor) {
          this.editor = editor;
          content = SetupPythonEditor();
-         engine = new(() => {
-            var engine = IronPython.Hosting.Python.CreateEngine();
-            var paths = engine.GetSearchPaths();
-            paths.Add(Environment.CurrentDirectory);
-            engine.SetSearchPaths(paths);
-            return engine;
-         });
+         EnsureEngineInitialized();
 
          scope = new(() => {
-            var scope = engine.Value.CreateScope();
-            scope.SetVariable("editor", editor);
-            scope.SetVariable("table", new TableGetter(editor));
-            scope.SetVariable("print", (Action<string>)Printer);
-            try {
-               engine.Value.Execute(@"
+            using (Py.GIL()) {
+               var scope = Py.CreateScope();
+               scope.Set("editor", editor);
+               scope.Set("table", new TableGetter(editor));
+               scope.Set("print", new Action<string>(Printer));
+               try {
+                  // 'ast' splits off a trailing expression statement so a script can mix
+                  // statements (assignments, loops) with a final expression whose value gets
+                  // returned, matching IronPython's ScriptEngine.Execute REPL-like behavior.
+                  // Stringifying inside Python (rather than marshalling the raw value back to
+                  // C#) sidesteps pythonnet's object-typed-parameter int/str marshalling quirks.
+                  scope.Exec(@"
 import clr
 clr.AddReference('HexManiac.Core')
 import HavenSoft.HexManiac.Core
-clr.ImportExtensions(HavenSoft.HexManiac.Core.Models)
-",
-                  scope);
-               engine.Value.Execute(editor.Singletons.PythonUtility, scope);
-            } catch (Exception ex) {
-               Debug.Fail(ex.Message);
+from HavenSoft.HexManiac.Core.Models import IDataModel
+import ast as __hma_ast__
+
+def __hma_run__(__hma_code__):
+   __hma_tree__ = __hma_ast__.parse(__hma_code__, mode='exec')
+   __hma_value__ = None
+   if __hma_tree__.body and isinstance(__hma_tree__.body[-1], __hma_ast__.Expr):
+      __hma_last__ = __hma_ast__.Expression(__hma_tree__.body.pop().value)
+      __hma_ast__.fix_missing_locations(__hma_last__)
+      exec(compile(__hma_tree__, '<string>', 'exec'), globals())
+      __hma_value__ = eval(compile(__hma_last__, '<string>', 'eval'), globals())
+   else:
+      exec(compile(__hma_tree__, '<string>', 'exec'), globals())
+   if __hma_value__ is None:
+      return None
+   if isinstance(__hma_value__, str) or isinstance(__hma_value__, IDataModel):
+      return str(__hma_value__)
+   try:
+      __hma_items__ = list(__hma_value__)
+   except TypeError:
+      return str(__hma_value__)
+   return '\n'.join(str(__hma_item__) for __hma_item__ in __hma_items__)
+");
+                  scope.Exec(editor.Singletons.PythonUtility);
+               } catch (Exception ex) {
+                  Debug.Fail(ex.Message);
+               }
+               return scope;
             }
-            return scope;
          });
          Text = @"print('''
    Put python code here.
@@ -68,25 +93,21 @@ clr.ImportExtensions(HavenSoft.HexManiac.Core.Models)
       }
 
       public ErrorInfo RunPythonScript(string code) {
-         var (engine, scope) = (this.engine.Value, this.scope.Value);
-         if (editor.SelectedTab is IEditableViewPort vp) {
-            var anchors = AnchorGroup.GetTopLevelAnchorGroups(vp.Model, () => vp.ChangeHistory.CurrentChange);
-            foreach (var key in anchors.Keys) scope.SetVariable(key, anchors[key]);
-         }
-         try {
-            var result = engine.Execute(code, scope);
-            string resultText = result?.ToString();
-            if (result is IEnumerable enumerable && result is not string && result is not IDataModel) {
-               resultText = string.Empty;
-               foreach (var item in enumerable) {
-                  if (resultText.Length > 0) resultText += Environment.NewLine;
-                  resultText += item.ToString();
-               }
+         using (Py.GIL()) {
+            var scope = this.scope.Value;
+            if (editor.SelectedTab is IEditableViewPort vp) {
+               var anchors = AnchorGroup.GetTopLevelAnchorGroups(vp.Model, () => vp.ChangeHistory.CurrentChange);
+               foreach (var key in anchors.Keys) scope.Set(key, anchors[key]);
             }
-            if (resultText == null) return ErrorInfo.NoError;
-            return new ErrorInfo(resultText, isWarningLevel: true);
-         } catch (Exception ex) {
-            return new ErrorInfo(ex.Message);
+            try {
+               scope.Set("__hma_code__", code);
+               using var result = scope.Eval("__hma_run__(__hma_code__)");
+               string resultText = result.IsNone() ? null : result.As<string>();
+               if (resultText == null) return ErrorInfo.NoError;
+               return new ErrorInfo(resultText, isWarningLevel: true);
+            } catch (Exception ex) {
+               return new ErrorInfo(ex.Message);
+            }
          }
       }
 
@@ -100,10 +121,33 @@ clr.ImportExtensions(HavenSoft.HexManiac.Core.Models)
          return result.IsWarning ? result.ErrorMessage.Trim() : null;
       }
 
-      public void AddVariable(string name, object value) => scope.Value.SetVariable(name, value);
+      public void AddVariable(string name, object value) {
+         using (Py.GIL()) scope.Value.Set(name, value);
+      }
 
       public void Printer(string text) {
          editor.FileSystem.ShowCustomMessageBox(text, false);
+      }
+
+      private static void EnsureEngineInitialized() {
+         if (engineInitialized) return;
+         lock (engineLock) {
+            if (engineInitialized) return;
+            Runtime.PythonDLL = FindBundledPythonDll();
+            PythonEngine.Initialize();
+            PythonEngine.BeginAllowThreads();
+            engineInitialized = true;
+         }
+      }
+
+      private static string FindBundledPythonDll() {
+         var arch = Environment.Is64BitProcess ? "x64" : "x86";
+         var dir = Path.Combine(AppContext.BaseDirectory, "resources", "python", arch);
+         var dll = Directory.Exists(dir)
+            ? Directory.GetFiles(dir, "python3*.dll").FirstOrDefault(f => Regex.IsMatch(Path.GetFileName(f), @"^python3\d\d\.dll$"))
+            : null;
+         if (dll == null) throw new InvalidOperationException($"No bundled Python runtime found under {dir}. Expected a python3xx.dll from the embeddable package.");
+         return dll;
       }
 
       public static TextEditorViewModel SetupPythonEditor() {

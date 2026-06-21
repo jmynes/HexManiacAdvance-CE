@@ -3,7 +3,6 @@ using HavenSoft.HexManiac.Core.Models.Runs.Factory;
 using HavenSoft.HexManiac.Core.ViewModels;
 using HavenSoft.HexManiac.Core.ViewModels.DataFormats;
 using HavenSoft.HexManiac.Core.ViewModels.Tools;
-using Microsoft.Scripting.Utils;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;

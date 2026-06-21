@@ -2,7 +2,6 @@
 using HavenSoft.HexManiac.Core.Models.Runs.Sprites;
 using HavenSoft.HexManiac.Core.ViewModels.DataFormats;
 using HavenSoft.HexManiac.Core.ViewModels.Images;
-using Mono.Unix.Native;
 using System;
 using System.Collections.Generic;
 using System.Linq;

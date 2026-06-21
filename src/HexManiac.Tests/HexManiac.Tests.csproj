@@ -9,6 +9,7 @@
     <CodeGenDir>$(SolutionDir)artifacts\$(AssemblyName)\codegen\</CodeGenDir>
     <AutoImplement>$(SolutionDir)artifacts\AutoImplement.Tool\bin\$(Configuration)\$(TargetFramework)\AutoImplement.Tool</AutoImplement>
     <Platforms>AnyCPU</Platforms>
+    <BundlePythonRuntimeX64>true</BundlePythonRuntimeX64>
   </PropertyGroup>
 
   <ItemGroup>

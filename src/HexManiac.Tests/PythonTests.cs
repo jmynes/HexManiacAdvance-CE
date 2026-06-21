@@ -54,5 +54,19 @@ namespace HavenSoft.HexManiac.Tests {
 
          Assert.Equal(0x0070, Model.ReadMultiByteValue(0, 2));
       }
+
+      [SkippableFact]
+      public void BundledPackage_ImportRequests_Succeeds() {
+         // guards the pip-bootstrap pipeline in Directory.Build.targets: the embeddable
+         // CPython package ships with site-packages disabled, so this only works if that
+         // pipeline successfully enabled it and installed requests. That pipeline is
+         // intentionally non-fatal (a network blip must never break the editor build), so
+         // a missing package here is a real, expected possibility - skip rather than fail.
+         var importResult = tool.RunPythonScript("import requests");
+         Skip.If(importResult.HasError && !importResult.IsWarning, importResult.ErrorMessage);
+
+         var result = Execute("import requests; 'requests imported ok'").Trim();
+         Assert.Equal("requests imported ok", result);
+      }
    }
 }

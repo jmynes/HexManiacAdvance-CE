@@ -1,0 +1,68 @@
+<Project>
+  <!--
+    Stages a self-contained CPython "embeddable package" next to a project's build output
+    for the pythonnet-based scripting engine (PythonTool). pythonnet needs a real CPython
+    DLL at runtime; it doesn't bundle one. Downloads once into a shared, gitignored cache
+    under artifacts/, then copies from that cache into $(TargetDir)resources\python\<arch>\
+    on every build, so a clean checkout just works with `dotnet build` (first build needs
+    network access to fetch the embeddable package; later builds use the cache).
+
+    A project opts in by setting <BundlePythonRuntimeX64>true</BundlePythonRuntimeX64> and/or
+    <BundlePythonRuntimeX86>true</BundlePythonRuntimeX86> in its own .csproj.
+
+    The actual staging (download, site-packages/pip enablement, package install, and the
+    .complete marker) happens in stage-python-runtime.ps1, run via a named cross-process
+    mutex - see that script for why: it's what makes staging safe when HexManiac.WPF and
+    HexManiac.Tests both target this same cache dir under a parallel (`/m`) build, and what
+    keeps a transient network failure from permanently "completing" a broken cache.
+  -->
+  <PropertyGroup>
+    <PythonRuntimeVersion>3.12.8</PythonRuntimeVersion>
+    <PythonRuntimeCacheDir>$(SolutionDir)artifacts\PythonRuntime\$(PythonRuntimeVersion)\</PythonRuntimeCacheDir>
+    <!-- e.g. "3.12.8" -> "312", to name the version-specific python3xx.dll / python3xx._pth -->
+    <PythonRuntimeMajorMinor>$(PythonRuntimeVersion.Split('.')[0])$(PythonRuntimeVersion.Split('.')[1])</PythonRuntimeMajorMinor>
+  </PropertyGroup>
+
+  <!-- Packages installed into the bundled runtime's site-packages, for use by user-written
+       HMA python scripts (e.g. `import requests`). The embeddable package ships with
+       site-packages/pip disabled by design; opting a package in here bootstraps pip once
+       and installs it, so it's available out of the box rather than needing a manual,
+       per-machine, per-clean-build fix. A failure here (e.g. no network) only warns -
+       it must never block building the editor itself (see stage-python-runtime.ps1). -->
+  <ItemGroup>
+    <PythonRuntimePackage Include="requests" />
+    <PythonRuntimePackage Include="bs4" />
+  </ItemGroup>
+
+  <!-- WPF's build generates a short-lived "_wpftmp" shadow project (for XAML markup
+       compilation) that also imports this file and would otherwise independently
+       trigger staging - duplicating the work and, since that shadow project tears
+       down quickly, sometimes killing the staging script's child process mid-run.
+       It produces no real output, so it has no reason to bundle a runtime at all. -->
+  <PropertyGroup>
+    <IsWpfShadowProject>false</IsWpfShadowProject>
+    <IsWpfShadowProject Condition="$(MSBuildProjectName.EndsWith('_wpftmp'))">true</IsWpfShadowProject>
+  </PropertyGroup>
+
+  <Target Name="StagePythonRuntimeX64" AfterTargets="Build" Condition="'$(BundlePythonRuntimeX64)' == 'true' and '$(IsWpfShadowProject)' == 'false'">
+    <Exec Command="powershell -NoProfile -ExecutionPolicy Bypass -File &quot;$(MSBuildThisFileDirectory)stage-python-runtime.ps1&quot; -ArchDir &quot;$(PythonRuntimeCacheDir)x64&quot; -EmbedZipUrl &quot;https://www.python.org/ftp/python/$(PythonRuntimeVersion)/python-$(PythonRuntimeVersion)-embed-amd64.zip&quot; -MajorMinor &quot;$(PythonRuntimeMajorMinor)&quot; -MutexName &quot;Global\HMA_PythonRuntimeStage_x64_$(PythonRuntimeVersion)&quot; -PackagesCsv &quot;@(PythonRuntimePackage, ',')&quot;" />
+    <ItemGroup>
+      <!-- Copy whatever the script staged, even if package install/verification didn't
+           finish (no .complete yet) - the base interpreter is still usable without the
+           extra packages, and gating this on .complete would ship no runtime at all. -->
+      <_PythonRuntimeFilesX64 Include="$(PythonRuntimeCacheDir)x64\**\*" Exclude="$(PythonRuntimeCacheDir)x64\.complete" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_PythonRuntimeFilesX64)" DestinationFolder="$(TargetDir)resources\python\x64\%(RecursiveDir)" SkipUnchangedFiles="true" />
+  </Target>
+
+  <Target Name="StagePythonRuntimeX86" AfterTargets="Build" Condition="'$(BundlePythonRuntimeX86)' == 'true' and '$(IsWpfShadowProject)' == 'false'">
+    <Exec Command="powershell -NoProfile -ExecutionPolicy Bypass -File &quot;$(MSBuildThisFileDirectory)stage-python-runtime.ps1&quot; -ArchDir &quot;$(PythonRuntimeCacheDir)x86&quot; -EmbedZipUrl &quot;https://www.python.org/ftp/python/$(PythonRuntimeVersion)/python-$(PythonRuntimeVersion)-embed-win32.zip&quot; -MajorMinor &quot;$(PythonRuntimeMajorMinor)&quot; -MutexName &quot;Global\HMA_PythonRuntimeStage_x86_$(PythonRuntimeVersion)&quot; -PackagesCsv &quot;@(PythonRuntimePackage, ',')&quot;" />
+    <ItemGroup>
+      <!-- Copy whatever the script staged, even if package install/verification didn't
+           finish (no .complete yet) - the base interpreter is still usable without the
+           extra packages, and gating this on .complete would ship no runtime at all. -->
+      <_PythonRuntimeFilesX86 Include="$(PythonRuntimeCacheDir)x86\**\*" Exclude="$(PythonRuntimeCacheDir)x86\.complete" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_PythonRuntimeFilesX86)" DestinationFolder="$(TargetDir)resources\python\x86\%(RecursiveDir)" SkipUnchangedFiles="true" />
+  </Target>
+</Project>

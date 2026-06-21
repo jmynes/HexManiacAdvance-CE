@@ -24,6 +24,14 @@ under `src/HexManiac.WPF` or `src/HexManiac.Core`, rebuild, relaunch.
 > command above (SDK 6 + solution). That's why the MCP project is **not** part of
 > `HexManiacAdvance.sln`.
 
+> Note: the Python scripting engine (`PythonTool`) is [pythonnet](https://github.com/pythonnet/pythonnet)
+> embedding real CPython, not a system Python install. The first build of
+> `HexManiac.WPF` or `HexManiac.Tests` downloads the official Windows embeddable
+> CPython package (x64 + x86) into `artifacts/PythonRuntime/` (gitignored,
+> shared across projects, cached after the first build) and stages it next to
+> the output as `resources/python/{x64,x86}/`. This needs network access once;
+> later builds use the cache. See `src/Directory.Build.targets`.
+
 ## 2. The MCP server (this fork's addition)
 
 Targets `net8.0` and builds with the **.NET 8 SDK**. It has its own

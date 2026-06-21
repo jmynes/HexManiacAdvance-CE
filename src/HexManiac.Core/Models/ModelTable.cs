@@ -18,7 +18,6 @@ namespace HavenSoft.HexManiac.Core.Models {
       private readonly ITableRun run;
 
       public int Count => run?.ElementCount ?? 0;
-      public int __len__() => Count; // for python
 
       public ITableRun Run => run;
 
@@ -223,8 +222,6 @@ namespace HavenSoft.HexManiac.Core.Models {
          return new ModelTupleElement(model, table, arrayIndex, segmentOffset, (ArrayRunTupleSegment)seg, tokenFactory);
       }
 
-      public object __getindex__(string key) => this[key];                     // for python
-      public void __setindex__(string key, object value) => this[key] = value; // for python
       public object this[string fieldName] {
          get {
             var seg = table.ElementContent.FirstOrDefault(segment => segment.Name == fieldName);
@@ -252,16 +249,23 @@ namespace HavenSoft.HexManiac.Core.Models {
             if (seg is ArrayRunEnumSegment) {
                if (value is string str) SetEnumValue(fieldName, str);
                else if (value is BigInteger big) SetValue(fieldName, (int)big);
-               else SetValue(fieldName, (int)value);
+               else SetValue(fieldName, RequireInt(value, fieldName));
             } else if (seg.Type == ElementContentType.Pointer) {
                if (value is string str) {
                   SetStringValue(fieldName, str);
                } else {
-                  SetAddress(fieldName, (int)value);
+                  SetAddress(fieldName, RequireInt(value, fieldName));
                }
             } else if (seg.Type == ElementContentType.PCS) SetStringValue(fieldName, (string)value);
-            else SetValue(fieldName, (int)value);
+            else SetValue(fieldName, RequireInt(value, fieldName));
          }
+      }
+
+      // Convert.ToInt32(null) silently returns 0, which would let a script that assigns
+      // None to a numeric field write a wrong value instead of failing loudly.
+      private static int RequireInt(object value, string fieldName) {
+         if (value == null) throw new ArgumentNullException(nameof(value), $"Cannot assign None to field '{fieldName}': expected a number.");
+         return Convert.ToInt32(value);
       }
 
       public void SetEnumValue(string fieldName, string valueText) {
@@ -455,8 +459,15 @@ namespace HavenSoft.HexManiac.Core.Models {
                var tup = tuple.Elements.First(seg => seg.Name == matchName);
                if (TryConvertEnumTextToValue(tup, s, out var result)) value = result;
             }
-            SetValue(fieldName, (int)value);
+            SetValue(fieldName, RequireInt(value, fieldName));
          }
+      }
+
+      // Convert.ToInt32(null) silently returns 0, which would let a script that assigns
+      // None to a numeric field write a wrong value instead of failing loudly.
+      private static int RequireInt(object value, string fieldName) {
+         if (value == null) throw new ArgumentNullException(nameof(value), $"Cannot assign None to field '{fieldName}': expected a number.");
+         return Convert.ToInt32(value);
       }
 
       public bool HasField(string name) => tuple.Elements.Any(field => field.Name == name);
@@ -587,7 +598,6 @@ namespace HavenSoft.HexManiac.Core.Models {
       private EggMoveRun eggRun;
 
       public int Count => eggRun.Length / 2;
-      public int __len__() => Count; // for python
 
       public EggMoveRun Run => eggRun;
 
