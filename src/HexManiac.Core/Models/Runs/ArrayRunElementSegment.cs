@@ -184,17 +184,31 @@ namespace HavenSoft.HexManiac.Core.Models.Runs {
 
       public int ValueOffset { get; }
 
+      /// <summary>
+      /// Optional sibling table named after a trailing |tableName, e.g. for a card's
+      /// halfword index into data.cards.names: card:data.cards.names|data.cards.passwords.
+      /// Lets an external password-keyed format (such as a YDK deck list) resolve to this
+      /// segment's enum index by matching against the sibling table instead of by name.
+      /// </summary>
+      public string PasswordTableHint { get; }
+
       public override string SerializeFormat {
          get {
             var result = base.SerializeFormat + EnumName;
             if (ValueOffset > 0) result += "+" + ValueOffset;
             if (ValueOffset < 0) result += ValueOffset;
+            if (PasswordTableHint != null) result += "|" + PasswordTableHint;
             return result;
          }
       }
 
       public ArrayRunEnumSegment(string name, int length, string enumName) : base(name, ElementContentType.Integer, length) {
          EnumName = enumName;
+         var hintParts = EnumName.Split("|");
+         if (hintParts.Length == 2) {
+            EnumName = hintParts[0];
+            PasswordTableHint = hintParts[1];
+         }
          var parts = EnumName.Split("+");
          if (parts.Length == 2 && int.TryParse(parts[1], out int valueOffset)) {
             EnumName = parts[0];
@@ -973,5 +987,21 @@ namespace HavenSoft.HexManiac.Core.Models.Runs {
       public const string Separator = "|";
       public ArrayRunSplitterSegment() : base(string.Empty, ElementContentType.Integer, 0) { }
       public override string SerializeFormat => Separator;
+   }
+
+   /// <summary>
+   /// Placeholder produced by ArrayRun.ParseSegments for a [field]/countFieldName token: a
+   /// repeated field whose count isn't known until a sibling field (by name) is read from
+   /// live model data, so it can't be expanded into a fixed-length segment list at parse time.
+   /// Only StructRun knows how to resolve and expand these - a plain ArrayRun rejects them.
+   /// </summary>
+   public class InlineArraySegment : ArrayRunElementSegment {
+      public ArrayRunElementSegment Template { get; }
+      public string CountFieldName { get; }
+      public override string SerializeFormat => $"[{Template.SerializeFormat}]/{CountFieldName}";
+      public InlineArraySegment(ArrayRunElementSegment template, string countFieldName) : base(template.Name, ElementContentType.Integer, 0) {
+         Template = template;
+         CountFieldName = countFieldName;
+      }
    }
 }
