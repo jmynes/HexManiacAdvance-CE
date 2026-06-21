@@ -995,6 +995,24 @@ namespace HavenSoft.HexManiac.Core.Models.Runs {
    /// live model data, so it can't be expanded into a fixed-length segment list at parse time.
    /// Only StructRun knows how to resolve and expand these - a plain ArrayRun rejects them.
    /// </summary>
+   /// <summary>
+   /// Placeholder ElementContent entry for a table row that IS a sprite/palette/tileset/tilemap
+   /// directly (InlinePaletteTableRun/InlineSpriteTableRun) - real reading/writing/rendering for
+   /// these goes through the owning run's own CreateDataFormat/GetPixels/GetPalette, bypassing
+   /// the normal per-segment Write/ToText path entirely, so those just degrade gracefully here
+   /// (e.g. for copy/paste's AppendTo) rather than throwing NotImplementedException.
+   /// </summary>
+   public class InlineImageElementSegment : ArrayRunElementSegment {
+      private readonly string formatText;
+      public InlineImageElementSegment(string formatText, int length) : base(string.Empty, ElementContentType.Unknown, length) => this.formatText = formatText;
+      public override string SerializeFormat => formatText;
+      public override string ToText(IDataModel rawData, int offset, int depth = 0) => formatText;
+      public override bool Write(IReadOnlyList<ArrayRunElementSegment> parentSegments, IDataModel model, ModelDelta token, int start, ref string data) {
+         data = string.Empty;
+         return false;
+      }
+   }
+
    public class InlineArraySegment : ArrayRunElementSegment {
       public ArrayRunElementSegment Template { get; }
       public string CountFieldName { get; }

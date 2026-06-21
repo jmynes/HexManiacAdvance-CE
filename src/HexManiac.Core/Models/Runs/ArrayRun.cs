@@ -685,6 +685,9 @@ namespace HavenSoft.HexManiac.Core.Models.Runs {
          if (singleSegment is ArrayRunElementSegment) {
             // option 0: the length looks like a tilemap, and there's a single segment. Parse as a tilemap table.
             self = new TilemapTableRun(data, tilemapLength, singleSegment, margins, start, pointerSources);
+         } else if (TryParseInlineImageTable(data, format, length, start, pointerSources, out var inlineImageTable)) {
+            // option 0.5: row content is a single bare `backtick` sprite/palette format - each row IS the image directly, not a pointer to one.
+            self = inlineImageTable;
          } else if (length.All(c => IsValidTableNameCharacter(c) || c.IsAny('-', '+'))) {
             // option 1: the length looks like a standard table length (or is empty, and thus dynamic). Parse as a table.
             try {
@@ -756,6 +759,54 @@ namespace HavenSoft.HexManiac.Core.Models.Runs {
          var content = ParseSegments(segments, model);
          if (content.Count != 1) return default;
          return (content[0], margins, length);
+      }
+
+      /// <summary>
+      /// Detects a table whose row content is a single bare backtick sprite/palette format with
+      /// no field name and no pointer wrapper, e.g. Format = '[`ucp4`]duelists' or
+      /// '[`ucs4x3x3|some.palette`]duelists' - each row IS the sprite/palette directly, not a
+      /// pointer to one. Mirrors ParseTilemapTable's "detect a special single-segment case before
+      /// falling back to generic ArrayRun" pattern.
+      /// </summary>
+      public static bool TryParseInlineImageTable(IDataModel data, string format, string length, int start, SortedSpan<int> pointerSources, out ITableRun self) {
+         self = null;
+         var closeArray = format.LastIndexOf(ArrayEnd.ToString());
+         if (!format.StartsWith(ArrayStart.ToString()) || closeArray == -1) return false;
+         var content = format.Substring(1, closeArray - 1).Trim();
+         if (!content.StartsWith("`") || content.IndexOf('`', 1) != content.Length - 1) return false;
+
+         if (!TryResolveTableLength(data, length, out var elementCount, out var elementNames)) return false;
+
+         if (SpriteRun.TryParseSpriteFormat(content, out var spriteFormat)) {
+            self = new InlineSpriteTableRun(data, spriteFormat, elementCount, elementNames, start, pointerSources, format + length);
+            return true;
+         }
+         if (PaletteRun.TryParsePaletteFormat(content, out var paletteFormat)) {
+            self = new InlinePaletteTableRun(paletteFormat, elementCount, elementNames, start, pointerSources, format + length);
+            return true;
+         }
+         return false;
+      }
+
+      private static bool TryResolveTableLength(IDataModel data, string length, out int elementCount, out IReadOnlyList<string> elementNames) {
+         elementCount = 1;
+         elementNames = Array.Empty<string>();
+         if (int.TryParse(length, out elementCount)) {
+            elementNames = elementCount.Range().Select(i => i.ToString()).ToList();
+            return true;
+         }
+         if (data.TryGetList(length, out var list)) {
+            elementCount = list.Count;
+            elementNames = list;
+            return true;
+         }
+         var address = data.GetAddressFromAnchor(new NoDataChangeDeltaModel(), -1, length);
+         if (address != Pointer.NULL && data.GetNextRun(address) is ITableRun otherTable && otherTable.Start == address) {
+            elementCount = otherTable.ElementCount;
+            elementNames = otherTable.ElementNames;
+            return true;
+         }
+         return false;
       }
 
       public ITableRun Duplicate(int start, SortedSpan<int> pointerSources, IReadOnlyList<ArrayRunElementSegment> segments) {
