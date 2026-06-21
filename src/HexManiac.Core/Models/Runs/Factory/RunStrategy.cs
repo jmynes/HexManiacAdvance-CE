@@ -106,6 +106,14 @@ namespace HavenSoft.HexManiac.Core.Models.Runs.Factory {
             strategy = new BlockmapRunContentStrategy();
          } else if (PaletteRun.TryParsePaletteFormat(format, out var paletteFormat1)) {
             strategy = new PaletteRunContentStrategy(paletteFormat1);
+         } else if (!string.IsNullOrEmpty(format) && !format.StartsWith("[") && !format.StartsWith("`") && !format.StartsWith("^")) {
+            // cheap syntactic gate only (no model available here to actually parse with) -
+            // real validation happens later, in TryAddFormatAtDestination/TryParseData, once
+            // a model is available. Mirrors the equally-loose TableStreamRunContentStrategy
+            // gate just below. Excludes "^..." (a self-referencing inner-pointer format whose
+            // content is really a [...]length table, just with the inner-pointer marker still
+            // attached) so that case keeps falling through to TableStreamRunContentStrategy.
+            strategy = new StructRunContentStrategy();
          } else if (format.IndexOf("[") >= 0 && format.IndexOf("[") < format.IndexOf("]")) {
             strategy = new TableStreamRunContentStrategy();
          } else {

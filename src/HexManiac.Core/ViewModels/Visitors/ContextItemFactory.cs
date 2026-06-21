@@ -228,7 +228,27 @@ namespace HavenSoft.HexManiac.Core.ViewModels.Visitors {
          }
       }
 
-      public void Visit(IntegerEnum integer, byte data) => Results.AddRange(GetTableChildren());
+      public void Visit(IntegerEnum integer, byte data) {
+         Results.AddRange(GetTableChildren());
+
+         var address = ViewPort.ConvertViewPointToAddress(ViewPort.SelectionStart);
+         if (ViewPort.Model.GetNextRun(address) is not ITableRun tableRun) return;
+         var offsets = tableRun.ConvertByteOffsetToArrayOffset(address);
+         if (tableRun.ElementContent[offsets.SegmentIndex] is not ArrayRunEnumSegment enumSegment || enumSegment.PasswordTableHint == null) return;
+
+         Results.Add(new ContextItem("Import .ydk", arg => {
+            var fileSystem = (IFileSystem)arg;
+            var file = fileSystem.OpenFile("Yu-Gi-Oh Deck", "ydk");
+            if (file == null) return;
+            var ydkText = Encoding.UTF8.GetString(file.Contents);
+            var result = YdkDeckImport.Import(ViewPort.Model, ViewPort.CurrentChange, tableRun, enumSegment, ydkText);
+            ViewPort.ChangeHistory.ChangeCompleted();
+            ViewPort.Refresh();
+            if (result.Skipped > 0) {
+               fileSystem.ShowCustomMessageBox($"Imported {result.Imported} card(s). {result.Skipped} password(s) were not found in {enumSegment.PasswordTableHint}.", showYesNoCancel: false);
+            }
+         }));
+      }
 
       public void Visit(IntegerHex integerHex, byte data) => Results.AddRange(GetTableChildren());
 
