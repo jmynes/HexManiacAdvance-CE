@@ -209,11 +209,12 @@ movesets/trainer teams are omitted (not obtain methods).
 
 ### Obtain-method coverage (what these tools can and can't derive)
 
-Together `data.pokemon.wild`, `export_script_encounters`, and `export_species_sources` cover most
-ways a species is obtained: **wild** (grass/surf/rock-smash/fishing), **gift** (literal
+Together `data.pokemon.wild`, `export_script_encounters`, and `export_species_sources` **auto-derive**
+most ways a species is obtained: **wild** (grass/surf/rock-smash/fishing), **gift** (literal
 `givePokemon`), **static** (`setwildbattle`), **egg** (`giveEgg`), **starter**
 (`scripts.newgame.starters.*`), **trade** (`data.pokemon.trades`), **evolution**
-(`data.pokemon.evolutions`).
+(`data.pokemon.evolutions`), and **breeding** (a base-form baby — itself in the *Undiscovered* egg
+group — is bred from its obtainable adult + Ditto; so Pichu/Cleffa/Tyrogue/… are obtainable).
 
 Two FRLG mechanisms are **beyond static cross-reference** — verified, not merely unimplemented:
 
@@ -228,10 +229,16 @@ The `setvar 0x8004, <species>` + `special` give pattern can't be mined generical
 `setvar` is used 340+ times, overwhelmingly to *display* a mon (cry / picture / message), with no
 single "give-mon" special to key on.
 
+These (plus the **roaming beasts** and **ticket legendaries**, likewise set up in code) are filled
+from a small **curated override** — [`docs/firered-obtain-overrides.json`](firered-obtain-overrides.json)
+— which the dump merges as `obtainCurated` kinds (`dojo` / `gameCorner` / `roaming` / `event`). After
+that, the only species with no obtain route are genuinely FireRed-unobtainable: LeafGreen exclusives,
+Johto/Hoenn species (trade-only post-National-Dex), and distribution-only events (Mew/Celebi/Jirachi).
+
 **Mutually-exclusive ("pick one") groups:** the **starters** (1 of 3) are derivable from the three
-`scripts.newgame.starters.*` tables. The **Mt. Moon fossils** (Kabuto / Omanyte — the choice is on
-the fossil *items*, revived later at Cinnabar; Aerodactyl/Old-Amber is separate) and the **Dojo
-Hitmons** are genuine pick-one choices, but aren't auto-derivable for the reasons above.
+`scripts.newgame.starters.*` tables; the **Mt. Moon fossils** (Kabuto / Omanyte — the choice is on
+the fossil *items*; Aerodactyl/Old-Amber is separate), the **Dojo Hitmons**, and the **roaming beast**
+(1 of Raikou/Entei/Suicune by starter) are real pick-one choices recorded in the override file.
 
 ## Editing values (write_value)
 

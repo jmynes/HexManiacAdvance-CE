@@ -1,0 +1,36 @@
+{
+  "_comment": "Curated FireRed (BPRE0) obtain methods that CANNOT be extracted from script data, because the species are baked into an ASM 'special' (Fighting Dojo) or given from a menu jump-table script the top-level walk can't reach (Game Corner), or are roaming/event encounters set up in code. Everything else in the dump is auto-derived from tables + reachable scripts; this file only fills the verified blind spots. Levels are omitted where they live in ASM and can't be read from the ROM.",
+  "rom": "Pokemon FireRed (USA) v1.0 (BPRE0)",
+  "fightingDojo": {
+    "location": "Saffron City - Fighting Dojo",
+    "method": "gift",
+    "pickOneOf": ["HITMONLEE", "HITMONCHAN"],
+    "note": "After defeating the Karate Master, take ONE of the two Poke Balls. Species are ASM-hardcoded (no literal givePokemon/setvar in the ROM)."
+  },
+  "gameCorner": {
+    "location": "Celadon City - Game Corner (prize exchange)",
+    "method": "gameCorner",
+    "note": "Bought with coins from the Pokemon prize clerk. The give sits in a menu jump-table script unreachable by the standard script walk.",
+    "prizes": [
+      { "species": "ABRA", "coins": 180 },
+      { "species": "CLEFAIRY", "coins": 500 },
+      { "species": "DRATINI", "coins": 2800 },
+      { "species": "SCYTHER", "coins": 5500 },
+      { "species": "PORYGON", "coins": 9999 }
+    ]
+  },
+  "roaming": {
+    "method": "roaming",
+    "pickOneOf": ["RAIKOU", "ENTEI", "SUICUNE"],
+    "note": "Post-National-Dex: exactly ONE legendary beast roams Kanto, determined by your starter choice. Set up in code, not in the wild table."
+  },
+  "eventTicket": {
+    "method": "event",
+    "entries": [
+      { "species": "LUGIA", "location": "Navel Rock", "ticket": "MysticTicket" },
+      { "species": "HO-OH", "location": "Navel Rock", "ticket": "MysticTicket" },
+      { "species": "DEOXYS", "location": "Birth Island", "ticket": "AuroraTicket" }
+    ],
+    "note": "Reachable in-game only with an event-distributed ticket item. MEW / CELEBI / JIRACHI were distribution-only (no in-game route) and are left unobtainable."
+  }
+}
