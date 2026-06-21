@@ -9,13 +9,13 @@ using Xunit;
 namespace HavenSoft.HexManiac.Tests {
    public class TrainerTeamExportTests : BaseViewModelTestClass {
 
-      // HMA formats a command address as uppercase hex, no 0x, in angle brackets, 6 digits min.
+      // Command address as bare uppercase hex, no 0x, no brackets, 6 digits min.
       [Theory]
-      [InlineData(0x16A9F4, "<16A9F4>")]
-      [InlineData(0x000100, "<000100>")]
-      [InlineData(0x0, "<000000>")]
-      [InlineData(0x1234567, "<1234567>")]
-      public void FormatOffset_RendersHmaStyle(int address, string expected) =>
+      [InlineData(0x16A9F4, "16A9F4")]
+      [InlineData(0x000100, "000100")]
+      [InlineData(0x0, "000000")]
+      [InlineData(0x1234567, "1234567")]
+      public void FormatOffset_RendersBareHex(int address, string expected) =>
          Assert.Equal(expected, TrainerTeamExport.FormatOffset(address));
 
       // Verifies the load-bearing parts of the `uses` walk that don't need a full maps table:

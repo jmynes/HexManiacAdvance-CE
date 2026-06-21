@@ -123,10 +123,10 @@ level — filled in for you (pass `includeDefaultMoves: false` to leave it off).
 Each trainer also gets a **`uses`** array (on by default; pass `includeUses: false`
 to omit it and skip the script walk). Every entry has a **`source`**:
 - `"source": "script"` — a `trainerbattle` (opcode `0x5C`) reference in the game's
-  map scripts (object events + map-header scripts): the command's HMA-style
-  `scriptOffset`, the `subtype` (raw byte + name), the `mapBank`/`mapNumber`/`mapName`
-  it belongs to, and the `introText`/`winText`/`loseText` decoded from the command's
-  text-pointer args (`null` when that subtype carries none).
+  map scripts (object events + map-header scripts): the command's `scriptOffset`
+  (bare 6-digit hex address), the `subtype` (raw byte + name), the
+  `mapBank`/`mapNumber`/`mapName` it belongs to, and the `introText`/`winText`/`loseText`
+  decoded from the command's text-pointer args (`null` when that subtype carries none).
 - `"source": "rematch"` — an entry in the rematch / VS-Seeker table
   (`data.trainers.vsseeker`): the `rematchIndex`, the `rematchSlots` the trainer fills
   (`match1`..`match6`), and the rematch `mapBank`/`mapNumber`/`mapName`. This is why
@@ -141,7 +141,7 @@ unused/placeholder/RSE-leftover trainer. (Hand-written ASM references aren't cov
 
 ```json
 {"index": 89, "name": "BEN", "uses": [
-  {"source": "script", "scriptOffset": "<1A93C9>", "subtype": 0, "subtypeName": "single.battle",
+  {"source": "script", "scriptOffset": "1A93C9", "subtype": 0, "subtypeName": "single.battle",
    "mapBank": 3, "mapNumber": 21, "mapName": "ROUTE 3",
    "introText": "Hi!\nI like shorts!", "winText": "I don't believe it!", "loseText": null}
 ]}

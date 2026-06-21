@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text.Encodings.Web;
 using System.Text.Json;
 using HavenSoft.HexManiac.Core.Models.Code;
 using HavenSoft.HexManiac.Core.Models.Map;
@@ -71,7 +72,7 @@ namespace HavenSoft.HexManiac.Core.Models {
             ["ivSpread"] = "Raw 0-255 value stored in the ROM; 'iv' is that scaled to 0-31 and applied to every stat.",
             ["structType"] = "0=no item/default moves, 1=custom moves, 2=held item, 3=held item+custom moves.",
          };
-         if (uses != null) notes["uses"] = "Where this trainer is referenced. source=\"script\": a map-script trainerbattle (opcode 0x5C) — scriptOffset (HMA <XXXXXX> address), subtype (raw + name), map bank/number/name, and intro/win/lose dialogue (null when the subtype has none). source=\"rematch\": an entry in the rematch / VS-Seeker table — rematchIndex, the rematchSlots it fills (match1..match6), and the rematch map bank/number/name. An empty array means the trainer is referenced by neither (unused/placeholder/RSE-leftover). Hand-written ASM references are still not covered.";
+         if (uses != null) notes["uses"] = "Where this trainer is referenced. source=\"script\": a map-script trainerbattle (opcode 0x5C) — scriptOffset (6-digit hex address), subtype (raw + name), map bank/number/name, and intro/win/lose dialogue (null when the subtype has none). source=\"rematch\": an entry in the rematch / VS-Seeker table — rematchIndex, the rematchSlots it fills (match1..match6), and the rematch map bank/number/name. An empty array means the trainer is referenced by neither (unused/placeholder/RSE-leftover). Hand-written ASM references are still not covered.";
 
          var payload = new Dictionary<string, object?> {
             ["source"] = "HexManiacAdvance MCP — data.trainers.stats + tpt party structs",
@@ -80,7 +81,11 @@ namespace HavenSoft.HexManiac.Core.Models {
             ["notes"] = notes,
             ["trainers"] = list,
          };
-         File.WriteAllText(outPath, JsonSerializer.Serialize(payload, new JsonSerializerOptions { WriteIndented = true }));
+         // Relaxed encoder so apostrophes, <>, and non-ASCII (accents, gender symbols) are
+         // written literally in this data file rather than as \uXXXX escapes.
+         File.WriteAllText(outPath, JsonSerializer.Serialize(payload, new JsonSerializerOptions {
+            WriteIndented = true, Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+         }));
          var result = new Dictionary<string, object?> {
             ["ok"] = true, ["trainerCount"] = list.Count, ["totalPartyPokemon"] = totalMons,
             ["defaultMovesFilled"] = includeDefaultMoves, ["path"] = outPath,
@@ -255,8 +260,8 @@ namespace HavenSoft.HexManiac.Core.Models {
          return string.IsNullOrEmpty(raw) ? raw : ReadableText(raw);
       }
 
-      // HMA-style command address: uppercase hex, no 0x, wrapped in angle brackets, e.g. <16A9F4>.
-      public static string FormatOffset(int address) => $"<{address:X6}>";
+      // Command address as bare uppercase hex (min 6 digits, no 0x / no brackets), e.g. 1A93C9.
+      public static string FormatOffset(int address) => address.ToString("X6");
 
       // The map-name table (data.maps.names) stores names either inline (RSE) or as a
       // pointer-to-text (FRLG: [name<"">]). ModelArrayElement.GetStringValue handles both,

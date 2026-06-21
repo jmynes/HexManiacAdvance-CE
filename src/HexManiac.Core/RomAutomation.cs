@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text.Encodings.Web;
 using System.Text.Json;
 using HavenSoft.HexManiac.Core.Models.Runs;
 
@@ -225,7 +226,9 @@ namespace HavenSoft.HexManiac.Core.Models {
             ["name"] = name, ["total"] = table.Count, ["fields"] = fields, ["rows"] = rows,
          };
          AddPlaceholderNote(payload, skip);
-         File.WriteAllText(outPath, JsonSerializer.Serialize(payload, new JsonSerializerOptions { WriteIndented = true }));
+         File.WriteAllText(outPath, JsonSerializer.Serialize(payload, new JsonSerializerOptions {
+            WriteIndented = true, Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+         }));
          var result = new Dictionary<string, object?> { ["ok"] = true, ["name"] = name, ["rows"] = rows.Count, ["path"] = outPath };
          AddPlaceholderNote(result, skip);
          return result;
