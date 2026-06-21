@@ -25,6 +25,9 @@
        it must never block building the editor itself. -->
   <ItemGroup>
     <PythonRuntimePackage Include="requests" />
+    <PythonRuntimePackage Include="numpy" />
+    <PythonRuntimePackage Include="pandas" />
+    <PythonRuntimePackage Include="matplotlib" />
   </ItemGroup>
 
   <Target Name="StagePythonRuntimeX64" AfterTargets="Build" Condition="'$(BundlePythonRuntimeX64)' == 'true'">
