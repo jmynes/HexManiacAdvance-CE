@@ -56,11 +56,23 @@ __hma_keywords__ = list(__hma_keyword__.kwlist)
 __hma_builtin_names__ = [__hma_n__ for __hma_n__ in dir(__hma_builtins_mod__) if not __hma_n__.startswith('_')]
 __hma_module_names__ = sorted(set(__hma_n__ for _, __hma_n__, _ in __hma_pkgutil__.iter_modules()))
 
-def __hma_dir__(obj, prefix):
-   # used for 'installed pip module' attribute completion (e.g. requests.g -> get):
-   # real dir() on whatever the prefix before the dot evaluates to in this scope.
+def __hma_dir__(expr, prefix):
+   # used for 'installed pip module' attribute completion (e.g. requests.g -> get).
+   # expr is a string, evaluated here (not by the caller) so a NameError from a module
+   # that hasn't actually been imported yet this session is catchable - falling back to
+   # importing it fresh (harmless: only populates sys.modules' cache, same as a real
+   # import would, and doesn't touch the user's own globals()) lets completion work even
+   # before the script's own `import requests` line has ever been run.
    try:
-      return [__hma_n__ for __hma_n__ in dir(obj) if __hma_n__.startswith(prefix) and not __hma_n__.startswith('_')]
+      __hma_obj__ = eval(expr, globals())
+   except Exception:
+      try:
+         import importlib
+         __hma_obj__ = importlib.import_module(expr)
+      except Exception:
+         return []
+   try:
+      return [__hma_n__ for __hma_n__ in dir(__hma_obj__) if __hma_n__.startswith(prefix) and not __hma_n__.startswith('_')]
    except Exception:
       return []
 
@@ -198,7 +210,12 @@ def __hma_run__(__hma_code__):
          if (string.IsNullOrWhiteSpace(objectExpr)) return Array.Empty<string>();
          using (Py.GIL()) {
             try {
-               using var result = scope.Value.Eval($"__hma_dir__({objectExpr}, '{memberPrefix}')");
+               // objectExpr/memberPrefix are passed as quoted string arguments (not interpolated
+               // as bare source) so __hma_dir__ can catch a NameError - e.g. requests.g typed
+               // before the script's own `import requests` line has run - itself and fall back
+               // to importing the module fresh, instead of the whole Eval call throwing here
+               // before __hma_dir__ is even entered.
+               using var result = scope.Value.Eval($"__hma_dir__('{objectExpr}', '{memberPrefix}')");
                return result.As<string[]>() ?? Array.Empty<string>();
             } catch {
                return Array.Empty<string>();

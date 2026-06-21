@@ -143,6 +143,16 @@ namespace HavenSoft.HexManiac.Tests {
       }
 
       [Fact]
+      public void GetAutocomplete_DottedModulePrefixBeforeAnyImport_StillSuggestsRealMember() {
+         // the common case: a user typing a fresh script (import + usage together) who
+         // hasn't actually run anything yet, so 'os' isn't bound in the live scope - dir()
+         // completion must still work by importing the module fresh for introspection.
+         var options = tool.GetAutocomplete("os.path.j", 0, 9);
+
+         Assert.Contains(options, o => o.LineText == "os.path.join");
+      }
+
+      [Fact]
       public void GetAutocomplete_InsideStringLiteral_ReturnsNull() {
          var options = tool.GetAutocomplete("print('pri", 0, 10);
 
