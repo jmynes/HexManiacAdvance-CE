@@ -22,12 +22,27 @@ param(
 )
 $Packages = @($PackagesCsv -split ',' | Where-Object { $_ -ne '' })
 
+# MSBuild invokes this via Windows PowerShell 5.1, which on older .NET doesn't enable
+# TLS 1.2 by default - so HTTPS downloads from python.org / bootstrap.pypa.io can fail
+# the handshake. Force it on (harmless where it's already the default).
+[Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
+
 # Deliberately NOT $ErrorActionPreference = 'Stop': under that setting, a native exe
 # merely writing to stderr (pip's normal progress chatter included) gets wrapped as a
 # terminating PowerShell error regardless of its actual exit code. Native failures are
 # instead detected explicitly via $LASTEXITCODE below.
 $mutex = New-Object System.Threading.Mutex($false, $MutexName)
-if (-not $mutex.WaitOne([TimeSpan]::FromMinutes(15))) {
+# WaitOne throws AbandonedMutexException if a prior staging process was killed while
+# holding this lock (a cancelled build, or the _wpftmp shadow project tearing down a
+# child mid-run). The wait still grants us ownership in that case, so treat it as
+# acquired - letting it bubble out would terminate the script non-zero and, since the
+# <Exec> has no ContinueOnError, fail the editor build.
+try {
+   $acquired = $mutex.WaitOne([TimeSpan]::FromMinutes(15))
+} catch [System.Threading.AbandonedMutexException] {
+   $acquired = $true
+}
+if (-not $acquired) {
    Write-Warning "Timed out waiting for the python runtime staging lock ($MutexName); skipping this build."
    exit 0
 }
@@ -37,12 +52,14 @@ try {
    # Worst case it warns and leaves .complete unwritten, so the next build retries.
    try {
       $completeMarker = Join-Path $ArchDir '.complete'
-      if (Test-Path $completeMarker) { exit 0 } # another (or the previous) build already finished this
+      # return (not exit) so the finally below still releases the mutex - an exit here
+      # would leave it held by a dying process, abandoning it for the next build.
+      if (Test-Path $completeMarker) { return } # another (or the previous) build already finished this
 
       New-Item -ItemType Directory -Force -Path $ArchDir | Out-Null
       $zipPath = Join-Path (Split-Path $ArchDir -Parent) (Split-Path $EmbedZipUrl -Leaf)
       if (-not (Test-Path $zipPath)) {
-         Invoke-WebRequest -Uri $EmbedZipUrl -OutFile $zipPath
+         Invoke-WebRequest -UseBasicParsing -Uri $EmbedZipUrl -OutFile $zipPath
       }
       Expand-Archive -Path $zipPath -DestinationPath $ArchDir -Force
 
@@ -55,7 +72,7 @@ try {
          $packagesOk = $false
          $pythonExe = Join-Path $ArchDir 'python.exe'
          $getPipPath = Join-Path $ArchDir 'get-pip.py'
-         Invoke-WebRequest -Uri 'https://bootstrap.pypa.io/get-pip.py' -OutFile $getPipPath
+         Invoke-WebRequest -UseBasicParsing -Uri 'https://bootstrap.pypa.io/get-pip.py' -OutFile $getPipPath
          & $pythonExe $getPipPath --no-warn-script-location
          if ($LASTEXITCODE -ne 0) { throw "get-pip.py exited with code $LASTEXITCODE" }
 
