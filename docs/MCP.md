@@ -237,11 +237,15 @@ A few of these *can* be read from the ROM after all:
   (**Lugia** @ Navel Rock, **Deoxys** @ Birth Island; Ho-Oh's summit script isn't reachable by the
   walk, so it stays curated).
 - **Gifted eggs** are the `giveEgg` command (Togepi) — already caught by the script walk.
+- **Dojo Hitmons** and the **starters** use `setvar VAR_TEMP_1 <species>` then a shared
+  `givePokemon VAR_TEMP_1` — `export_script_encounters` tracks `setvar` and resolves a variable-species
+  `givePokemon` when that var was set exactly once in the walk (so **Hitmonlee/Hitmonchan @ Lv25** and
+  the starters are detected; the Game-Corner prize menu, which sets the var many times, is left to
+  `export_coin_prizes`).
 
-What genuinely *can't* be read: the **Dojo Hitmons** (species in an ASM special; the 106/107 in the
-script are only `bufferpokemon` for the "you got …!" message) and the **roaming beasts** (`InitRoamer`
-picks the species in ASM by your starter — no literal in the script). Those still need the small
-**curated override** —
+What genuinely *can't* be read: the **roaming beasts** — `InitRoamer` picks the species in ASM by your
+starter, with no literal anywhere in the script (confirmed with `read_script`: it's the last command of
+the post-game "Network Machine" script). Those still need the small **curated override** —
 [`docs/firered-obtain-overrides.json`](firered-obtain-overrides.json) — which the dump merges as
 `obtainCurated` kinds (`dojo` / `gameCorner` / `roaming` / `event`). After
 that, the only species with no obtain route are genuinely FireRed-unobtainable: LeafGreen exclusives,

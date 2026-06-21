@@ -5,7 +5,7 @@
     "location": "Saffron City - Fighting Dojo",
     "method": "gift",
     "pickOneOf": ["HITMONLEE", "HITMONCHAN"],
-    "note": "After defeating the Karate Master, take ONE of the two Poke Balls. Species are ASM-hardcoded (no literal givePokemon/setvar in the ROM)."
+    "note": "After defeating the Karate Master, take ONE of the two Poke Balls (Lv25). These are now AUTO-DETECTED by export_script_encounters: each ball does `setvar VAR_TEMP_1 <species>` then a shared `givePokemon VAR_TEMP_1`, and the var-tracker resolves the var (set exactly once per ball) to the species. This list is only a fallback + the mutually-exclusive choice group; it is NOT ASM-hardcoded (an earlier note wrongly said so - reading the script with read_script disproved it)."
   },
   "gameCorner": {
     "location": "Celadon City - Game Corner (prize exchange)",
