@@ -76,13 +76,32 @@ namespace HavenSoft.HexManiac.Core.Models.Runs.Sprites {
       /// </summary>
       public static int[,] GetPixels(IReadOnlyList<byte> data, int start, int tileWidth, int tileHeight, int bitsPerPixel) {
          var result = new int[8 * tileWidth, 8 * tileHeight];
-         Debug.Assert(bitsPerPixel.IsAny(1, 2, 4, 8));
+         Debug.Assert(bitsPerPixel.IsAny(1, 2, 4, 6, 8));
          for (int y = 0; y < tileHeight; y++) {
             int yOffset = y * 8;
             for (int x = 0; x < tileWidth; x++) {
                var tileStart = ((y * tileWidth) + x) * 8 * bitsPerPixel + start;
                int xOffset = x * 8;
-               if (bitsPerPixel == 4) {
+               if (bitsPerPixel == 6) {
+                  // 6 bits doesn't divide evenly into a byte: pack 4 pixels (24 bits) into
+                  // 3 bytes, little-endian (byte0=low,byte2=high), pixel0 in the lowest 6
+                  // bits - matches Channeler Advance's decode_gba_tile_6bpp_indices/
+                  // encode_gba_tile_6bpp_from_indices. Repeats 16 times per tile
+                  // (16*4=64px, 16*3=48 bytes). Pixel value 0-63 doubles as
+                  // (palette page << 4 | index), matching a ucp4:0123-style 4-page,
+                  // 16-color palette - see ImageEditorViewModel.ColorIndex.
+                  for (int i = 0; i < 16; i++) {
+                     int xx = i % 2; // which half of the row: 0 = pixels 0-3, 1 = pixels 4-7
+                     int yy = i / 2; // which row, 0-7
+                     var byteIndex = tileStart + i * 3;
+                     int Byte(int offset) => byteIndex + offset < data.Count ? data[byteIndex + offset] : 0;
+                     var combined = Byte(0) | (Byte(1) << 8) | (Byte(2) << 16);
+                     result[xOffset + xx * 4 + 0, yOffset + yy] = combined & 0x3F;
+                     result[xOffset + xx * 4 + 1, yOffset + yy] = (combined >> 6) & 0x3F;
+                     result[xOffset + xx * 4 + 2, yOffset + yy] = (combined >> 12) & 0x3F;
+                     result[xOffset + xx * 4 + 3, yOffset + yy] = (combined >> 18) & 0x3F;
+                  }
+               } else if (bitsPerPixel == 4) {
                   for (int i = 0; i < 32; i++) {
                      int xx = i % 4; // ranges from 0 to 3
                      int yy = i / 4; // ranges from 0 to 7
@@ -131,7 +150,27 @@ namespace HavenSoft.HexManiac.Core.Models.Runs.Sprites {
       public static void SetPixels(byte[] data, int start, int[,] pixels, int bitsPerPixel) {
          int width = pixels.GetLength(0), height = pixels.GetLength(1);
          int tileWidth = width / 8, tileHeight = height / 8;
-         if (bitsPerPixel == 4) {
+         if (bitsPerPixel == 6) {
+            for (int y = 0; y < tileHeight; y++) {
+               int yOffset = y * 8;
+               for (int x = 0; x < tileWidth; x++) {
+                  int xOffset = x * 8;
+                  for (int i = 0; i < 16; i++) {
+                     if (start >= data.Length) break; // don't write the blank 'bonus' tiles for tilesets
+                     int xx = i % 2, yy = i / 2;
+                     var p0 = pixels[xOffset + xx * 4 + 0, yOffset + yy] & 0x3F;
+                     var p1 = pixels[xOffset + xx * 4 + 1, yOffset + yy] & 0x3F;
+                     var p2 = pixels[xOffset + xx * 4 + 2, yOffset + yy] & 0x3F;
+                     var p3 = pixels[xOffset + xx * 4 + 3, yOffset + yy] & 0x3F;
+                     var combined = p0 | (p1 << 6) | (p2 << 12) | (p3 << 18);
+                     data[start + 0] = (byte)combined;
+                     data[start + 1] = (byte)(combined >> 8);
+                     data[start + 2] = (byte)(combined >> 16);
+                     start += 3;
+                  }
+               }
+            }
+         } else if (bitsPerPixel == 4) {
             for (int y = 0; y < tileHeight; y++) {
                int yOffset = y * 8;
                for (int x = 0; x < tileWidth; x++) {
