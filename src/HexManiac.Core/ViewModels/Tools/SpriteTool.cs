@@ -32,7 +32,7 @@ namespace HavenSoft.HexManiac.Core.ViewModels.Tools {
 
       public int SpritePage {
          get => spritePage;
-         set => Set(ref spritePage, value, arg => LoadSprite());
+         set => Set(ref spritePage, value, arg => { SyncPalettePageToSpritePage(); LoadSprite(); });
       }
 
       public int PalettePage {

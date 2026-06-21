@@ -113,6 +113,34 @@ namespace HavenSoft.HexManiac.Tests {
       }
 
       [Fact]
+      public void DoubleClickingRow1_UpdatesSpriteToolToRow1NotJustRow0() {
+         // selecting a byte within row 1 (not row 0) must move the Sprite Tool to row 1 - it
+         // used to always jump to the table's own Start (row 0) regardless of which row was
+         // actually clicked, since SpriteAddress doesn't carry row granularity by itself.
+         SetupDuelistTables();
+         var tool = ViewPort.Tools.SpriteTool;
+         var row1Start = 0x40 + 288; // InlineSpriteTableRun's ElementLength
+
+         ViewPort.UpdateToolsFromSelection(row1Start);
+
+         Assert.Equal(0x40, tool.SpriteAddress);
+         Assert.Equal(1, tool.SpritePage);
+         Assert.Equal(1, tool.PalettePage);
+      }
+
+      [Fact]
+      public void DoubleClickingPaletteRow1_UpdatesSpriteToolPalettePageToRow1() {
+         SetupDuelistTables();
+         var tool = ViewPort.Tools.SpriteTool;
+         var row1Start = 0x00 + 32; // InlinePaletteTableRun's ElementLength
+
+         ViewPort.UpdateToolsFromSelection(row1Start);
+
+         Assert.Equal(0x00, tool.PaletteAddress);
+         Assert.Equal(1, tool.PalettePage);
+      }
+
+      [Fact]
       public void SpriteTool_SteppingSpritePage_StepsPalettePageInLockstep() {
          SetupDuelistTables();
          var tool = ViewPort.Tools.SpriteTool;

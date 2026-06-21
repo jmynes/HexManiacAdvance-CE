@@ -402,6 +402,10 @@ namespace HavenSoft.HexManiac.Core.ViewModels {
                         tool.UpdateSpriteProperties();
                         tool.PaletteAddress = SpriteTool.FindMatchingPalette(Model, spriteRun, tool.PaletteAddress);
                      }
+                     // a run that's both ITableRun and ISpriteRun (e.g. InlineSpriteTableRun,
+                     // OverworldSpriteListRun) holds many rows under one Start address - move to
+                     // whichever row was actually selected, not just whatever page was loaded before.
+                     if (run is ITableRun spriteTable) tool.SpritePage = spriteTable.ConvertByteOffsetToArrayOffset(dataIndex).ElementIndex;
 
                      if (tools.SelectedIndex == tools.IndexOf(tools.TableTool) && run is ITableRun && run is not InlineSpriteTableRun) {
                         // don't switch to the sprite tool if the selected tool is valid - except
@@ -412,6 +416,7 @@ namespace HavenSoft.HexManiac.Core.ViewModels {
                      }
                   } else if (run is IPaletteRun) {
                      tools.SpriteTool.PaletteAddress = run.Start;
+                     if (run is ITableRun paletteTable) tools.SpriteTool.PalettePage = paletteTable.ConvertByteOffsetToArrayOffset(dataIndex).ElementIndex;
                      tools.SelectedIndex = tools.IndexOf(tools.SpriteTool);
                   } else if (run is IStreamRun) {
                      Tools.StringTool.Address = run.Start;
