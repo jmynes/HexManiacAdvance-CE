@@ -33,6 +33,28 @@ namespace HavenSoft.HexManiac.WPF.Controls {
 
       #endregion
 
+      #region UndoLimit
+
+      // Defaults to 0 (disabled) to preserve existing behavior: most uses of this control
+      // (the main code/hex editor) defer "undo" entirely to the ROM-level ChangeHistory via
+      // the app's global Ctrl+Z, and having the textbox's own native text-undo active too
+      // would fight with that. A use that actually wants normal text-editing undo/redo (e.g.
+      // the Python script box, where Ctrl+Z should undo recent typing like any code editor)
+      // can opt in by setting this to -1 (TextBoxBase's default/unlimited).
+      public static readonly DependencyProperty UndoLimitProperty = DependencyProperty.Register(nameof(UndoLimit), typeof(int), typeof(TextEditor), new FrameworkPropertyMetadata(0, UndoLimitChanged));
+
+      public int UndoLimit {
+         get => (int)GetValue(UndoLimitProperty);
+         set => SetValue(UndoLimitProperty, value);
+      }
+
+      private static void UndoLimitChanged(DependencyObject d, DependencyPropertyChangedEventArgs e) {
+         var self = (TextEditor)d;
+         self.TransparentLayer.UndoLimit = (int)e.NewValue;
+      }
+
+      #endregion
+
       #region ContextMenuOverride
 
       public ContextMenu ContextMenuOverride {
@@ -58,12 +80,17 @@ namespace HavenSoft.HexManiac.WPF.Controls {
 
       public TextEditor() {
          InitializeComponent();
+         // The UndoLimit changed-callback only fires on an actual change, not merely because
+         // a value equals its default - sync explicitly so the default (0, disabled) reaches
+         // the inner TextBox even when nothing ever sets this property.
+         TransparentLayer.UndoLimit = UndoLimit;
          TransparentLayer.SelectionChanged += (sender, e) => {
             SelectionChanged?.Invoke(this, e);
          };
          DataContextChanged += HandleDataContextChanged;
          // ExtentWidth is not a DependencyProperty, so check for the horizontal scroll bar when the text chanegs
          TransparentLayer.TextChanged += (sender, e) => {
+            if (UpdateLayerWidthsForWordWrap()) return;
             // measure the width of the text, since ExtentWidth hasn't been updated yet.
             var typeface = new Typeface(TransparentLayer.FontFamily, FontStyles.Normal, FontWeights.Normal, FontStretches.Normal);
             var width = new FormattedText(TransparentLayer.Text, CultureInfo.CurrentCulture, FlowDirection, typeface, TransparentLayer.FontSize, Brushes.Transparent, 1).Width;
@@ -76,6 +103,31 @@ namespace HavenSoft.HexManiac.WPF.Controls {
                CornerCover.Height = 0;
             }
          };
+      }
+
+      private bool wordWrap;
+
+      // Notepad-style Alt+Z toggle (wired up per-usage, e.g. the Python script box, rather
+      // than as a dependency property: unlike UndoLimit this is a runtime-only user
+      // preference with no need to be set declaratively from XAML).
+      public void ToggleWordWrap() {
+         wordWrap = !wordWrap;
+         var wrapping = wordWrap ? TextWrapping.Wrap : TextWrapping.NoWrap;
+         TransparentLayer.TextWrapping = wrapping;
+         TransparentLayer.HorizontalScrollBarVisibility = wordWrap ? ScrollBarVisibility.Disabled : ScrollBarVisibility.Auto;
+         foreach (var layer in Layers) layer.TextWrapping = wrapping;
+         UpdateLayerWidthsForWordWrap();
+      }
+
+      // Wraps layers at the same boundary the (also TextWrapping=Wrap) TransparentLayer
+      // uses, instead of the full unwrapped extent. Returns true (handled) when word wrap
+      // is on, so callers can skip their own (non-wrap-mode) width calculation.
+      private bool UpdateLayerWidthsForWordWrap() {
+         if (!wordWrap) return false;
+         foreach (var layer in Layers) layer.Width = TransparentLayer.ViewportWidth;
+         CornerCover.Width = 0;
+         CornerCover.Height = 0;
+         return true;
       }
 
       private void HandleDataContextChanged(object sender, DependencyPropertyChangedEventArgs e) {
@@ -133,8 +185,9 @@ namespace HavenSoft.HexManiac.WPF.Controls {
             var transform = (TranslateTransform)layer.RenderTransform;
             transform.Y = -TransparentLayer.VerticalOffset;
             transform.X = -TransparentLayer.HorizontalOffset;
-            layer.Width = TransparentLayer.ExtentWidth;
          }
+         if (UpdateLayerWidthsForWordWrap()) return;
+         foreach (var layer in Layers) layer.Width = TransparentLayer.ExtentWidth;
       }
 
       private static SolidColorBrush Brush(string name) {

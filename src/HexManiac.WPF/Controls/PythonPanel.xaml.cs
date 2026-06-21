@@ -16,6 +16,11 @@ namespace HavenSoft.HexManiac.WPF.Controls {
             e.Handled = true;
             if (DataContext is not PythonTool tool) return;
             tool.Close();
+         } else if (e.SystemKey == Key.Z && Keyboard.Modifiers == ModifierKeys.Alt) {
+            // Notepad-style word wrap toggle. With Alt held, WPF reports e.Key as the
+            // Key.System sentinel and puts the actual key in e.SystemKey instead.
+            e.Handled = true;
+            ((TextEditor)sender).ToggleWordWrap();
          }
       }
 

@@ -2,6 +2,7 @@ using HavenSoft.HexManiac.Core.Models;
 using HavenSoft.HexManiac.Core.Models.Runs;
 using Python.Runtime;
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Dynamic;
 using System.IO;
@@ -45,6 +46,35 @@ clr.AddReference('HexManiac.Core')
 import HavenSoft.HexManiac.Core
 from HavenSoft.HexManiac.Core.Models import IDataModel
 import ast as __hma_ast__
+import keyword as __hma_keyword__
+import builtins as __hma_builtins_mod__
+import pkgutil as __hma_pkgutil__
+
+# precomputed once per scope for autocomplete: real keywords/builtins/importable
+# module names from this exact interpreter, rather than a hand-maintained list.
+__hma_keywords__ = list(__hma_keyword__.kwlist)
+__hma_builtin_names__ = [__hma_n__ for __hma_n__ in dir(__hma_builtins_mod__) if not __hma_n__.startswith('_')]
+__hma_module_names__ = sorted(set(__hma_n__ for _, __hma_n__, _ in __hma_pkgutil__.iter_modules()))
+
+def __hma_dir__(expr, prefix):
+   # used for 'installed pip module' attribute completion (e.g. requests.g -> get).
+   # expr is a string, evaluated here (not by the caller) so a NameError from a module
+   # that hasn't actually been imported yet this session is catchable - falling back to
+   # importing it fresh (harmless: only populates sys.modules' cache, same as a real
+   # import would, and doesn't touch the user's own globals()) lets completion work even
+   # before the script's own `import requests` line has ever been run.
+   try:
+      __hma_obj__ = eval(expr, globals())
+   except Exception:
+      try:
+         import importlib
+         __hma_obj__ = importlib.import_module(expr)
+      except Exception:
+         return []
+   try:
+      return [__hma_n__ for __hma_n__ in dir(__hma_obj__) if __hma_n__.startswith(prefix) and not __hma_n__.startswith('_')]
+   except Exception:
+      return []
 
 def __hma_run__(__hma_code__):
    __hma_tree__ = __hma_ast__.parse(__hma_code__, mode='exec')
@@ -89,6 +119,11 @@ def __hma_run__(__hma_code__):
 
       public void RunPython() {
          ResultText = RunPythonScript(Text).ErrorMessage ?? "null";
+         // Closes this run's edits into their own undo/redo step (Ctrl+Z/Ctrl+Y), so they
+         // don't bleed into whatever the user does next. RunPythonScript itself can't do
+         // this - it's also used for read-only introspection (HasFunction/GetComment),
+         // where forcibly completing some unrelated in-progress edit elsewhere would be wrong.
+         if (editor.SelectedTab is IEditableViewPort vp) vp.ChangeHistory.ChangeCompleted();
          editor.SelectedTab?.Refresh();
       }
 
@@ -123,6 +158,87 @@ def __hma_run__(__hma_code__):
 
       public void AddVariable(string name, object value) {
          using (Py.GIL()) scope.Value.Set(name, value);
+      }
+
+      private IReadOnlyList<string> keywordNames, builtinNames, moduleNames;
+
+      // line/lineIndex/characterIndex match AutocompleteOverlay's Func<string,int,int,...>
+      // contract (see CodeBody.GetTokenComplete for the established convention): lineIndex
+      // is unused here since Python autocomplete only needs the current line's text.
+      public IReadOnlyList<AutocompleteItem> GetAutocomplete(string line, int lineIndex, int characterIndex) {
+         if (characterIndex < 0 || characterIndex > line.Length) return null;
+         // don't offer completions inside a string literal
+         if (line.Take(characterIndex).Count(c => c == '\'' || c == '"') % 2 == 1) return null;
+
+         var wordStart = characterIndex;
+         while (wordStart > 0 && IsAutocompleteChar(line[wordStart - 1])) wordStart--;
+         var prefix = line.Substring(wordStart, characterIndex - wordStart);
+         if (prefix.Length == 0) return null;
+
+         var before = line.Substring(0, wordStart);
+         var after = line.Substring(characterIndex);
+
+         IEnumerable<string> candidates;
+         var dotIndex = prefix.LastIndexOf('.');
+         if (dotIndex >= 0) {
+            var objectExpr = prefix.Substring(0, dotIndex);
+            var memberPrefix = prefix.Substring(dotIndex + 1);
+            candidates = GetMemberNames(objectExpr, memberPrefix).Select(member => objectExpr + "." + member)
+               .Concat(GetAnchorNames(prefix));
+         } else {
+            EnsureCompletionListsLoaded();
+            candidates = GetAnchorNames(prefix)
+               .Concat(keywordNames.Where(name => name.StartsWith(prefix, StringComparison.Ordinal)))
+               .Concat(builtinNames.Where(name => name.StartsWith(prefix, StringComparison.Ordinal)))
+               .Concat(moduleNames.Where(name => name.StartsWith(prefix, StringComparison.Ordinal)));
+         }
+
+         var results = candidates.Distinct().OrderBy(c => c, StringComparer.Ordinal).Take(50)
+            .Select(candidate => new AutocompleteItem(candidate, before + candidate + after))
+            .ToList();
+         return results.Count > 0 ? results : null;
+      }
+
+      private static bool IsAutocompleteChar(char c) => char.IsLetterOrDigit(c) || c == '_' || c == '.';
+
+      private IEnumerable<string> GetAnchorNames(string prefix) {
+         if (editor.SelectedTab is not IViewPort vp || vp.Model is not IDataModel model) return Enumerable.Empty<string>();
+         return model.Anchors.Where(anchor => anchor.StartsWith(prefix, StringComparison.Ordinal));
+      }
+
+      private IReadOnlyList<string> GetMemberNames(string objectExpr, string memberPrefix) {
+         if (string.IsNullOrWhiteSpace(objectExpr)) return Array.Empty<string>();
+         using (Py.GIL()) {
+            try {
+               // objectExpr/memberPrefix are passed as quoted string arguments (not interpolated
+               // as bare source) so __hma_dir__ can catch a NameError - e.g. requests.g typed
+               // before the script's own `import requests` line has run - itself and fall back
+               // to importing the module fresh, instead of the whole Eval call throwing here
+               // before __hma_dir__ is even entered.
+               using var result = scope.Value.Eval($"__hma_dir__('{objectExpr}', '{memberPrefix}')");
+               return result.As<string[]>() ?? Array.Empty<string>();
+            } catch {
+               return Array.Empty<string>();
+            }
+         }
+      }
+
+      private void EnsureCompletionListsLoaded() {
+         if (keywordNames != null) return;
+         using (Py.GIL()) {
+            keywordNames = ReadGlobalStringList("__hma_keywords__");
+            builtinNames = ReadGlobalStringList("__hma_builtin_names__");
+            moduleNames = ReadGlobalStringList("__hma_module_names__");
+         }
+      }
+
+      private IReadOnlyList<string> ReadGlobalStringList(string name) {
+         try {
+            using var value = scope.Value.Eval(name);
+            return value.As<string[]>() ?? Array.Empty<string>();
+         } catch {
+            return Array.Empty<string>();
+         }
       }
 
       public void Printer(string text) {

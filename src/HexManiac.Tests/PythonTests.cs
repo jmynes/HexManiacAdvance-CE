@@ -1,4 +1,5 @@
-﻿using HavenSoft.HexManiac.Core.Models;
+﻿using HavenSoft.HexManiac.Core;
+using HavenSoft.HexManiac.Core.Models;
 using HavenSoft.HexManiac.Core.Models.Runs;
 using HavenSoft.HexManiac.Core.ViewModels.Tools;
 using System.Collections.Generic;
@@ -64,6 +65,98 @@ namespace HavenSoft.HexManiac.Tests {
 
          Assert.Equal("3", Execute("len(table['elements'])").Trim()); // removed __len__ -> via .NET Count
          Assert.Equal("5", Execute("table['elements'][2].a").Trim()); // row 2, field a
+      }
+
+      [Fact]
+      public void RunPython_EditsField_UndoRevertsRedoReapplies() {
+         ViewPort.Edit("^elements[a:|t|x::|y::|z:: b:]2 (0 4 0) ");
+         ViewPort.ChangeHistory.ChangeCompleted(); // close the setup edit as its own step, isolating the python run below
+
+         Execute("table['elements'][0].a.y = 7");
+         Assert.Equal(0x0070, Model.ReadMultiByteValue(0, 2));
+
+         ViewPort.Undo.Execute();
+         Assert.Equal(0x0040, Model.ReadMultiByteValue(0, 2));
+
+         ViewPort.Redo.Execute();
+         Assert.Equal(0x0070, Model.ReadMultiByteValue(0, 2));
+      }
+
+      [Fact]
+      public void RunPython_TwoSeparateRuns_AreTwoSeparateUndoSteps() {
+         ViewPort.Edit("^elements[a: b:]2 1 2 3 4 ");
+         ViewPort.ChangeHistory.ChangeCompleted(); // close the setup edit as its own step, isolating the python runs below
+
+         Execute("table['elements'][0].a = 10");
+         Execute("table['elements'][0].b = 20");
+         Assert.Equal(10, Model.ReadMultiByteValue(0, 2));
+         Assert.Equal(20, Model.ReadMultiByteValue(2, 2));
+
+         ViewPort.Undo.Execute(); // undoes only the second run
+         Assert.Equal(10, Model.ReadMultiByteValue(0, 2));
+         Assert.Equal(2, Model.ReadMultiByteValue(2, 2));
+
+         ViewPort.Undo.Execute(); // undoes the first run
+         Assert.Equal(1, Model.ReadMultiByteValue(0, 2));
+         Assert.Equal(2, Model.ReadMultiByteValue(2, 2));
+      }
+
+      [Fact]
+      public void GetAutocomplete_AnchorPrefix_SuggestsFullDottedAnchorName() {
+         ViewPort.Edit("@000 ^data.pokemon.stats[hp: atk:]2 (10 20) (30 40) ");
+
+         var options = tool.GetAutocomplete("dat", 0, 3);
+
+         Assert.Contains(options, o => o.LineText == "data.pokemon.stats");
+      }
+
+      [Fact]
+      public void GetAutocomplete_KeywordPrefix_SuggestsKeyword() {
+         var options = tool.GetAutocomplete("imp", 0, 3);
+
+         Assert.Contains(options, o => o.LineText == "import");
+      }
+
+      [Fact]
+      public void GetAutocomplete_BuiltinPrefix_SuggestsBuiltinFunction() {
+         var options = tool.GetAutocomplete("pri", 0, 3);
+
+         Assert.Contains(options, o => o.LineText == "print");
+      }
+
+      [Fact]
+      public void GetAutocomplete_ModulePrefix_SuggestsImportableModule() {
+         // 'os' is always present (stdlib), unlike the pip-bootstrapped packages,
+         // which are allowed to be missing - see BundledPackage_ImportRequests_Succeeds.
+         var options = tool.GetAutocomplete("o", 0, 1);
+
+         Assert.Contains(options, o => o.LineText == "os");
+      }
+
+      [Fact]
+      public void GetAutocomplete_DottedPrefixAfterImport_SuggestsRealModuleMember() {
+         Execute("import os");
+
+         var options = tool.GetAutocomplete("os.path.j", 0, 9);
+
+         Assert.Contains(options, o => o.LineText == "os.path.join");
+      }
+
+      [Fact]
+      public void GetAutocomplete_DottedModulePrefixBeforeAnyImport_StillSuggestsRealMember() {
+         // the common case: a user typing a fresh script (import + usage together) who
+         // hasn't actually run anything yet, so 'os' isn't bound in the live scope - dir()
+         // completion must still work by importing the module fresh for introspection.
+         var options = tool.GetAutocomplete("os.path.j", 0, 9);
+
+         Assert.Contains(options, o => o.LineText == "os.path.join");
+      }
+
+      [Fact]
+      public void GetAutocomplete_InsideStringLiteral_ReturnsNull() {
+         var options = tool.GetAutocomplete("print('pri", 0, 10);
+
+         Assert.Null(options);
       }
 
       [SkippableFact]

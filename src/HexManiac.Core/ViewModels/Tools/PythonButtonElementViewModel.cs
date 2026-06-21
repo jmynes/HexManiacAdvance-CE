@@ -57,6 +57,9 @@ namespace HavenSoft.HexManiac.Core.ViewModels.Tools {
          var elementIndex = tableRun.ConvertByteOffsetToArrayOffset(elementAddress).ElementIndex;
          viewPort.PythonTool.AddVariable("element", new ModelTable(viewPort.Model, tableRun, () => viewPort.CurrentChange)[elementIndex]);
          var error = viewPort.PythonTool.RunPythonScript($"{segment.FunctionName}(element)");
+         // Closes this run's edits into their own undo/redo step (Ctrl+Z/Ctrl+Y) - see the
+         // matching comment in PythonTool.RunPython for why this can't live in RunPythonScript.
+         viewPort.ChangeHistory.ChangeCompleted();
          if (error.HasError && !error.IsWarning) {
             viewPort.RaiseError(error.ErrorMessage);
          }
