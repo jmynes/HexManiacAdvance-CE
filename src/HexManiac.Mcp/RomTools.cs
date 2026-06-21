@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
+using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using HavenSoft.HexManiac.Core.Models;
@@ -16,7 +17,12 @@ namespace HavenSoft.HexManiac.Mcp;
 // GuiBridge is added). Shared table logic lives in HexManiac.Core/RomAutomation.
 [McpServerToolType]
 public sealed class RomTools {
-   private static readonly JsonSerializerOptions Json = new() { WriteIndented = false };
+   // Relaxed encoder so apostrophes, <>, and non-ASCII (accents, gender symbols) come back
+   // literally in tool responses (e.g. FARFETCH'D) instead of as \uXXXX escapes.
+   private static readonly JsonSerializerOptions Json = new() {
+      WriteIndented = false,
+      Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+   };
 
    [McpServerTool(Name = "open_rom")]
    [Description("Open a GBA ROM. Live: new GUI tab; headless: single session. For ROMs that are NOT a recognized base game (FireRed/Emerald/...) AND have no sidecar .toml, HexManiac guesses table offsets; under metadata='auto' this returns a warning with choices instead of opening. metadata: 'auto' (default) | 'find_toml' | 'guess_offsets' | 'guess'.")]
@@ -438,10 +444,12 @@ public sealed class RomTools {
    // Serialize a result object and stamp mode:"headless".
    private static string Headless(object result) => Stamp(JsonSerializer.Serialize(result, Json), "headless");
 
-   // Parse a JSON object string and add/overwrite a "mode" field.
+   // Parse a JSON object string and add/overwrite a "mode" field. Re-serializes with the
+   // relaxed encoder (Json), so this is the single spot that controls escaping for every
+   // tool response, in both live and headless mode.
    internal static string Stamp(string json, string mode) {
       var node = JsonNode.Parse(json)!.AsObject();
       node["mode"] = mode;
-      return node.ToJsonString();
+      return node.ToJsonString(Json);
    }
 }
