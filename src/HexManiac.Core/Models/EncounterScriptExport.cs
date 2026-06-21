@@ -24,13 +24,15 @@ namespace HavenSoft.HexManiac.Core.Models {
       // and romhacks that use a different opcode map or specials table.
       private const int VariableBase = 0x4000;  // script vars are >= 0x4000; real species ids are below that
       private const int Var_Species = 0x8004, Var_Level = 0x8005, Var_Item = 0x8006, Var_RoamerSpecies = 0x8000;
+      private const int Var_TradeIndex = 0x8008;  // in-game trade NPCs put the trade id in VAR_0x8008
 
       public static object Export(IDataModel model, ScriptParser parser, string outPath) {
          if (parser == null) return RomAutomation.Err("export_script_encounters needs the script parser (open a ROM with the code tool / live GUI).");
          var speciesNames = TrainerTeamExport.NameColumn(model, HardcodeTablesModel.PokemonNameTable);
          var itemNames = TrainerTeamExport.NameColumn(model, HardcodeTablesModel.ItemsTableName);
 
-         var sites = CollectSites(model, parser, speciesNames, itemNames);
+         var tradeLocations = new SortedDictionary<int, Dictionary<string, object?>>();
+         var sites = CollectSites(model, parser, speciesNames, itemNames, tradeLocations);
          int gift = sites.Count(s => (string)s["kind"] == "gift");
          int stat = sites.Count(s => (string)s["kind"] == "static");
          int legend = sites.Count(s => (string)s["kind"] == "legendary");
@@ -64,6 +66,7 @@ namespace HavenSoft.HexManiac.Core.Models {
             ["speciesCovered"] = bySpecies.Count,
             ["bySpecies"] = bySpeciesOut,
             ["sites"] = sites,
+            ["tradeLocations"] = tradeLocations.ToDictionary(kv => kv.Key.ToString(), kv => (object?)kv.Value),
          };
          File.WriteAllText(outPath, JsonSerializer.Serialize(payload, new JsonSerializerOptions {
             WriteIndented = true, Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
@@ -95,7 +98,7 @@ namespace HavenSoft.HexManiac.Core.Models {
       }
 
       private static List<Dictionary<string, object?>> CollectSites(IDataModel model, ScriptParser parser,
-            List<string> speciesNames, List<string> itemNames) {
+            List<string> speciesNames, List<string> itemNames, SortedDictionary<int, Dictionary<string, object?>> tradeLocations) {
          var sites = new List<Dictionary<string, object?>>();
          var mapNames = TrainerTeamExport.MapNameColumn(model);
 
@@ -107,6 +110,7 @@ namespace HavenSoft.HexManiac.Core.Models {
          if (givePokemon == 0 || setvar == 0) return sites;  // engine doesn't define the basics we rely on
          int startLegendaryBattle = SpecialIndex(model, "StartLegendaryBattle");
          int initRoamer = SpecialIndex(model, "InitRoamer");
+         int createInGameTrade = SpecialIndex(model, "CreateInGameTradePokemon");
          var filter = new List<byte> { givePokemon, setvar };
          if (setWildBattle != 0) filter.Add(setWildBattle);
          if (special != 0) filter.Add(special);
@@ -145,6 +149,17 @@ namespace HavenSoft.HexManiac.Core.Models {
                      kind = op == givePokemon ? "gift" : "static";
                   } else if (op == special) {
                      int idx = model.ReadMultiByteValue(spot.Address + 1, 2);
+                     if (createInGameTrade >= 0 && idx == createInGameTrade) {
+                        // in-game trade NPC: the trade id is the literal in VAR_0x8008, set once near the script top.
+                        if (varValues.TryGetValue(Var_TradeIndex, out var ti) && varSetCount.TryGetValue(Var_TradeIndex, out var tc)
+                            && tc == 1 && ti >= 0 && ti < 256 && !tradeLocations.ContainsKey(ti)) {
+                           tradeLocations[ti] = new Dictionary<string, object?> {
+                              ["tradeIndex"] = ti, ["mapBank"] = bank, ["mapNumber"] = mapNumber, ["mapName"] = mapName,
+                              ["scriptOffset"] = TrainerTeamExport.FormatOffset(spot.Address),
+                           };
+                        }
+                        continue;
+                     }
                      if (startLegendaryBattle >= 0 && idx == startLegendaryBattle) {
                         // ticket legendary: species/level are loaded into VAR_0x8004/0x8005 just before the special
                         species = BackScanSetvar(model, setvar, spot.Address, Var_Species);

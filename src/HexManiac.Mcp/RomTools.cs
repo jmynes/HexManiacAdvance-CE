@@ -295,7 +295,7 @@ public sealed class RomTools {
    }
 
    [McpServerTool(Name = "export_script_encounters")]
-   [Description("Export script-granted Pokemon that the wild/trainer/evolution tables miss: walks every top-level map script for givePokemon (gifts: starters, fossils, Eevee, the Magikarp sale, the Fighting-Dojo Hitmons - including 'givePokemon VAR' resolved from a one-time setvar), setwildbattle (statics: birds, Mewtwo, Snorlax), and the StartLegendaryBattle/InitRoamer specials (ticket legendaries / roamers). Each site has kind (gift/static/legendary/roaming), species, level, held item, map bank/number/name, and the script offset; output is also grouped 'bySpecies'. Commands and specials are resolved BY NAME from the engine, so it works on other base games and romhacks. Targets the GUI's active tab when live; else headless.")]
+   [Description("Export script-granted Pokemon that the wild/trainer/evolution tables miss: walks every top-level map script for givePokemon (gifts: starters, fossils, Eevee, the Magikarp sale, the Fighting-Dojo Hitmons - including 'givePokemon VAR' resolved from a one-time setvar), setwildbattle (statics: birds, Mewtwo, Snorlax), and the StartLegendaryBattle/InitRoamer specials (ticket legendaries / roamers). Each site has kind (gift/static/legendary/roaming), species, level, held item, map bank/number/name, and the script offset; output is also grouped 'bySpecies'. Also emits 'tradeLocations' (in-game trade index -> map, resolved from the CreateInGameTradePokemon special). Commands and specials are resolved BY NAME from the engine, so it works on other base games and romhacks. Targets the GUI's active tab when live; else headless.")]
    public string ExportScriptEncounters(
       RomSession session,
       [Description("Absolute path of the .json file to write")] string outPath,
@@ -328,6 +328,17 @@ public sealed class RomTools {
       var p = new Dictionary<string, object?> { ["outPath"] = outPath };
       return Dispatch("export_coin_prizes", p, tab, tabFile,
          () => CoinPrizeExport.Export(session.Require(), outPath));
+   }
+
+   [McpServerTool(Name = "export_pokedex")]
+   [Description("Export Pokedex flavor from data.pokedex.stats: per national-dex number, the category (e.g. 'Seed Pokémon'), height (m), weight (kg), and the dex entry text. Output is grouped 'byNationalDex'. Targets the GUI's active tab when live; else headless.")]
+   public string ExportPokedex(
+      RomSession session,
+      [Description("Absolute path of the .json file to write")] string outPath,
+      [Description("Target GUI tab by index (default: active tab)")] int? tab = null,
+      [Description("Target GUI tab by filename substring")] string? tabFile = null) {
+      var p = new Dictionary<string, object?> { ["outPath"] = outPath };
+      return Dispatch("export_pokedex", p, tab, tabFile, () => PokedexExport.Export(session.Require(), outPath));
    }
 
    [McpServerTool(Name = "read_script")]

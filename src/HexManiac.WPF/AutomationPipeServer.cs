@@ -119,6 +119,11 @@ namespace HavenSoft.HexManiac.WPF.Windows {
                }
                return Ok(new { ok = errs.Count == 0, errors = errs, ranOn = vp.FullFileName ?? vp.Name });
             }
+            case "export_pokedex": {
+               var vp = ResolveTab(p);
+               if (vp == null) return NoTab();
+               return Ok(PokedexExport.Export(vp.Model, Str(p, "outPath")));
+            }
             case "read_script": {
                var vp = ResolveTab(p);
                if (vp == null) return NoTab();
