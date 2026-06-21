@@ -13,7 +13,19 @@
   <PropertyGroup>
     <PythonRuntimeVersion>3.12.8</PythonRuntimeVersion>
     <PythonRuntimeCacheDir>$(SolutionDir)artifacts\PythonRuntime\$(PythonRuntimeVersion)\</PythonRuntimeCacheDir>
+    <!-- e.g. "3.12.8" -> "312", to name the version-specific python3xx.dll / python3xx._pth -->
+    <PythonRuntimeMajorMinor>$(PythonRuntimeVersion.Split('.')[0])$(PythonRuntimeVersion.Split('.')[1])</PythonRuntimeMajorMinor>
   </PropertyGroup>
+
+  <!-- Packages installed into the bundled runtime's site-packages, for use by user-written
+       HMA python scripts (e.g. `import requests`). The embeddable package ships with
+       site-packages/pip disabled by design; opting a package in here bootstraps pip once
+       and installs it, so it's available out of the box rather than needing a manual,
+       per-machine, per-clean-build fix. A failure here (e.g. no network) only warns -
+       it must never block building the editor itself. -->
+  <ItemGroup>
+    <PythonRuntimePackage Include="requests" />
+  </ItemGroup>
 
   <Target Name="StagePythonRuntimeX64" AfterTargets="Build" Condition="'$(BundlePythonRuntimeX64)' == 'true'">
     <DownloadFile
@@ -25,6 +37,9 @@
       Condition="!Exists('$(PythonRuntimeCacheDir)x64\.complete')"
       SourceFiles="$(PythonRuntimeCacheDir)python-embed-amd64.zip"
       DestinationFolder="$(PythonRuntimeCacheDir)x64\" />
+    <MSBuild Projects="$(MSBuildThisFileFullPath)" Targets="_EnablePythonRuntimeSitePackages"
+             Properties="PythonRuntimeArchDir=$(PythonRuntimeCacheDir)x64\"
+             Condition="!Exists('$(PythonRuntimeCacheDir)x64\.complete')" />
     <Touch
       Condition="!Exists('$(PythonRuntimeCacheDir)x64\.complete')"
       Files="$(PythonRuntimeCacheDir)x64\.complete"
@@ -45,6 +60,9 @@
       Condition="!Exists('$(PythonRuntimeCacheDir)x86\.complete')"
       SourceFiles="$(PythonRuntimeCacheDir)python-embed-win32.zip"
       DestinationFolder="$(PythonRuntimeCacheDir)x86\" />
+    <MSBuild Projects="$(MSBuildThisFileFullPath)" Targets="_EnablePythonRuntimeSitePackages"
+             Properties="PythonRuntimeArchDir=$(PythonRuntimeCacheDir)x86\"
+             Condition="!Exists('$(PythonRuntimeCacheDir)x86\.complete')" />
     <Touch
       Condition="!Exists('$(PythonRuntimeCacheDir)x86\.complete')"
       Files="$(PythonRuntimeCacheDir)x86\.complete"
@@ -53,5 +71,23 @@
       <_PythonRuntimeFilesX86 Include="$(PythonRuntimeCacheDir)x86\**\*" Exclude="$(PythonRuntimeCacheDir)x86\.complete" />
     </ItemGroup>
     <Copy SourceFiles="@(_PythonRuntimeFilesX86)" DestinationFolder="$(TargetDir)resources\python\x86\%(RecursiveDir)" SkipUnchangedFiles="true" />
+  </Target>
+
+  <!-- Called once per architecture (via the MSBuild task, so $(PythonRuntimeArchDir) is a fresh
+       global property each time, not shared/clobbered state) right after extraction. Enables
+       site-packages in the embeddable package's ._pth, bootstraps pip, and installs
+       @(PythonRuntimePackage). Non-fatal: a network hiccup here must not break the editor build. -->
+  <Target Name="_EnablePythonRuntimeSitePackages">
+    <ItemGroup>
+      <_PythonPthLines Include="python$(PythonRuntimeMajorMinor).zip" />
+      <_PythonPthLines Include="." />
+      <_PythonPthLines Include="Lib\site-packages" />
+      <_PythonPthLines Include="import site" />
+    </ItemGroup>
+    <MakeDir Directories="$(PythonRuntimeArchDir)Lib\site-packages" />
+    <WriteLinesToFile File="$(PythonRuntimeArchDir)python$(PythonRuntimeMajorMinor)._pth" Lines="@(_PythonPthLines)" Overwrite="true" />
+    <DownloadFile SourceUrl="https://bootstrap.pypa.io/get-pip.py" DestinationFolder="$(PythonRuntimeArchDir)" ContinueOnError="WarnAndContinue" />
+    <Exec Command=".\python.exe get-pip.py --no-warn-script-location" WorkingDirectory="$(PythonRuntimeArchDir)" ContinueOnError="WarnAndContinue" Condition="Exists('$(PythonRuntimeArchDir)get-pip.py')" />
+    <Exec Command=".\python.exe -m pip install --no-warn-script-location @(PythonRuntimePackage, ' ')" WorkingDirectory="$(PythonRuntimeArchDir)" ContinueOnError="WarnAndContinue" Condition="Exists('$(PythonRuntimeArchDir)Lib\site-packages\pip')" />
   </Target>
 </Project>

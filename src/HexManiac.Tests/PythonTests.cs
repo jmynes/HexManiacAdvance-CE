@@ -54,5 +54,14 @@ namespace HavenSoft.HexManiac.Tests {
 
          Assert.Equal(0x0070, Model.ReadMultiByteValue(0, 2));
       }
+
+      [Fact]
+      public void BundledPackage_ImportRequests_Succeeds() {
+         // guards the pip-bootstrap pipeline in Directory.Build.targets: the embeddable
+         // CPython package ships with site-packages disabled, so this only works if that
+         // pipeline successfully enabled it and installed requests.
+         var result = Execute("import requests; 'requests imported ok'").Trim();
+         Assert.Equal("requests imported ok", result);
+      }
    }
 }
