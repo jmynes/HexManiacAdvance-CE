@@ -9,6 +9,12 @@
 
     A project opts in by setting <BundlePythonRuntimeX64>true</BundlePythonRuntimeX64> and/or
     <BundlePythonRuntimeX86>true</BundlePythonRuntimeX86> in its own .csproj.
+
+    The actual staging (download, site-packages/pip enablement, package install, and the
+    .complete marker) happens in stage-python-runtime.ps1, run via a named cross-process
+    mutex - see that script for why: it's what makes staging safe when HexManiac.WPF and
+    HexManiac.Tests both target this same cache dir under a parallel (`/m`) build, and what
+    keeps a transient network failure from permanently "completing" a broken cache.
   -->
   <PropertyGroup>
     <PythonRuntimeVersion>3.12.8</PythonRuntimeVersion>
@@ -22,75 +28,41 @@
        site-packages/pip disabled by design; opting a package in here bootstraps pip once
        and installs it, so it's available out of the box rather than needing a manual,
        per-machine, per-clean-build fix. A failure here (e.g. no network) only warns -
-       it must never block building the editor itself. -->
+       it must never block building the editor itself (see stage-python-runtime.ps1). -->
   <ItemGroup>
     <PythonRuntimePackage Include="requests" />
-    <PythonRuntimePackage Include="numpy" />
-    <PythonRuntimePackage Include="pandas" />
-    <PythonRuntimePackage Include="matplotlib" />
+    <PythonRuntimePackage Include="bs4" />
   </ItemGroup>
 
-  <Target Name="StagePythonRuntimeX64" AfterTargets="Build" Condition="'$(BundlePythonRuntimeX64)' == 'true'">
-    <DownloadFile
-      Condition="!Exists('$(PythonRuntimeCacheDir)x64\.complete')"
-      SourceUrl="https://www.python.org/ftp/python/$(PythonRuntimeVersion)/python-$(PythonRuntimeVersion)-embed-amd64.zip"
-      DestinationFolder="$(PythonRuntimeCacheDir)"
-      DestinationFileName="python-embed-amd64.zip" />
-    <Unzip
-      Condition="!Exists('$(PythonRuntimeCacheDir)x64\.complete')"
-      SourceFiles="$(PythonRuntimeCacheDir)python-embed-amd64.zip"
-      DestinationFolder="$(PythonRuntimeCacheDir)x64\" />
-    <MSBuild Projects="$(MSBuildThisFileFullPath)" Targets="_EnablePythonRuntimeSitePackages"
-             Properties="PythonRuntimeArchDir=$(PythonRuntimeCacheDir)x64\"
-             Condition="!Exists('$(PythonRuntimeCacheDir)x64\.complete')" />
-    <Touch
-      Condition="!Exists('$(PythonRuntimeCacheDir)x64\.complete')"
-      Files="$(PythonRuntimeCacheDir)x64\.complete"
-      AlwaysCreate="true" />
+  <!-- WPF's build generates a short-lived "_wpftmp" shadow project (for XAML markup
+       compilation) that also imports this file and would otherwise independently
+       trigger staging - duplicating the work and, since that shadow project tears
+       down quickly, sometimes killing the staging script's child process mid-run.
+       It produces no real output, so it has no reason to bundle a runtime at all. -->
+  <PropertyGroup>
+    <IsWpfShadowProject>false</IsWpfShadowProject>
+    <IsWpfShadowProject Condition="$(MSBuildProjectName.EndsWith('_wpftmp'))">true</IsWpfShadowProject>
+  </PropertyGroup>
+
+  <Target Name="StagePythonRuntimeX64" AfterTargets="Build" Condition="'$(BundlePythonRuntimeX64)' == 'true' and '$(IsWpfShadowProject)' == 'false'">
+    <Exec Command="powershell -NoProfile -ExecutionPolicy Bypass -File &quot;$(MSBuildThisFileDirectory)stage-python-runtime.ps1&quot; -ArchDir &quot;$(PythonRuntimeCacheDir)x64&quot; -EmbedZipUrl &quot;https://www.python.org/ftp/python/$(PythonRuntimeVersion)/python-$(PythonRuntimeVersion)-embed-amd64.zip&quot; -MajorMinor &quot;$(PythonRuntimeMajorMinor)&quot; -MutexName &quot;Global\HMA_PythonRuntimeStage_x64_$(PythonRuntimeVersion)&quot; -PackagesCsv &quot;@(PythonRuntimePackage, ',')&quot;" />
     <ItemGroup>
+      <!-- Copy whatever the script staged, even if package install/verification didn't
+           finish (no .complete yet) - the base interpreter is still usable without the
+           extra packages, and gating this on .complete would ship no runtime at all. -->
       <_PythonRuntimeFilesX64 Include="$(PythonRuntimeCacheDir)x64\**\*" Exclude="$(PythonRuntimeCacheDir)x64\.complete" />
     </ItemGroup>
     <Copy SourceFiles="@(_PythonRuntimeFilesX64)" DestinationFolder="$(TargetDir)resources\python\x64\%(RecursiveDir)" SkipUnchangedFiles="true" />
   </Target>
 
-  <Target Name="StagePythonRuntimeX86" AfterTargets="Build" Condition="'$(BundlePythonRuntimeX86)' == 'true'">
-    <DownloadFile
-      Condition="!Exists('$(PythonRuntimeCacheDir)x86\.complete')"
-      SourceUrl="https://www.python.org/ftp/python/$(PythonRuntimeVersion)/python-$(PythonRuntimeVersion)-embed-win32.zip"
-      DestinationFolder="$(PythonRuntimeCacheDir)"
-      DestinationFileName="python-embed-win32.zip" />
-    <Unzip
-      Condition="!Exists('$(PythonRuntimeCacheDir)x86\.complete')"
-      SourceFiles="$(PythonRuntimeCacheDir)python-embed-win32.zip"
-      DestinationFolder="$(PythonRuntimeCacheDir)x86\" />
-    <MSBuild Projects="$(MSBuildThisFileFullPath)" Targets="_EnablePythonRuntimeSitePackages"
-             Properties="PythonRuntimeArchDir=$(PythonRuntimeCacheDir)x86\"
-             Condition="!Exists('$(PythonRuntimeCacheDir)x86\.complete')" />
-    <Touch
-      Condition="!Exists('$(PythonRuntimeCacheDir)x86\.complete')"
-      Files="$(PythonRuntimeCacheDir)x86\.complete"
-      AlwaysCreate="true" />
+  <Target Name="StagePythonRuntimeX86" AfterTargets="Build" Condition="'$(BundlePythonRuntimeX86)' == 'true' and '$(IsWpfShadowProject)' == 'false'">
+    <Exec Command="powershell -NoProfile -ExecutionPolicy Bypass -File &quot;$(MSBuildThisFileDirectory)stage-python-runtime.ps1&quot; -ArchDir &quot;$(PythonRuntimeCacheDir)x86&quot; -EmbedZipUrl &quot;https://www.python.org/ftp/python/$(PythonRuntimeVersion)/python-$(PythonRuntimeVersion)-embed-win32.zip&quot; -MajorMinor &quot;$(PythonRuntimeMajorMinor)&quot; -MutexName &quot;Global\HMA_PythonRuntimeStage_x86_$(PythonRuntimeVersion)&quot; -PackagesCsv &quot;@(PythonRuntimePackage, ',')&quot;" />
     <ItemGroup>
+      <!-- Copy whatever the script staged, even if package install/verification didn't
+           finish (no .complete yet) - the base interpreter is still usable without the
+           extra packages, and gating this on .complete would ship no runtime at all. -->
       <_PythonRuntimeFilesX86 Include="$(PythonRuntimeCacheDir)x86\**\*" Exclude="$(PythonRuntimeCacheDir)x86\.complete" />
     </ItemGroup>
     <Copy SourceFiles="@(_PythonRuntimeFilesX86)" DestinationFolder="$(TargetDir)resources\python\x86\%(RecursiveDir)" SkipUnchangedFiles="true" />
-  </Target>
-
-  <!-- Called once per architecture (via the MSBuild task, so $(PythonRuntimeArchDir) is a fresh
-       global property each time, not shared/clobbered state) right after extraction. Enables
-       site-packages in the embeddable package's ._pth, bootstraps pip, and installs
-       @(PythonRuntimePackage). Non-fatal: a network hiccup here must not break the editor build. -->
-  <Target Name="_EnablePythonRuntimeSitePackages">
-    <ItemGroup>
-      <_PythonPthLines Include="python$(PythonRuntimeMajorMinor).zip" />
-      <_PythonPthLines Include="." />
-      <_PythonPthLines Include="Lib\site-packages" />
-      <_PythonPthLines Include="import site" />
-    </ItemGroup>
-    <MakeDir Directories="$(PythonRuntimeArchDir)Lib\site-packages" />
-    <WriteLinesToFile File="$(PythonRuntimeArchDir)python$(PythonRuntimeMajorMinor)._pth" Lines="@(_PythonPthLines)" Overwrite="true" />
-    <DownloadFile SourceUrl="https://bootstrap.pypa.io/get-pip.py" DestinationFolder="$(PythonRuntimeArchDir)" ContinueOnError="WarnAndContinue" />
-    <Exec Command=".\python.exe get-pip.py --no-warn-script-location" WorkingDirectory="$(PythonRuntimeArchDir)" ContinueOnError="WarnAndContinue" Condition="Exists('$(PythonRuntimeArchDir)get-pip.py')" />
-    <Exec Command=".\python.exe -m pip install --no-warn-script-location @(PythonRuntimePackage, ' ')" WorkingDirectory="$(PythonRuntimeArchDir)" ContinueOnError="WarnAndContinue" Condition="Exists('$(PythonRuntimeArchDir)Lib\site-packages\pip')" />
   </Target>
 </Project>

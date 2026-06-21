@@ -11,7 +11,7 @@ using System.Text.RegularExpressions;
 namespace HavenSoft.HexManiac.Core.ViewModels.Tools {
    public class PythonTool : ViewModelCore {
       private static readonly object engineLock = new();
-      private static bool engineInitialized;
+      private static volatile bool engineInitialized;
 
       private readonly Lazy<PyModule> scope;
       private readonly EditorViewModel editor;

@@ -249,16 +249,23 @@ namespace HavenSoft.HexManiac.Core.Models {
             if (seg is ArrayRunEnumSegment) {
                if (value is string str) SetEnumValue(fieldName, str);
                else if (value is BigInteger big) SetValue(fieldName, (int)big);
-               else SetValue(fieldName, Convert.ToInt32(value));
+               else SetValue(fieldName, RequireInt(value, fieldName));
             } else if (seg.Type == ElementContentType.Pointer) {
                if (value is string str) {
                   SetStringValue(fieldName, str);
                } else {
-                  SetAddress(fieldName, Convert.ToInt32(value));
+                  SetAddress(fieldName, RequireInt(value, fieldName));
                }
             } else if (seg.Type == ElementContentType.PCS) SetStringValue(fieldName, (string)value);
-            else SetValue(fieldName, Convert.ToInt32(value));
+            else SetValue(fieldName, RequireInt(value, fieldName));
          }
+      }
+
+      // Convert.ToInt32(null) silently returns 0, which would let a script that assigns
+      // None to a numeric field write a wrong value instead of failing loudly.
+      private static int RequireInt(object value, string fieldName) {
+         if (value == null) throw new ArgumentNullException(nameof(value), $"Cannot assign None to field '{fieldName}': expected a number.");
+         return Convert.ToInt32(value);
       }
 
       public void SetEnumValue(string fieldName, string valueText) {
@@ -452,8 +459,15 @@ namespace HavenSoft.HexManiac.Core.Models {
                var tup = tuple.Elements.First(seg => seg.Name == matchName);
                if (TryConvertEnumTextToValue(tup, s, out var result)) value = result;
             }
-            SetValue(fieldName, Convert.ToInt32(value));
+            SetValue(fieldName, RequireInt(value, fieldName));
          }
+      }
+
+      // Convert.ToInt32(null) silently returns 0, which would let a script that assigns
+      // None to a numeric field write a wrong value instead of failing loudly.
+      private static int RequireInt(object value, string fieldName) {
+         if (value == null) throw new ArgumentNullException(nameof(value), $"Cannot assign None to field '{fieldName}': expected a number.");
+         return Convert.ToInt32(value);
       }
 
       public bool HasField(string name) => tuple.Elements.Any(field => field.Name == name);
