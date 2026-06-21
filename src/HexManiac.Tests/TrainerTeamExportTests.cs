@@ -13,18 +13,18 @@ namespace HavenSoft.HexManiac.Tests {
       public void ReadableText_RendersGlyphEscapes(string raw, string expected) =>
          Assert.Equal(expected, TrainerTeamExport.ReadableText(raw));
 
-      // Build a tiny level-up learnset and confirm the default-moveset logic picks the
-      // last <=4 moves learnable at or below the given level (padded to 4 with 0). Uses
-      // the real ROM's child format: a [move: level.]!FFFF table-stream per species.
+      // Build tiny level-up learnsets using the real ROM child format (a
+      // [move: level.]!FFFF table-stream per species). Species 0 deliberately
+      // re-learns moves 3 and 4 at higher levels so we can exercise de-duplication.
       private void ArrangeLearnset() {
          CreateTextTable(HardcodeTablesModel.PokemonNameTable, 0x100, "AAA", "BBB", "CCC", "DDD");
          CreateTextTable(HardcodeTablesModel.MoveNamesTable, 0x180,
             "NONE", "m1", "m2", "m3", "m4", "m5", "m6", "m7");
-         // species 0 learns moves 1..7 at levels 1,1,7,13,20,25,33; species 1-3 learn nothing
-         WriteLearnset(0x80, (1, 1), (2, 1), (3, 7), (4, 13), (5, 20), (6, 25), (7, 33));
-         WriteLearnset(0xA0); // empty (just the terminator)
+         WriteLearnset(0x80, (1, 1), (2, 1), (3, 1), (4, 1), (3, 7), (4, 13), (5, 26)); // species 0 (dupes 3,4)
+         WriteLearnset(0xA0, (6, 5));  // species 1: a single move
+         WriteLearnset(0xB0);          // species 2/3: empty
          ViewPort.Goto.Execute("000000");
-         ViewPort.Edit("<000080><0000A0><0000A0><0000A0>");
+         ViewPort.Edit("<000080><0000A0><0000B0><0000B0>");
          ViewPort.Goto.Execute("000000");
          ViewPort.Edit($"^{HardcodeTablesModel.LevelMovesTableName}[movesFromLevel<[move:{HardcodeTablesModel.MoveNamesTable} level.]!FFFF>]{HardcodeTablesModel.PokemonNameTable} ");
       }
@@ -38,22 +38,25 @@ namespace HavenSoft.HexManiac.Tests {
          Model.WriteMultiByteValue(addr, 2, new ModelDelta(), 0xFFFF);             // terminator
       }
 
-      [Fact] public void DefaultMoves_TakesLastFourAtOrBelowLevel() {
+      // HMA's faithful in-game default moveset: FIFO by learnset order, keeps duplicates, pads to 4.
+      [Fact] public void GetDefaultMoves_IsFaithfulFifoWithDuplicates() {
          ArrangeLearnset();
-         var atL20 = TrainerPokemonTeamRun.GetDefaultMoves(Model, 0, 20);
-         Assert.Equal(new[] { 2, 3, 4, 5 }, atL20.ToArray());  // 5 known (1..5), keep last 4
+         Assert.Equal(new[] { 4, 3, 4, 5 }, TrainerPokemonTeamRun.GetDefaultMoves(Model, 0, 26).ToArray());
+         Assert.Equal(new[] { 6, 0, 0, 0 }, TrainerPokemonTeamRun.GetDefaultMoves(Model, 1, 50).ToArray());
       }
 
-      [Fact] public void DefaultMoves_PadsWhenFewerThanFour() {
+      // The exporter's deduped variant: distinct moves, the 4 with the highest level, no padding.
+      [Fact] public void DefaultMoveIds_DedupesAndTakesFourHighest() {
          ArrangeLearnset();
-         var atL5 = TrainerPokemonTeamRun.GetDefaultMoves(Model, 0, 5);
-         Assert.Equal(new[] { 1, 2, 0, 0 }, atL5.ToArray());   // only moves 1 and 2 learned by L5
+         // moves<=26 are {1@1,2@1,3@7,4@13,5@26}; the 4 highest distinct => 2,3,4,5 (no repeat of 3/4)
+         Assert.Equal(new[] { 2, 3, 4, 5 }, TrainerTeamExport.DefaultMoveIds(Model, 0, 26).ToArray());
       }
 
-      [Fact] public void DefaultMoves_EmptyLearnsetIsAllZero() {
+      [Fact] public void DefaultMoveIds_FewerThanFourNotPadded() {
          ArrangeLearnset();
-         var none = TrainerPokemonTeamRun.GetDefaultMoves(Model, 1, 50);
-         Assert.Equal(new[] { 0, 0, 0, 0 }, none.ToArray());
+         Assert.Equal(new[] { 6 }, TrainerTeamExport.DefaultMoveIds(Model, 1, 50).ToArray()); // single move
+         Assert.Empty(TrainerTeamExport.DefaultMoveIds(Model, 2, 50));                         // empty learnset
+         Assert.Empty(TrainerTeamExport.DefaultMoveIds(Model, 0, 0));                          // nothing learned yet
       }
    }
 }

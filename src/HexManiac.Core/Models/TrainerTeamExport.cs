@@ -107,12 +107,34 @@ namespace HavenSoft.HexManiac.Core.Models {
                var ids = Enumerable.Range(0, 4).Select(j => model.ReadMultiByteValue(basis + moveBase + j * 2, 2));
                member["moves"] = ids.Where(id => id != 0).Select(id => Name(moveNames, id)).ToList();
             } else if (includeDefaultMoves && species >= 0 && species < levelUpCount) {
-               var ids = TrainerPokemonTeamRun.GetDefaultMoves(model, species, level);
-               member["moves"] = ids.Where(id => id != 0).Select(id => Name(moveNames, id)).ToList();
+               member["moves"] = DefaultMoveIds(model, species, level).Select(id => Name(moveNames, id)).ToList();
             }
             party.Add(member);
          }
          return party;
+      }
+
+      /// <summary>
+      /// The default moves a non-hardcoded party member would have: distinct moves only
+      /// (each kept at its most-recent occurrence), the (up to) 4 with the highest level
+      /// at or below the mon's level. Selected by level value — not learnset order — and
+      /// not padded, so a mon with fewer than 4 eligible moves gets fewer.
+      /// </summary>
+      public static IReadOnlyList<int> DefaultMoveIds(IDataModel model, int species, int level) {
+         // most-recent occurrence (highest level, then latest position) of each distinct move
+         var best = new Dictionary<int, (int level, int pos)>();
+         var learnset = TrainerPokemonTeamRun.GetLevelUpLearnset(model, species);
+         for (int pos = 0; pos < learnset.Count; pos++) {
+            var (move, lv) = learnset[pos];
+            if (move == 0 || lv > level) continue;
+            if (!best.TryGetValue(move, out var cur) || lv > cur.level || (lv == cur.level && pos > cur.pos))
+               best[move] = (lv, pos);
+         }
+         return best
+            .OrderBy(kv => kv.Value.level).ThenBy(kv => kv.Value.pos) // ascending by level
+            .TakeLast(4)                                              // keep the 4 highest
+            .Select(kv => kv.Key)
+            .ToList();
       }
 
       // Render HMA's text-glyph escapes to readable labels (PK/MN glyphs, gender symbols).

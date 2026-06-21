@@ -577,30 +577,40 @@ namespace HavenSoft.HexManiac.Core.Models.Runs {
       /// </summary>
       public static IReadOnlyList<int> GetDefaultMoves(IDataModel model, int pokemon, int currentLevel) {
          var results = new List<int>();
-         var levelMovesAddress = model.GetAddressFromAnchor(new NoDataChangeDeltaModel(), -1, HardcodeTablesModel.LevelMovesTableName);
-         var lvlMoves = model.GetNextRun(levelMovesAddress) as ArrayRun;
-         if (lvlMoves != null) {
-            var movesStart = model.ReadPointer(lvlMoves.Start + lvlMoves.ElementLength * pokemon);
-            if (model.GetNextRun(movesStart) is ITableRun run) {
-               for (int i = 0; i < run.ElementCount; i += 1) {
-                  int level = 0, move = 0;
-                  if (run.ElementContent.Count == 1) {
-                     var pair = model.ReadMultiByteValue(run.Start + i * run.ElementLength, run.ElementLength);
-                     (level, move) = PLMRun.SplitToken(pair);
-                  } else if (run.ElementContent.Count == 2) {
-                     move = model.ReadMultiByteValue(run.Start + i * run.ElementLength, run.ElementContent[0].Length);
-                     level = model.ReadMultiByteValue(run.Start + i * run.ElementLength + run.ElementContent[0].Length, run.ElementContent[1].Length);
-                  } else {
-                     level = int.MaxValue;
-                  }
-
-                  if (currentLevel >= level) results.Add(move);
-                  else break;
-               }
-            }
+         foreach (var (move, level) in GetLevelUpLearnset(model, pokemon)) {
+            if (currentLevel >= level) results.Add(move);
+            else break;
          }
          while (results.Count > 4) results.RemoveAt(0); // restrict to the last 4 moves
          while (results.Count < 4) results.Add(0);      // pad with extra '0' moves if needed
+         return results;
+      }
+
+      /// <summary>
+      /// A pokemon's level-up learnset as (move, level) pairs, in the order stored in the
+      /// ROM. Reads both supported child encodings (packed plm token, or move+level fields).
+      /// </summary>
+      public static IReadOnlyList<(int move, int level)> GetLevelUpLearnset(IDataModel model, int pokemon) {
+         var results = new List<(int, int)>();
+         var levelMovesAddress = model.GetAddressFromAnchor(new NoDataChangeDeltaModel(), -1, HardcodeTablesModel.LevelMovesTableName);
+         var lvlMoves = model.GetNextRun(levelMovesAddress) as ArrayRun;
+         if (lvlMoves == null || pokemon < 0 || pokemon >= lvlMoves.ElementCount) return results;
+         var movesStart = model.ReadPointer(lvlMoves.Start + lvlMoves.ElementLength * pokemon);
+         if (model.GetNextRun(movesStart) is ITableRun run) {
+            for (int i = 0; i < run.ElementCount; i += 1) {
+               int level, move;
+               if (run.ElementContent.Count == 1) {
+                  var pair = model.ReadMultiByteValue(run.Start + i * run.ElementLength, run.ElementLength);
+                  (level, move) = PLMRun.SplitToken(pair);
+               } else if (run.ElementContent.Count == 2) {
+                  move = model.ReadMultiByteValue(run.Start + i * run.ElementLength, run.ElementContent[0].Length);
+                  level = model.ReadMultiByteValue(run.Start + i * run.ElementLength + run.ElementContent[0].Length, run.ElementContent[1].Length);
+               } else {
+                  break;
+               }
+               results.Add((move, level));
+            }
+         }
          return results;
       }
    }
