@@ -272,6 +272,19 @@ public sealed class RomTools {
          () => RomAutomation.ExportToFile(session.Require(), name, outPath, includePlaceholders));
    }
 
+   [McpServerTool(Name = "export_trainers")]
+   [Description("Export every trainer and their team to a JSON file: trainer-level fields plus each party member (level, species, IVs, held item, moves). Each member has a 'hardcodedMoves' flag; members WITHOUT hardcoded moves get the in-game default level-up moveset filled in (the last <=4 level-up moves at or below the mon's level), unless includeDefaultMoves=false. Targets the GUI's active tab when live; else headless.")]
+   public string ExportTrainers(
+      RomSession session,
+      [Description("Absolute path of the .json file to write")] string outPath,
+      [Description("Fill default level-up movesets for members without hardcoded moves (default true)")] bool includeDefaultMoves = true,
+      [Description("Target GUI tab by index (default: active tab)")] int? tab = null,
+      [Description("Target GUI tab by filename substring")] string? tabFile = null) {
+      var p = new Dictionary<string, object?> { ["outPath"] = outPath, ["includeDefaultMoves"] = includeDefaultMoves };
+      return Dispatch("export_trainers", p, tab, tabFile,
+         () => TrainerTeamExport.Export(session.Require(), outPath, includeDefaultMoves));
+   }
+
    [McpServerTool(Name = "run_script")]
    [Description("Run an HMA script. Provide inline 'script' text OR 'path' to a .hma file. Targets the GUI's active tab when live; else headless.")]
    public string RunScript(

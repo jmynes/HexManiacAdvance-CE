@@ -111,6 +111,24 @@ up with external sources (e.g. PokeAPI) instead of looking like unique mons:
 {"index": 386, "name": "DEOXYS", "slug": "deoxys", "forms": ["deoxys-normal","deoxys-attack","deoxys-defense","deoxys-speed"], "defaultForm": "deoxys-attack"}
 ```
 
+### Dumping trainers (`export_trainers`)
+
+`export_trainers` writes every trainer and their team to a JSON file. Each party
+member carries a **`hardcodedMoves`** flag: when the trainer stores explicit moves
+for it (`structType` bit 0) the moves are those exact stored entries (which may be
+fewer than four). When `hardcodedMoves` is false, `moves` is the game's **default
+level-up moveset** — the last ≤4 moves the species learns at or below the mon's
+level — filled in for you (pass `includeDefaultMoves: false` to leave it off).
+
+```json
+{"name": "export_trainers", "arguments": {"outPath": "C:/out/trainers.json"}}
+```
+
+```json
+{"level": 26, "species": "FEAROW", "hardcodedMoves": false,
+ "moves": ["FURY ATTACK", "LEER", "FURY ATTACK", "PURSUIT"]}
+```
+
 ## Editing values (write_value)
 
 `write_value` sets a single field on a table row. The `value` parameter is interpreted by the field's type:
@@ -323,6 +341,7 @@ All 25 tools exposed by this MCP server:
 | `read_table` | Read a named table as JSON rows. Targets the GUI's active tab when live. Use start/count to page; tab/tabFile to pick a tab. Species-indexed tables omit the ~25 placeholder/limbo slots by default (`excludedPlaceholders`, pass includePlaceholders=true to keep them) and add a canonical `slug` (+ `forms`/`defaultForm` for Deoxys/Castform). |
 | `write_value` | Set a field on a table row. value is a string (text/enum name), number (integer/enum index), or true/false. For a bit-array checkbox, pass flag="<name>" with value true/false. Live GUI when present (visible+undoable); else headless. |
 | `export_table` | Export an entire table (all rows, no paging) to a JSON file on disk. Targets the GUI's active tab when live; else headless. Species-indexed tables omit the ~25 placeholder/limbo slots by default (`excludedPlaceholders`, pass includePlaceholders=true to keep them) and add a canonical `slug` (+ `forms`/`defaultForm` for Deoxys/Castform). |
+| `export_trainers` | Export every trainer and their team to a JSON file. Each party member has a `hardcodedMoves` flag; members without hardcoded moves get the in-game default level-up moveset filled in (includeDefaultMoves=false to skip). |
 | `run_script` | Run an HMA script. Provide inline 'script' text OR 'path' to a .hma file. Targets the GUI's active tab when live; else headless. |
 | `undo` | Undo up to 'count' steps on the active tab's change history (same stack as Ctrl+Z). One step reverts the whole uncommitted batch of edits since the last commit boundary (a save_rom, run_script, or prior undo/redo), not necessarily a single write_value. Live GUI when present; else headless. |
 | `redo` | Redo up to 'count' steps on the active tab's change history (same stack as Ctrl+Y); a step replays a whole previously-undone batch. Live GUI when present; else headless. |

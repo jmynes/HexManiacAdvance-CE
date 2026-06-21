@@ -567,7 +567,15 @@ namespace HavenSoft.HexManiac.Core.Models.Runs {
       /// <summary>
       /// Finds what 4 moves a pokemon would have by default, based on lvlmoves and the given level
       /// </summary>
-      private IReadOnlyList<int> GetDefaultMoves(int pokemon, int currentLevel) {
+      private IReadOnlyList<int> GetDefaultMoves(int pokemon, int currentLevel) => GetDefaultMoves(model, pokemon, currentLevel);
+
+      /// <summary>
+      /// The (up to) 4 moves a pokemon would have by default at a given level, from its
+      /// level-up learnset: the last 4 moves learnable at or below currentLevel, padded
+      /// to 4 with move id 0 (no move). Shared so trainer-team exporters can reuse the
+      /// exact in-game default-moveset logic.
+      /// </summary>
+      public static IReadOnlyList<int> GetDefaultMoves(IDataModel model, int pokemon, int currentLevel) {
          var results = new List<int>();
          var levelMovesAddress = model.GetAddressFromAnchor(new NoDataChangeDeltaModel(), -1, HardcodeTablesModel.LevelMovesTableName);
          var lvlMoves = model.GetNextRun(levelMovesAddress) as ArrayRun;

@@ -89,6 +89,11 @@ namespace HavenSoft.HexManiac.WPF.Windows {
                if (vp == null) return NoTab();
                return Ok(RomAutomation.ExportToFile(vp.Model, Str(p, "name"), Str(p, "outPath"), Bool(p, "includePlaceholders", false)));
             }
+            case "export_trainers": {
+               var vp = ResolveTab(p);
+               if (vp == null) return NoTab();
+               return Ok(TrainerTeamExport.Export(vp.Model, Str(p, "outPath"), Bool(p, "includeDefaultMoves", true)));
+            }
             case "run_script": {
                var vp = ResolveTab(p);
                if (vp == null) return NoTab();
