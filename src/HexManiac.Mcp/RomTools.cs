@@ -292,6 +292,18 @@ public sealed class RomTools {
          () => TrainerTeamExport.Export(session.Require(), session.RequireViewPort().Tools.CodeTool.ScriptParser, outPath, includeDefaultMoves, includeUses));
    }
 
+   [McpServerTool(Name = "export_script_encounters")]
+   [Description("Export script-granted Pokemon that the wild/trainer/evolution tables miss: walks every top-level map script for givePokemon (0x79 = gifts: starters, fossils, Eevee, the Magikarp sale, ...) and setwildbattle (0xB6 = scripted/static battles: the legendary birds, Mewtwo, Snorlax, ...). Each site has kind (gift/static), species, level, held item, map bank/number/name, and the script offset; output is also grouped 'bySpecies'. Targets the GUI's active tab when live; else headless.")]
+   public string ExportScriptEncounters(
+      RomSession session,
+      [Description("Absolute path of the .json file to write")] string outPath,
+      [Description("Target GUI tab by index (default: active tab)")] int? tab = null,
+      [Description("Target GUI tab by filename substring")] string? tabFile = null) {
+      var p = new Dictionary<string, object?> { ["outPath"] = outPath };
+      return Dispatch("export_script_encounters", p, tab, tabFile,
+         () => EncounterScriptExport.Export(session.Require(), session.RequireViewPort().Tools.CodeTool.ScriptParser, outPath));
+   }
+
    [McpServerTool(Name = "run_script")]
    [Description("Run an HMA script. Provide inline 'script' text OR 'path' to a .hma file. Targets the GUI's active tab when live; else headless.")]
    public string RunScript(

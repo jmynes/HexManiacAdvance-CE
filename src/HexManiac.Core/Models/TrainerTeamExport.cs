@@ -147,51 +147,7 @@ namespace HavenSoft.HexManiac.Core.Models {
             }
          }
 
-         AllMapsModel banks;
-         try { banks = AllMapsModel.Create(model, default); } catch { return byTrainer; }
-         for (int bankIndex = 0; bankIndex < banks.Count; bankIndex++) {
-            MapBankModel? bank;
-            try { bank = banks[bankIndex]; } catch { continue; }
-            if (bank == null) continue;
-            for (int mapIndex = 0; mapIndex < bank.Count; mapIndex++) {
-               MapModel? map;
-               try { map = bank[mapIndex]; } catch { continue; }
-               if (map == null) continue;
-               string mapName = null;
-               try { int ni = map.NameIndex; if (ni >= 0 && ni < mapNames.Count) mapName = mapNames[ni]; } catch { }
-               mapNameByLocation[(bankIndex, mapIndex)] = mapName;
-
-               // object events
-               try {
-                  foreach (var obj in map.Events.Objects) {
-                     if (obj == null) continue;
-                     Record(obj.ScriptAddress, bankIndex, mapIndex, mapName);
-                  }
-               } catch { }
-
-               // map-header scripts (same traversal as Flags.GetAllTopLevelScripts)
-               try {
-                  var headerScripts = map.MapScripts;
-                  if (headerScripts != null) {
-                     foreach (var script in headerScripts) {
-                        if (script == null) continue;
-                        if (script.GetValue("type").IsAny(2, 4)) {
-                           var start = script.GetAddress("pointer");
-                           if (start < 0 || start >= model.Count) continue;
-                           int childCount = 0;
-                           while (!model.ReadMultiByteValue(start, 2).IsAny(0, 0xFFFF)) {
-                              Record(model.ReadPointer(start + 4), bankIndex, mapIndex, mapName);
-                              start += 8;
-                              if (++childCount > 100) break;
-                           }
-                        } else {
-                           Record(script.GetAddress("pointer"), bankIndex, mapIndex, mapName);
-                        }
-                     }
-                  }
-               } catch { }
-            }
-         }
+         WalkTopLevelMapScripts(model, mapNames, Record, mapNameByLocation);
 
          // rematch / VS-Seeker table: trainers reachable only as rematch opponents have
          // no map-script trainerbattle, so fold the table in or they'd read as unused.
@@ -231,6 +187,61 @@ namespace HavenSoft.HexManiac.Core.Models {
          return byTrainer;
       }
 
+      // Walk every top-level map script (each object event's script + the map-header scripts,
+      // including the type 2/4 header-script child tables) and invoke `record(scriptStart, bank,
+      // mapNumber, mapName)` for each entry point. Shared by the trainer-use and script-encounter
+      // exports. Robust: a missing maps table, null bank/map, or bad pointer skips that item
+      // rather than aborting the walk. When `mapNameByLocation` is given it's filled with each
+      // visited (bank, map) -> name for callers that need to resolve names later (e.g. rematch rows).
+      internal static void WalkTopLevelMapScripts(IDataModel model, List<string> mapNames,
+            Action<int, int, int, string> record, Dictionary<(int bank, int map), string> mapNameByLocation = null) {
+         AllMapsModel banks;
+         try { banks = AllMapsModel.Create(model, default); } catch { return; }
+         for (int bankIndex = 0; bankIndex < banks.Count; bankIndex++) {
+            MapBankModel? bank;
+            try { bank = banks[bankIndex]; } catch { continue; }
+            if (bank == null) continue;
+            for (int mapIndex = 0; mapIndex < bank.Count; mapIndex++) {
+               MapModel? map;
+               try { map = bank[mapIndex]; } catch { continue; }
+               if (map == null) continue;
+               string mapName = null;
+               try { int ni = map.NameIndex; if (ni >= 0 && ni < mapNames.Count) mapName = mapNames[ni]; } catch { }
+               if (mapNameByLocation != null) mapNameByLocation[(bankIndex, mapIndex)] = mapName;
+
+               // object events
+               try {
+                  foreach (var obj in map.Events.Objects) {
+                     if (obj == null) continue;
+                     record(obj.ScriptAddress, bankIndex, mapIndex, mapName);
+                  }
+               } catch { }
+
+               // map-header scripts (same traversal as Flags.GetAllTopLevelScripts)
+               try {
+                  var headerScripts = map.MapScripts;
+                  if (headerScripts != null) {
+                     foreach (var script in headerScripts) {
+                        if (script == null) continue;
+                        if (script.GetValue("type").IsAny(2, 4)) {
+                           var start = script.GetAddress("pointer");
+                           if (start < 0 || start >= model.Count) continue;
+                           int childCount = 0;
+                           while (!model.ReadMultiByteValue(start, 2).IsAny(0, 0xFFFF)) {
+                              record(model.ReadPointer(start + 4), bankIndex, mapIndex, mapName);
+                              start += 8;
+                              if (++childCount > 100) break;
+                           }
+                        } else {
+                           record(script.GetAddress("pointer"), bankIndex, mapIndex, mapName);
+                        }
+                     }
+                  }
+               } catch { }
+            }
+         }
+      }
+
       // Read the trainerbattle command's text-pointer args and map them onto the use dict.
       // First arg starts at address + LineCode.Count; advance by each arg's byte length.
       private static void ReadTextArgs(IDataModel model, ScriptSpot spot, Dictionary<string, object?> use) {
@@ -266,7 +277,7 @@ namespace HavenSoft.HexManiac.Core.Models {
       // The map-name table (data.maps.names) stores names either inline (RSE) or as a
       // pointer-to-text (FRLG: [name<"">]). ModelArrayElement.GetStringValue handles both,
       // so read each row through whichever text field the table actually has.
-      private static List<string> MapNameColumn(IDataModel model) {
+      internal static List<string> MapNameColumn(IDataModel model) {
          var list = new List<string>();
          var table = model.GetTableModel(HardcodeTablesModel.MapNameTable);
          if (table == null) return list;
@@ -351,7 +362,7 @@ namespace HavenSoft.HexManiac.Core.Models {
                  .Replace("\\pk\\mn", "PKMN").Replace("\\pk", "PK").Replace("\\mn", "MN").Trim();
       }
 
-      private static List<string> NameColumn(IDataModel model, string tableName) {
+      internal static List<string> NameColumn(IDataModel model, string tableName) {
          var list = new List<string>();
          var table = model.GetTableModel(tableName);
          if (table == null) return list;

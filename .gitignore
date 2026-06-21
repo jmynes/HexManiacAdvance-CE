@@ -33,3 +33,6 @@ src/HexManiac.Mcp/obj/
 /superpowers/
 docs/superpowers/
 .superpowers/
+
+# local json output (not published)
+/output/

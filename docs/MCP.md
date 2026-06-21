@@ -154,6 +154,31 @@ unused/placeholder/RSE-leftover trainer. (Hand-written ASM references aren't cov
 ]}
 ```
 
+### Script-granted Pokemon (`export_script_encounters`)
+
+`export_script_encounters` fills the gap the wild/trainer/evolution tables leave: the
+species handed out or fought via **map scripts**. It walks every top-level map script
+(object events + map-header scripts, same coverage as the trainer walk) for two commands:
+
+- **`givePokemon` (0x79)** → `"kind": "gift"` — the fossils revived at Cinnabar, Eevee
+  in Celadon, Lapras in Silph Co., the Magikarp salesman on Route 4, …
+- **`setwildbattle` (0xB6)** → `"kind": "static"` — the legendary birds, Mewtwo, the
+  sleeping Snorlax, the Power-Plant Electrodes, …
+
+Each site has `species`/`speciesId`, `level`, `heldItem`, `mapBank`/`mapNumber`/`mapName`,
+and the `scriptOffset`; the output also groups everything `bySpecies`. Mons given via a
+`special` (the three starters, the Fighting-Dojo Hitmons) or `giveEgg` (Togepi) use other
+opcodes and aren't captured.
+
+```json
+{"name": "export_script_encounters", "arguments": {"outPath": "C:/out/script-encounters.json"}}
+```
+
+```json
+{"kind": "static", "speciesId": 150, "species": "MEWTWO", "level": 70, "heldItem": null,
+ "mapBank": 1, "mapNumber": 74, "mapName": "CERULEAN CAVE", "scriptOffset": "16251D"}
+```
+
 ## Editing values (write_value)
 
 `write_value` sets a single field on a table row. The `value` parameter is interpreted by the field's type:
@@ -367,6 +392,7 @@ All 25 tools exposed by this MCP server:
 | `write_value` | Set a field on a table row. value is a string (text/enum name), number (integer/enum index), or true/false. For a bit-array checkbox, pass flag="<name>" with value true/false. Live GUI when present (visible+undoable); else headless. |
 | `export_table` | Export an entire table (all rows, no paging) to a JSON file on disk. Targets the GUI's active tab when live; else headless. Species-indexed tables omit the ~25 placeholder/limbo slots by default (`excludedPlaceholders`, pass includePlaceholders=true to keep them) and add a canonical `slug` (+ `forms`/`defaultForm` for Deoxys/Castform). |
 | `export_trainers` | Export every trainer and their team to a JSON file. Each party member has a `hardcodedMoves` flag; members without hardcoded moves get the in-game default level-up moveset filled in (includeDefaultMoves=false to skip). Each trainer also gets a `uses` array of every map-script `trainerbattle` (0x5C) reference — script offset, subtype, map bank/number/name, and intro/win/lose dialogue; an empty array means the trainer is unreferenced (includeUses=false to omit). |
+| `export_script_encounters` | Export script-granted Pokemon the wild/trainer/evolution tables miss: walks every top-level map script for `givePokemon` (0x79 = gifts: fossils, Eevee, Lapras, the Magikarp sale) and `setwildbattle` (0xB6 = statics: the birds, Mewtwo, Snorlax). Each site has kind (gift/static), species, level, held item, map bank/number/name, and script offset; also grouped `bySpecies`. |
 | `run_script` | Run an HMA script. Provide inline 'script' text OR 'path' to a .hma file. Targets the GUI's active tab when live; else headless. |
 | `undo` | Undo up to 'count' steps on the active tab's change history (same stack as Ctrl+Z). One step reverts the whole uncommitted batch of edits since the last commit boundary (a save_rom, run_script, or prior undo/redo), not necessarily a single write_value. Live GUI when present; else headless. |
 | `redo` | Redo up to 'count' steps on the active tab's change history (same stack as Ctrl+Y); a step replays a whole previously-undone batch. Live GUI when present; else headless. |
