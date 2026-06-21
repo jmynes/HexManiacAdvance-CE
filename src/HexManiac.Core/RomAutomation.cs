@@ -300,6 +300,36 @@ namespace HavenSoft.HexManiac.Core.Models {
             $"Excluded {skip.Count} placeholder/limbo species slots (internal Unown-variant indices, not real species). Pass includePlaceholders=true to include them.";
       }
 
+      // Decode the script at `address` to HMA's readable script text - the same listing the code
+      // sidebar shows. `parser` is the engine (xse / battle / animation / ai), already chosen by the
+      // caller; `type` is just echoed back. Length is measured with the same FindLength the GUI uses.
+      public static object ReadScript(IDataModel model, Code.ScriptParser parser, string address, string type) {
+         if (parser == null) return Err("No script parser available (open a ROM with the code tool).");
+         if (!TryParseAddress(address, out int addr) || addr < 0 || addr >= model.Count)
+            return Err($"Bad address '{address}'. Use a hex address like 0x16C474.");
+         int length;
+         try { length = parser.FindLength(model, addr); }
+         catch (Exception e) { return Err($"Couldn't measure the script at {addr:X6}: {e.Message}"); }
+         int sections = 0;
+         string text;
+         try { text = parser.Parse(model, addr, length, ref sections); }
+         catch (Exception e) { return Err($"Couldn't decode the script at {addr:X6}: {e.Message}"); }
+         return new Dictionary<string, object?> {
+            ["ok"] = true, ["address"] = addr.ToString("X6"), ["type"] = type,
+            ["length"] = length, ["script"] = text,
+         };
+      }
+
+      // Accept a hex address with or without a 0x prefix (ROM offsets are hex); fall back to decimal.
+      private static bool TryParseAddress(string s, out int addr) {
+         addr = -1;
+         if (string.IsNullOrWhiteSpace(s)) return false;
+         s = s.Trim();
+         if (s.StartsWith("0x") || s.StartsWith("0X")) s = s.Substring(2);
+         return int.TryParse(s, System.Globalization.NumberStyles.HexNumber, null, out addr)
+             || int.TryParse(s, out addr);
+      }
+
       public static Dictionary<string, object?> Err(string message) => new() { ["error"] = message };
    }
 }

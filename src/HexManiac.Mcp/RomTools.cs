@@ -5,6 +5,8 @@ using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using HavenSoft.HexManiac.Core.Models;
+using HavenSoft.HexManiac.Core.Models.Code;
+using HavenSoft.HexManiac.Core.ViewModels.Tools;
 using ModelContextProtocol.Server;
 
 namespace HavenSoft.HexManiac.Mcp;
@@ -327,6 +329,27 @@ public sealed class RomTools {
       return Dispatch("export_coin_prizes", p, tab, tabFile,
          () => CoinPrizeExport.Export(session.Require(), outPath));
    }
+
+   [McpServerTool(Name = "read_script")]
+   [Description("Decode the script at an address to HMA's readable script text — the same listing the code sidebar shows (commands, '# address' section labels, and inlined {text}/movement). type selects the engine: 'xse' (default; overworld event scripts), 'battle', 'animation', 'ai'. Returns { address, type, length, script }. Works live (active tab) or headless.")]
+   public string ReadScript(
+      RomSession session,
+      [Description("Script address as hex, e.g. '0x16C474' or '16C474'")] string address,
+      [Description("Script engine: xse | battle | animation | ai (default xse)")] string type = "xse",
+      [Description("Target GUI tab by index")] int? tab = null,
+      [Description("Target GUI tab by filename substring")] string? tabFile = null) {
+      var p = new Dictionary<string, object?> { ["address"] = address, ["type"] = type };
+      return Dispatch("read_script", p, tab, tabFile,
+         () => RomAutomation.ReadScript(session.Require(), PickScriptParser(session.RequireViewPort().Tools.CodeTool, type), address, type));
+   }
+
+   // Select the script engine for read_script. Shared shape with the GUI's AutomationPipeServer.
+   internal static ScriptParser PickScriptParser(CodeTool codeTool, string type) => (type ?? "xse").ToLowerInvariant() switch {
+      "battle" => codeTool.BattleScriptParser,
+      "animation" or "anim" => codeTool.AnimationScriptParser,
+      "ai" or "trainerai" or "battleai" => codeTool.BattleAIScriptParser,
+      _ => codeTool.ScriptParser,
+   };
 
    [McpServerTool(Name = "run_script")]
    [Description("Run an HMA script. Provide inline 'script' text OR 'path' to a .hma file. Targets the GUI's active tab when live; else headless.")]

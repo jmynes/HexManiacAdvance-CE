@@ -8,6 +8,8 @@ using System.Text.Json;
 using System.Threading;
 using System.Windows;
 using HavenSoft.HexManiac.Core.Models;
+using HavenSoft.HexManiac.Core.Models.Code;
+using HavenSoft.HexManiac.Core.ViewModels.Tools;
 using HavenSoft.HexManiac.Core.Models.Runs;
 using HavenSoft.HexManiac.Core.ViewModels;
 using HavenSoft.HexManiac.Core.ViewModels.DataFormats;
@@ -116,6 +118,12 @@ namespace HavenSoft.HexManiac.WPF.Windows {
                   vp.OnError -= OnErr;
                }
                return Ok(new { ok = errs.Count == 0, errors = errs, ranOn = vp.FullFileName ?? vp.Name });
+            }
+            case "read_script": {
+               var vp = ResolveTab(p);
+               if (vp == null) return NoTab();
+               var type = StrOrNull(p, "type") ?? "xse";
+               return Ok(RomAutomation.ReadScript(vp.Model, PickScriptParser(vp.Tools.CodeTool, type), Str(p, "address"), type));
             }
             case "backup_rom": {
                var vp = ResolveTab(p); if (vp == null) return NoTab();
@@ -353,6 +361,14 @@ namespace HavenSoft.HexManiac.WPF.Windows {
          var s = Str(p, key, null);
          return string.IsNullOrEmpty(s) ? null : s;
       }
+
+      // Select the script engine for read_script (mirrors RomTools.PickScriptParser on the MCP side).
+      private static ScriptParser PickScriptParser(CodeTool codeTool, string type) => (type ?? "xse").ToLowerInvariant() switch {
+         "battle" => codeTool.BattleScriptParser,
+         "animation" or "anim" => codeTool.AnimationScriptParser,
+         "ai" or "trainerai" or "battleai" => codeTool.BattleAIScriptParser,
+         _ => codeTool.ScriptParser,
+      };
 
       private static int Int(JsonElement p, string key, int fallback) =>
          p.ValueKind == JsonValueKind.Object && p.TryGetProperty(key, out var v) && v.ValueKind == JsonValueKind.Number
