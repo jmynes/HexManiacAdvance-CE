@@ -32,7 +32,7 @@ namespace HavenSoft.HexManiac.Core.Models {
          // Per-trainer script-reference sites (0x5C trainerbattle commands). Only walked
          // when includeUses is true and a parser is available; otherwise stays empty so
          // every trainer just gets an empty `uses` array (or none, when includeUses is off).
-         var uses = includeUses && parser != null ? CollectTrainerUses(model, parser) : null;
+         var uses = includeUses && parser != null ? CollectTrainerUses(model, parser, trainers.Count) : null;
          int totalUses = uses?.Values.Sum(v => v.Count) ?? 0;
 
          var list = new List<Dictionary<string, object?>>();
@@ -71,7 +71,7 @@ namespace HavenSoft.HexManiac.Core.Models {
             ["ivSpread"] = "Raw 0-255 value stored in the ROM; 'iv' is that scaled to 0-31 and applied to every stat.",
             ["structType"] = "0=no item/default moves, 1=custom moves, 2=held item, 3=held item+custom moves.",
          };
-         if (uses != null) notes["uses"] = "Every map-script trainerbattle (opcode 0x5C) site that references this trainer: scriptOffset (HMA <XXXXXX> address), subtype (raw + name), map bank/number/name, and the intro/win/lose dialogue from the command's text args (null when that subtype has none). An empty array means no map-script reference (unused/placeholder/rematch-only). Sites outside object-event and map-header scripts (e.g. rematch tables, ASM) are not covered.";
+         if (uses != null) notes["uses"] = "Where this trainer is referenced. source=\"script\": a map-script trainerbattle (opcode 0x5C) — scriptOffset (HMA <XXXXXX> address), subtype (raw + name), map bank/number/name, and intro/win/lose dialogue (null when the subtype has none). source=\"rematch\": an entry in the rematch / VS-Seeker table — rematchIndex, the rematchSlots it fills (match1..match6), and the rematch map bank/number/name. An empty array means the trainer is referenced by neither (unused/placeholder/RSE-leftover). Hand-written ASM references are still not covered.";
 
          var payload = new Dictionary<string, object?> {
             ["source"] = "HexManiacAdvance MCP — data.trainers.stats + tpt party structs",
@@ -108,9 +108,10 @@ namespace HavenSoft.HexManiac.Core.Models {
       // Walk every top-level map script (object events + map-header scripts), collect each
       // 0x5C trainerbattle site, and group them by trainer ID. Robust: a missing maps table,
       // null events, or a bad text pointer never aborts the whole export.
-      private static Dictionary<int, List<Dictionary<string, object?>>> CollectTrainerUses(IDataModel model, ScriptParser parser) {
+      private static Dictionary<int, List<Dictionary<string, object?>>> CollectTrainerUses(IDataModel model, ScriptParser parser, int trainerCount) {
          var byTrainer = new Dictionary<int, List<Dictionary<string, object?>>>();
          var mapNames = MapNameColumn(model);
+         var mapNameByLocation = new Dictionary<(int bank, int map), string>();
 
          void Record(int scriptStart, int bank, int mapNumber, string mapName) {
             if (scriptStart < 0 || scriptStart >= model.Count) return;
@@ -120,8 +121,10 @@ namespace HavenSoft.HexManiac.Core.Models {
             foreach (var spot in spots) {
                try {
                   int trainerId = model.ReadMultiByteValue(spot.Address + 2, 2);
+                  if (trainerId <= 0 || trainerId >= trainerCount) continue; // skip TRAINER_NONE / stray parses
                   int subtype = model[spot.Address + 1];
                   var use = new Dictionary<string, object?> {
+                     ["source"] = "script",
                      ["scriptOffset"] = FormatOffset(spot.Address),
                      ["subtype"] = subtype,
                      ["subtypeName"] = TrainerBattleSubtypes.TryGetValue(subtype, out var name) ? name : null,
@@ -151,6 +154,7 @@ namespace HavenSoft.HexManiac.Core.Models {
                if (map == null) continue;
                string mapName = null;
                try { int ni = map.NameIndex; if (ni >= 0 && ni < mapNames.Count) mapName = mapNames[ni]; } catch { }
+               mapNameByLocation[(bankIndex, mapIndex)] = mapName;
 
                // object events
                try {
@@ -183,6 +187,42 @@ namespace HavenSoft.HexManiac.Core.Models {
                } catch { }
             }
          }
+
+         // rematch / VS-Seeker table: trainers reachable only as rematch opponents have
+         // no map-script trainerbattle, so fold the table in or they'd read as unused.
+         // Each row is a rematch chain (match1..match6) with the rematch location.
+         try {
+            var rematch = model.GetTableModel(HardcodeTablesModel.RematchTable);
+            if (rematch != null) {
+               var slotNames = new[] { "match1", "match2", "match3", "match4", "match5", "match6" };
+               for (int r = 0; r < rematch.Count; r++) {
+                  var row = rematch[r];
+                  int bank = GetInt(row, "mapbank"), mapNumber = GetInt(row, "map");
+                  string mapName = mapNameByLocation.TryGetValue((bank, mapNumber), out var n) ? n : null;
+                  // collect which rematch slots each trainer occupies in this row (dedupes padding)
+                  var slotsByTrainer = new Dictionary<int, List<string>>();
+                  foreach (var slot in slotNames) {
+                     int tid = GetInt(row, slot);
+                     if (tid <= 0 || tid >= trainerCount) continue;
+                     if (!slotsByTrainer.TryGetValue(tid, out var ls)) slotsByTrainer[tid] = ls = new();
+                     ls.Add(slot);
+                  }
+                  foreach (var kv in slotsByTrainer) {
+                     var use = new Dictionary<string, object?> {
+                        ["source"] = "rematch",
+                        ["rematchIndex"] = r,
+                        ["rematchSlots"] = kv.Value,
+                        ["mapBank"] = bank,
+                        ["mapNumber"] = mapNumber,
+                        ["mapName"] = mapName,
+                     };
+                     if (!byTrainer.TryGetValue(kv.Key, out var bucket)) byTrainer[kv.Key] = bucket = new();
+                     bucket.Add(use);
+                  }
+               }
+            }
+         } catch { }
+
          return byTrainer;
       }
 

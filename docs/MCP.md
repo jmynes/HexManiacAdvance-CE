@@ -121,31 +121,36 @@ level-up moveset** — the last ≤4 moves the species learns at or below the mo
 level — filled in for you (pass `includeDefaultMoves: false` to leave it off).
 
 Each trainer also gets a **`uses`** array (on by default; pass `includeUses: false`
-to omit it and skip the script walk). Each entry is one `trainerbattle` (opcode
-`0x5C`) reference found in the game's map scripts (object events + map-header
-scripts), with the command's HMA-style `scriptOffset`, the `subtype` (raw byte +
-name), the `mapBank`/`mapNumber`/`mapName` it belongs to, and the
-`introText`/`winText`/`loseText` decoded from the command's text-pointer args
-(`null` when that subtype carries none). A trainer with an **empty `uses` array**
-is referenced by no map script — the usual signal for unused/placeholder or
-rematch-table-only/RSE-leftover trainers. (Sites outside object-event and
-map-header scripts — e.g. the rematch/vs-seeker table or hand-written ASM — are
-not walked.)
+to omit it and skip the script walk). Every entry has a **`source`**:
+- `"source": "script"` — a `trainerbattle` (opcode `0x5C`) reference in the game's
+  map scripts (object events + map-header scripts): the command's HMA-style
+  `scriptOffset`, the `subtype` (raw byte + name), the `mapBank`/`mapNumber`/`mapName`
+  it belongs to, and the `introText`/`winText`/`loseText` decoded from the command's
+  text-pointer args (`null` when that subtype carries none).
+- `"source": "rematch"` — an entry in the rematch / VS-Seeker table
+  (`data.trainers.vsseeker`): the `rematchIndex`, the `rematchSlots` the trainer fills
+  (`match1`..`match6`), and the rematch `mapBank`/`mapNumber`/`mapName`. This is why
+  rematch-only opponents no longer read as unused.
+
+A trainer with an **empty `uses` array** is referenced by neither — the signal for an
+unused/placeholder/RSE-leftover trainer. (Hand-written ASM references aren't covered.)
 
 ```json
 {"name": "export_trainers", "arguments": {"outPath": "C:/out/trainers.json"}}
 ```
 
 ```json
-{"level": 26, "species": "FEAROW", "hardcodedMoves": false,
- "moves": ["FURY ATTACK", "LEER", "FURY ATTACK", "PURSUIT"]}
+{"index": 89, "name": "BEN", "uses": [
+  {"source": "script", "scriptOffset": "<1A93C9>", "subtype": 0, "subtypeName": "single.battle",
+   "mapBank": 3, "mapNumber": 21, "mapName": "ROUTE 3",
+   "introText": "Hi!\nI like shorts!", "winText": "I don't believe it!", "loseText": null}
+]}
 ```
 
 ```json
-{"index": 1, "name": "CALVIN", "uses": [
-  {"scriptOffset": "<16A9F4>", "subtype": 0, "subtypeName": "single.battle",
-   "mapBank": 3, "mapNumber": 0, "mapName": "ROUTE 102",
-   "introText": "I just got POKéMON!", "winText": "Awww, I lost!", "loseText": null}
+{"index": 101, "name": "BEN", "uses": [
+  {"source": "rematch", "rematchIndex": 0, "rematchSlots": ["match2"],
+   "mapBank": 3, "mapNumber": 21, "mapName": "ROUTE 3"}
 ]}
 ```
 
