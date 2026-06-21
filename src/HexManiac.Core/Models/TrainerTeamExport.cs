@@ -217,6 +217,19 @@ namespace HavenSoft.HexManiac.Core.Models {
                   }
                } catch { }
 
+               // coord-trigger events + signposts (a step-on legendary like Ho-Oh's summit is a
+               // coord trigger, not an object; signposts cover sign/hidden-item scripts)
+               try {
+                  foreach (var ev in map.Events.Scripts) {
+                     if (ev != null) record(ev.ScriptAddress, bankIndex, mapIndex, mapName);
+                  }
+               } catch { }
+               try {
+                  foreach (var sp in map.Events.Signposts) {
+                     if (sp != null) record(sp.ScriptAddress, bankIndex, mapIndex, mapName);
+                  }
+               } catch { }
+
                // map-header scripts (same traversal as Flags.GetAllTopLevelScripts)
                try {
                   var headerScripts = map.MapScripts;

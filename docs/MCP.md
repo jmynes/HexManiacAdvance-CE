@@ -233,10 +233,14 @@ A few of these *can* be read from the ROM after all:
 - **Game-Corner costs** live in the prize menu's option *text* (`scripts.text.multichoice`, e.g.
   `"PORYGON 9,999 COINS"`) — **`export_coin_prizes`** parses species + cost out of it.
 - **Ticket legendaries** use the named `StartLegendaryBattle` special with the species/level in
-  `VAR_0x8004`/`VAR_0x8005` — `export_script_encounters` reads those as `kind: "legendary"`
-  (**Lugia** @ Navel Rock, **Deoxys** @ Birth Island; Ho-Oh's summit script isn't reachable by the
-  walk, so it stays curated).
+  `VAR_0x8004`/`VAR_0x8005` — `export_script_encounters` reads all three as `kind: "legendary"`
+  (**Lugia** & **Ho-Oh** @ Navel Rock, **Deoxys** @ Birth Island). Ho-Oh's summit is a step-on
+  coord-trigger event; the walk covers object events, **coord triggers, signposts**, and map-header
+  scripts (matching HMA's own `GetAllTopLevelScripts`), so it's reached.
 - **Gifted eggs** are the `giveEgg` command (Togepi) — already caught by the script walk.
+- **Not catchable**: a `setwildbattle` handed to `StartMarowakBattle` is the Pokémon-Tower **ghost
+  Marowak** (a forced plot battle), so it's excluded from statics; catchable statics use
+  `dowildbattle` / `StartLegendaryBattle`.
 - **Dojo Hitmons** and the **starters** use `setvar VAR_TEMP_1 <species>` then a shared
   `givePokemon VAR_TEMP_1` — `export_script_encounters` tracks `setvar` and resolves a variable-species
   `givePokemon` when that var was set exactly once in the walk (so **Hitmonlee/Hitmonchan @ Lv25** and

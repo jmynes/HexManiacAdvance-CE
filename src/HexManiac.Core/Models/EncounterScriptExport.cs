@@ -88,6 +88,18 @@ namespace HavenSoft.HexManiac.Core.Models {
          return -1;
       }
 
+      // True if `special <specialIndex>` appears within `maxFwd` bytes after `addr` (a small forward
+      // peek used to spot the battle starter that follows a setwildbattle).
+      private static bool HasSpecialWithin(IDataModel model, byte specialOp, int specialIndex, int addr, int maxFwd) {
+         if (specialIndex < 0) return false;
+         for (int k = 0; k <= maxFwd; k++) {
+            int a = addr + k;
+            if (a < 0 || a + 3 > model.Count) break;
+            if (model[a] == specialOp && model.ReadMultiByteValue(a + 1, 2) == specialIndex) return true;
+         }
+         return false;
+      }
+
       // Index of a named special (e.g. "StartLegendaryBattle") in this game's specials table, or -1.
       private static int SpecialIndex(IDataModel model, string name) {
          try {
@@ -100,6 +112,7 @@ namespace HavenSoft.HexManiac.Core.Models {
       private static List<Dictionary<string, object?>> CollectSites(IDataModel model, ScriptParser parser,
             List<string> speciesNames, List<string> itemNames, SortedDictionary<int, Dictionary<string, object?>> tradeLocations) {
          var sites = new List<Dictionary<string, object?>>();
+         var seen = new HashSet<string>();  // dedupe a site reached from more than one event
          var mapNames = TrainerTeamExport.MapNameColumn(model);
 
          // Resolve commands + specials by name for THIS game (romhack-safe).
@@ -111,6 +124,7 @@ namespace HavenSoft.HexManiac.Core.Models {
          int startLegendaryBattle = SpecialIndex(model, "StartLegendaryBattle");
          int initRoamer = SpecialIndex(model, "InitRoamer");
          int createInGameTrade = SpecialIndex(model, "CreateInGameTradePokemon");
+         int startMarowakBattle = SpecialIndex(model, "StartMarowakBattle");  // the uncatchable ghost battle
          var filter = new List<byte> { givePokemon, setvar };
          if (setWildBattle != 0) filter.Add(setWildBattle);
          if (special != 0) filter.Add(special);
@@ -146,6 +160,9 @@ namespace HavenSoft.HexManiac.Core.Models {
                      }
                      level = model[spot.Address + 3];
                      item = model.ReadMultiByteValue(spot.Address + 4, 2);
+                     // a setwildbattle immediately handed to StartMarowakBattle is the uncatchable Pokemon
+                     // Tower ghost (a forced plot battle), not an obtainable encounter - skip it.
+                     if (op == setWildBattle && startMarowakBattle >= 0 && HasSpecialWithin(model, special, startMarowakBattle, spot.Address, 16)) continue;
                      kind = op == givePokemon ? "gift" : "static";
                   } else if (op == special) {
                      int idx = model.ReadMultiByteValue(spot.Address + 1, 2);
@@ -179,6 +196,7 @@ namespace HavenSoft.HexManiac.Core.Models {
                      } else continue;
                   } else continue;
                   if (species <= 0 || species >= speciesNames.Count) continue; // SPECIES_NONE / var-loaded / stray parse
+                  if (!seen.Add($"{kind}:{species}:{spot.Address}")) continue; // already recorded from another event
                   sites.Add(new Dictionary<string, object?> {
                      ["kind"] = kind,
                      ["speciesId"] = species,

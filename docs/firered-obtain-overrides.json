@@ -1,5 +1,5 @@
 {
-  "_comment": "Curated FireRed (BPRE0) obtain methods that CANNOT be extracted from script data, because the species are baked into an ASM 'special' (Fighting Dojo) or given from a menu jump-table script the top-level walk can't reach (Game Corner), or are roaming/event encounters set up in code. Everything else in the dump is auto-derived from tables + reachable scripts; this file only fills the verified blind spots. Levels are omitted where they live in ASM and can't be read from the ROM.",
+  "_comment": "Curated FireRed (BPRE0) obtain data. As of the latest tooling, the ONLY entry still actively used is 'roaming': the roaming beast's species is chosen in ASM by your starter (confirmed with read_script - InitRoamer has no species literal), so it genuinely can't be read from script/table data. Everything else here (fightingDojo, gameCorner, eventTicket) is now AUTO-DETECTED from the ROM - the Dojo Hitmons via givePokemon-VAR resolution, the Game Corner prizes/costs via export_coin_prizes (the menu text), and all three ticket legendaries via the StartLegendaryBattle special - so those sections remain only as documentation / fallbacks and don't feed the dump on vanilla.",
   "rom": "Pokemon FireRed (USA) v1.0 (BPRE0)",
   "fightingDojo": {
     "location": "Saffron City - Fighting Dojo",
@@ -32,6 +32,6 @@
       { "species": "HO-OH", "location": "Navel Rock", "ticket": "MysticTicket" },
       { "species": "DEOXYS", "location": "Birth Island", "ticket": "AuroraTicket" }
     ],
-    "note": "LUGIA and DEOXYS are now AUTO-DETECTED by export_script_encounters (kind=legendary: the StartLegendaryBattle special with species/level in VAR_0x8004/0x8005), so the dump uses the detected species/level/map for those. HO-OH's Navel Rock summit script isn't reached by the top-level walk, so it stays curated here as a fallback. All three need an event-distributed ticket item to reach in-game. MEW / CELEBI / JIRACHI were distribution-only (no in-game route) and are left unobtainable."
+    "note": "ALL THREE (Lugia, Ho-Oh, Deoxys) are now AUTO-DETECTED by export_script_encounters (kind=legendary: the StartLegendaryBattle special with species/level in VAR_0x8004/0x8005). Ho-Oh's Navel Rock summit is a step-on coord-trigger event, which the walk now covers, so nothing here is used as a fallback any more. All three need an event-distributed ticket item to reach in-game. MEW / CELEBI / JIRACHI were distribution-only (no in-game route) and are left unobtainable."
   }
 }
