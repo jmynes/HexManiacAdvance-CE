@@ -273,16 +273,17 @@ public sealed class RomTools {
    }
 
    [McpServerTool(Name = "export_trainers")]
-   [Description("Export every trainer and their team to a JSON file: trainer-level fields plus each party member (level, species, IVs, held item, moves). Each member has a 'hardcodedMoves' flag; members WITHOUT hardcoded moves get the in-game default level-up moveset filled in (the last <=4 level-up moves at or below the mon's level), unless includeDefaultMoves=false. Targets the GUI's active tab when live; else headless.")]
+   [Description("Export every trainer and their team to a JSON file: trainer-level fields plus each party member (level, species, IVs, held item, moves). Each member has a 'hardcodedMoves' flag; members WITHOUT hardcoded moves get the in-game default level-up moveset filled in (the last <=4 level-up moves at or below the mon's level), unless includeDefaultMoves=false. With includeUses=true (default), each trainer also gets a 'uses' array of every map-script trainerbattle (opcode 0x5C) reference: script offset, subtype, map bank/number/name, and the intro/win/lose dialogue; an empty array flags an unused/placeholder trainer. Targets the GUI's active tab when live; else headless.")]
    public string ExportTrainers(
       RomSession session,
       [Description("Absolute path of the .json file to write")] string outPath,
       [Description("Fill default level-up movesets for members without hardcoded moves (default true)")] bool includeDefaultMoves = true,
+      [Description("Add a 'uses' array per trainer: every map-script trainerbattle reference with map context + battle dialogue (default true; off skips the script walk and omits the arrays)")] bool includeUses = true,
       [Description("Target GUI tab by index (default: active tab)")] int? tab = null,
       [Description("Target GUI tab by filename substring")] string? tabFile = null) {
-      var p = new Dictionary<string, object?> { ["outPath"] = outPath, ["includeDefaultMoves"] = includeDefaultMoves };
+      var p = new Dictionary<string, object?> { ["outPath"] = outPath, ["includeDefaultMoves"] = includeDefaultMoves, ["includeUses"] = includeUses };
       return Dispatch("export_trainers", p, tab, tabFile,
-         () => TrainerTeamExport.Export(session.Require(), outPath, includeDefaultMoves));
+         () => TrainerTeamExport.Export(session.Require(), session.RequireViewPort().Tools.CodeTool.ScriptParser, outPath, includeDefaultMoves, includeUses));
    }
 
    [McpServerTool(Name = "run_script")]

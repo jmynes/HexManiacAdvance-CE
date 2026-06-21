@@ -92,7 +92,7 @@ namespace HavenSoft.HexManiac.WPF.Windows {
             case "export_trainers": {
                var vp = ResolveTab(p);
                if (vp == null) return NoTab();
-               return Ok(TrainerTeamExport.Export(vp.Model, Str(p, "outPath"), Bool(p, "includeDefaultMoves", true)));
+               return Ok(TrainerTeamExport.Export(vp.Model, vp.Tools.CodeTool.ScriptParser, Str(p, "outPath"), Bool(p, "includeDefaultMoves", true), Bool(p, "includeUses", true)));
             }
             case "run_script": {
                var vp = ResolveTab(p);

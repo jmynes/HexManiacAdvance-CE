@@ -120,6 +120,18 @@ fewer than four). When `hardcodedMoves` is false, `moves` is the game's **defaul
 level-up moveset** — the last ≤4 moves the species learns at or below the mon's
 level — filled in for you (pass `includeDefaultMoves: false` to leave it off).
 
+Each trainer also gets a **`uses`** array (on by default; pass `includeUses: false`
+to omit it and skip the script walk). Each entry is one `trainerbattle` (opcode
+`0x5C`) reference found in the game's map scripts (object events + map-header
+scripts), with the command's HMA-style `scriptOffset`, the `subtype` (raw byte +
+name), the `mapBank`/`mapNumber`/`mapName` it belongs to, and the
+`introText`/`winText`/`loseText` decoded from the command's text-pointer args
+(`null` when that subtype carries none). A trainer with an **empty `uses` array**
+is referenced by no map script — the usual signal for unused/placeholder or
+rematch-table-only/RSE-leftover trainers. (Sites outside object-event and
+map-header scripts — e.g. the rematch/vs-seeker table or hand-written ASM — are
+not walked.)
+
 ```json
 {"name": "export_trainers", "arguments": {"outPath": "C:/out/trainers.json"}}
 ```
@@ -127,6 +139,14 @@ level — filled in for you (pass `includeDefaultMoves: false` to leave it off).
 ```json
 {"level": 26, "species": "FEAROW", "hardcodedMoves": false,
  "moves": ["FURY ATTACK", "LEER", "FURY ATTACK", "PURSUIT"]}
+```
+
+```json
+{"index": 1, "name": "CALVIN", "uses": [
+  {"scriptOffset": "<16A9F4>", "subtype": 0, "subtypeName": "single.battle",
+   "mapBank": 3, "mapNumber": 0, "mapName": "ROUTE 102",
+   "introText": "I just got POKéMON!", "winText": "Awww, I lost!", "loseText": null}
+]}
 ```
 
 ## Editing values (write_value)
@@ -341,7 +361,7 @@ All 25 tools exposed by this MCP server:
 | `read_table` | Read a named table as JSON rows. Targets the GUI's active tab when live. Use start/count to page; tab/tabFile to pick a tab. Species-indexed tables omit the ~25 placeholder/limbo slots by default (`excludedPlaceholders`, pass includePlaceholders=true to keep them) and add a canonical `slug` (+ `forms`/`defaultForm` for Deoxys/Castform). |
 | `write_value` | Set a field on a table row. value is a string (text/enum name), number (integer/enum index), or true/false. For a bit-array checkbox, pass flag="<name>" with value true/false. Live GUI when present (visible+undoable); else headless. |
 | `export_table` | Export an entire table (all rows, no paging) to a JSON file on disk. Targets the GUI's active tab when live; else headless. Species-indexed tables omit the ~25 placeholder/limbo slots by default (`excludedPlaceholders`, pass includePlaceholders=true to keep them) and add a canonical `slug` (+ `forms`/`defaultForm` for Deoxys/Castform). |
-| `export_trainers` | Export every trainer and their team to a JSON file. Each party member has a `hardcodedMoves` flag; members without hardcoded moves get the in-game default level-up moveset filled in (includeDefaultMoves=false to skip). |
+| `export_trainers` | Export every trainer and their team to a JSON file. Each party member has a `hardcodedMoves` flag; members without hardcoded moves get the in-game default level-up moveset filled in (includeDefaultMoves=false to skip). Each trainer also gets a `uses` array of every map-script `trainerbattle` (0x5C) reference — script offset, subtype, map bank/number/name, and intro/win/lose dialogue; an empty array means the trainer is unreferenced (includeUses=false to omit). |
 | `run_script` | Run an HMA script. Provide inline 'script' text OR 'path' to a .hma file. Targets the GUI's active tab when live; else headless. |
 | `undo` | Undo up to 'count' steps on the active tab's change history (same stack as Ctrl+Z). One step reverts the whole uncommitted batch of edits since the last commit boundary (a save_rom, run_script, or prior undo/redo), not necessarily a single write_value. Live GUI when present; else headless. |
 | `redo` | Redo up to 'count' steps on the active tab's change history (same stack as Ctrl+Y); a step replays a whole previously-undone batch. Live GUI when present; else headless. |
