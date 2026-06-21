@@ -403,8 +403,10 @@ namespace HavenSoft.HexManiac.Core.ViewModels {
                         tool.PaletteAddress = SpriteTool.FindMatchingPalette(Model, spriteRun, tool.PaletteAddress);
                      }
 
-                     if (tools.SelectedIndex == tools.IndexOf(tools.TableTool) && run is ITableRun) {
-                        // don't switch to the sprite tool if the selected tool is valid
+                     if (tools.SelectedIndex == tools.IndexOf(tools.TableTool) && run is ITableRun && run is not InlineSpriteTableRun) {
+                        // don't switch to the sprite tool if the selected tool is valid - except
+                        // for an inline sprite table, where the row IS the sprite directly and
+                        // there's nothing else in it worth viewing via the table tool instead.
                      } else {
                         tools.SelectedIndex = tools.IndexOf(tools.SpriteTool);
                      }

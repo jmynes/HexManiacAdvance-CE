@@ -778,11 +778,11 @@ namespace HavenSoft.HexManiac.Core.Models.Runs {
          if (!TryResolveTableLength(data, length, out var elementCount, out var elementNames)) return false;
 
          if (SpriteRun.TryParseSpriteFormat(content, out var spriteFormat)) {
-            self = new InlineSpriteTableRun(data, spriteFormat, elementCount, elementNames, start, pointerSources, format + length);
+            self = new InlineSpriteTableRun(data, spriteFormat, elementCount, elementNames, start, pointerSources, format);
             return true;
          }
          if (PaletteRun.TryParsePaletteFormat(content, out var paletteFormat)) {
-            self = new InlinePaletteTableRun(paletteFormat, elementCount, elementNames, start, pointerSources, format + length);
+            self = new InlinePaletteTableRun(paletteFormat, elementCount, elementNames, start, pointerSources, format);
             return true;
          }
          return false;

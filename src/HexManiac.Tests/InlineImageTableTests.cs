@@ -85,6 +85,34 @@ namespace HavenSoft.HexManiac.Tests {
       }
 
       [Fact]
+      public void FormatString_DoesNotDuplicateLengthSuffix() {
+         // format is the *entire* original string (already ending in "duelists") - concatenating
+         // length again produced "...duelistsduelists".
+         SetupDuelistTables();
+
+         var paletteRun = Model.GetNextRun(0x00);
+         var spriteRun = Model.GetNextRun(0x40);
+
+         Assert.DoesNotContain("duelistsduelists", paletteRun.FormatString);
+         Assert.DoesNotContain("duelistsduelists", spriteRun.FormatString);
+         Assert.EndsWith("duelists", paletteRun.FormatString);
+         Assert.EndsWith("duelists", spriteRun.FormatString);
+      }
+
+      [Fact]
+      public void ClickingInlineSpriteTable_SwitchesToSpriteToolEvenIfTableToolWasSelected() {
+         // InlineSpriteTableRun is both an ITableRun and an ISpriteRun - the row IS the sprite
+         // directly, with nothing else worth viewing via the table tool, so selecting it should
+         // always show the Sprite Tool, not get stuck on whatever tool was selected before.
+         SetupDuelistTables();
+         ViewPort.Tools.SelectedTool = ViewPort.Tools.TableTool;
+
+         ViewPort.UpdateToolsFromSelection(0x40);
+
+         Assert.Same(ViewPort.Tools.SpriteTool, ViewPort.Tools.SelectedTool);
+      }
+
+      [Fact]
       public void SpriteTool_SteppingSpritePage_StepsPalettePageInLockstep() {
          SetupDuelistTables();
          var tool = ViewPort.Tools.SpriteTool;
