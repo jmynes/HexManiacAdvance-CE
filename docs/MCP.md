@@ -207,6 +207,32 @@ movesets/trainer teams are omitted (not obtain methods).
  "scriptRefs": []}
 ```
 
+### Obtain-method coverage (what these tools can and can't derive)
+
+Together `data.pokemon.wild`, `export_script_encounters`, and `export_species_sources` cover most
+ways a species is obtained: **wild** (grass/surf/rock-smash/fishing), **gift** (literal
+`givePokemon`), **static** (`setwildbattle`), **egg** (`giveEgg`), **starter**
+(`scripts.newgame.starters.*`), **trade** (`data.pokemon.trades`), **evolution**
+(`data.pokemon.evolutions`).
+
+Two FRLG mechanisms are **beyond static cross-reference** — verified, not merely unimplemented:
+
+- **Fighting-Dojo Hitmonlee/Hitmonchan** — there is no literal `givePokemon` and no literal
+  `setvar` of their species anywhere in the ROM; the species are baked into an ASM `special`, so
+  there is nothing in the script *data* to read.
+- **Game-Corner prizes (Porygon, …)** — these *do* use a literal `givePokemon`, but it sits in a
+  menu jump-table script the top-level walk can't reach. HMA's own "Show Uses > scripts" can't
+  reach it either: both only follow `call`/`goto` pointer args, not menu jump tables.
+
+The `setvar 0x8004, <species>` + `special` give pattern can't be mined generically — that same
+`setvar` is used 340+ times, overwhelmingly to *display* a mon (cry / picture / message), with no
+single "give-mon" special to key on.
+
+**Mutually-exclusive ("pick one") groups:** the **starters** (1 of 3) are derivable from the three
+`scripts.newgame.starters.*` tables. The **Mt. Moon fossils** (Kabuto / Omanyte — the choice is on
+the fossil *items*, revived later at Cinnabar; Aerodactyl/Old-Amber is separate) and the **Dojo
+Hitmons** are genuine pick-one choices, but aren't auto-derivable for the reasons above.
+
 ## Editing values (write_value)
 
 `write_value` sets a single field on a table row. The `value` parameter is interpreted by the field's type:
