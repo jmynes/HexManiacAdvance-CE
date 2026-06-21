@@ -50,6 +50,22 @@ namespace HavenSoft.HexManiac.Tests {
          var read = (Dictionary<string, object?>)RomAutomation.ReadTable(Model, "data.plain", 0, 25);
          Assert.Equal(3, Rows(read).Count);
          Assert.False(read.ContainsKey("excludedPlaceholders"));
+         Assert.False(Rows(read)[0].ContainsKey("slug"));   // no slug on non-species rows
+      }
+
+      [Fact] public void SpeciesRows_GetCanonicalSlug() {
+         CreateTextTable(HardcodeTablesModel.PokemonNameTable, 0x100, "BULBASAUR", "MR. MIME", "VENUSAUR");
+         ViewPort.Goto.Execute("40");
+         ViewPort.Edit($"^data.test.stats[hp:]{HardcodeTablesModel.PokemonNameTable} 11 22 33 ");
+         // slug is annotated onto the parallel (species-indexed) table's rows...
+         var stats = (Dictionary<string, object?>)RomAutomation.ReadTable(Model, "data.test.stats", 0, 25);
+         var srows = Rows(stats);
+         Assert.Equal("bulbasaur", srows[0]["slug"]);
+         Assert.Equal("mr-mime", srows[1]["slug"]);          // punctuation canonicalized
+         Assert.Contains("slug", (List<string>)stats["fields"]);
+         // ...and onto the species name table itself
+         var names = (Dictionary<string, object?>)RomAutomation.ReadTable(Model, HardcodeTablesModel.PokemonNameTable, 0, 25);
+         Assert.Equal("mr-mime", Rows(names)[1]["slug"]);
       }
    }
 }

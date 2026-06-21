@@ -123,7 +123,7 @@ public sealed class RomTools {
    }
 
    [McpServerTool(Name = "read_table")]
-   [Description("Read a named table as JSON rows. Targets the GUI's active tab when live. Use start/count to page; tab/tabFile to pick a tab. For species-indexed tables, the ~25 placeholder/limbo slots (unused Unown-variant indices, not real species) are excluded by default and reported as excludedPlaceholders; pass includePlaceholders=true to keep them.")]
+   [Description("Read a named table as JSON rows. Targets the GUI's active tab when live. Use start/count to page; tab/tabFile to pick a tab. For species-indexed tables, the ~25 placeholder/limbo slots (unused Unown-variant indices, not real species) are excluded by default and reported as excludedPlaceholders (pass includePlaceholders=true to keep them), and each row gains a canonical 'slug' (e.g. MR. MIME -> mr-mime, NIDORAN female/male -> nidoran-f/nidoran-m) plus 'forms'/'defaultForm' for multi-form species (Deoxys, Castform) to line up with external sources.")]
    public string ReadTable(
       RomSession session,
       [Description("Anchor/table name, e.g. data.pokemon.stats")] string name,
@@ -259,7 +259,7 @@ public sealed class RomTools {
    }
 
    [McpServerTool(Name = "export_table")]
-   [Description("Export an entire table (all rows, no paging) to a JSON file on disk. Targets the GUI's active tab when live; else headless. For species-indexed tables, the ~25 placeholder/limbo slots (unused Unown-variant indices, not real species) are excluded by default and reported as excludedPlaceholders; pass includePlaceholders=true to keep them.")]
+   [Description("Export an entire table (all rows, no paging) to a JSON file on disk. Targets the GUI's active tab when live; else headless. For species-indexed tables, the ~25 placeholder/limbo slots (unused Unown-variant indices, not real species) are excluded by default and reported as excludedPlaceholders (pass includePlaceholders=true to keep them), and each row gains a canonical 'slug' (e.g. MR. MIME -> mr-mime, NIDORAN female/male -> nidoran-f/nidoran-m) plus 'forms'/'defaultForm' for multi-form species (Deoxys, Castform) to line up with external sources.")]
    public string ExportTable(
       RomSession session,
       [Description("Anchor/table name to export")] string name,

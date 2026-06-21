@@ -17,7 +17,8 @@ namespace HavenSoft.HexManiac.Core.Models {
       public static List<string> FieldNames(ModelTable table) =>
          table.Run.ElementContent.Where(s => !string.IsNullOrEmpty(s.Name)).Select(s => s.Name).ToList();
 
-      public static List<Dictionary<string, object?>> ReadRows(ModelTable table, int start, int count, ISet<int> skip = null) {
+      public static List<Dictionary<string, object?>> ReadRows(ModelTable table, int start, int count,
+            ISet<int> skip = null, Action<int, Dictionary<string, object?>> annotate = null) {
          var rows = new List<Dictionary<string, object?>>();
          int begin = Math.Max(0, start);
          int end = Math.Min(table.Count, begin + Math.Max(0, count));
@@ -35,6 +36,7 @@ namespace HavenSoft.HexManiac.Core.Models {
                   row[seg.Name] = null;
                }
             }
+            annotate?.Invoke(i, row);
             rows.Add(row);
          }
          return rows;
@@ -51,14 +53,17 @@ namespace HavenSoft.HexManiac.Core.Models {
       public static object ReadTable(IDataModel model, string name, int start, int count, bool includePlaceholders = false) {
          var table = model.GetTableModel(name);
          if (table == null) return Err($"No table named '{name}'. Use list_tables to discover names.");
-         var skip = includePlaceholders ? null : SpeciesPlaceholderSlots(model, name, table);
-         var rows = ReadRows(table, start, count, skip);
+         bool species = IsSpeciesIndexed(name, table);
+         var skip = (!includePlaceholders && species) ? PlaceholderSlots(model) : null;
+         var rows = ReadRows(table, start, count, skip, species ? SpeciesAnnotator(model) : null);
+         var fields = FieldNames(table);
+         if (species) fields.Add("slug");
          var result = new Dictionary<string, object?> {
             ["name"] = name,
             ["total"] = table.Count,
             ["start"] = start,
             ["returned"] = rows.Count,
-            ["fields"] = FieldNames(table),
+            ["fields"] = fields,
             ["rows"] = rows,
          };
          AddPlaceholderNote(result, skip);
@@ -211,10 +216,13 @@ namespace HavenSoft.HexManiac.Core.Models {
       public static object ExportToFile(IDataModel model, string name, string outPath, bool includePlaceholders = false) {
          var table = model.GetTableModel(name);
          if (table == null) return Err($"No table named '{name}'.");
-         var skip = includePlaceholders ? null : SpeciesPlaceholderSlots(model, name, table);
-         var rows = ReadRows(table, 0, table.Count, skip);
+         bool species = IsSpeciesIndexed(name, table);
+         var skip = (!includePlaceholders && species) ? PlaceholderSlots(model) : null;
+         var rows = ReadRows(table, 0, table.Count, skip, species ? SpeciesAnnotator(model) : null);
+         var fields = FieldNames(table);
+         if (species) fields.Add("slug");
          var payload = new Dictionary<string, object?> {
-            ["name"] = name, ["total"] = table.Count, ["fields"] = FieldNames(table), ["rows"] = rows,
+            ["name"] = name, ["total"] = table.Count, ["fields"] = fields, ["rows"] = rows,
          };
          AddPlaceholderNote(payload, skip);
          File.WriteAllText(outPath, JsonSerializer.Serialize(payload, new JsonSerializerOptions { WriteIndented = true }));
@@ -223,35 +231,63 @@ namespace HavenSoft.HexManiac.Core.Models {
          return result;
       }
 
-      // ---- placeholder / "limbo" species slots ----
-      // Gen-3 species tables carry ~25 unused "limbo" slots (internal indices used
-      // for Unown-variant graphics, not real species) whose name in the species
-      // table is blank or only '?'. They are excluded from species-indexed table
-      // reads/exports by default; pass includePlaceholders=true to keep them.
+      // ---- species-indexed table awareness ----
+      // Many Gen-3 tables are indexed by species: the species name table itself, or
+      // any table whose length is tied to it (stats, level-up moves, tm/tutor
+      // compatibility, ...). For those we (a) drop the unused "limbo" placeholder
+      // slots by default and (b) annotate each row with a canonical `slug` (+ form
+      // info) so ROM names line up with external sources. Non-species tables are
+      // left untouched.
+
+      // True when 'name'/'table' is indexed by the species name table.
+      private static bool IsSpeciesIndexed(string name, ModelTable table) =>
+         name == HardcodeTablesModel.PokemonNameTable
+         || (table.Run is ArrayRun ar && ar.LengthFromAnchor == HardcodeTablesModel.PokemonNameTable);
+
+      // The species name table and its text field name, or (null, null).
+      private static (ModelTable names, string field) SpeciesNameSource(IDataModel model) {
+         var names = model.GetTableModel(HardcodeTablesModel.PokemonNameTable);
+         var field = names?.Run.ElementContent
+            .FirstOrDefault(s => s.Type == ElementContentType.PCS && !string.IsNullOrEmpty(s.Name))?.Name;
+         return field == null ? (null, null) : (names, field);
+      }
 
       // True when a species name is a placeholder (blank, or only '?' characters).
       public static bool IsPlaceholderSpeciesName(string name) =>
          string.IsNullOrWhiteSpace(name) || name.Trim().All(c => c == '?');
 
-      // The set of placeholder species indices, or null when 'name'/'table' is not
-      // indexed by the species name table (so non-species tables are untouched).
-      private static ISet<int> SpeciesPlaceholderSlots(IDataModel model, string name, ModelTable table) {
-         bool speciesIndexed = name == HardcodeTablesModel.PokemonNameTable
-            || (table.Run is ArrayRun ar && ar.LengthFromAnchor == HardcodeTablesModel.PokemonNameTable);
-         if (!speciesIndexed) return null;
-         var names = model.GetTableModel(HardcodeTablesModel.PokemonNameTable);
+      // The set of placeholder species indices (from the species name table).
+      private static ISet<int> PlaceholderSlots(IDataModel model) {
+         var (names, field) = SpeciesNameSource(model);
          if (names == null) return null;
-         var nameField = names.Run.ElementContent
-            .FirstOrDefault(s => s.Type == ElementContentType.PCS && !string.IsNullOrEmpty(s.Name))?.Name;
-         if (nameField == null) return null;
          var slots = new HashSet<int>();
-         int limit = Math.Min(names.Count, table.Count);
-         for (int i = 0; i < limit; i++) {
+         for (int i = 0; i < names.Count; i++) {
             string value = null;
-            try { value = names[i].GetStringValue(nameField); } catch { }
+            try { value = names[i].GetStringValue(field); } catch { }
             if (IsPlaceholderSpeciesName(value)) slots.Add(i);
          }
          return slots.Count > 0 ? slots : null;
+      }
+
+      // A per-row annotator that adds the canonical species `slug`, plus `forms`
+      // (and Deoxys's game-specific `defaultForm`) for multi-form species.
+      private static Action<int, Dictionary<string, object?>> SpeciesAnnotator(IDataModel model) {
+         var (names, field) = SpeciesNameSource(model);
+         if (names == null) return null;
+         var deoxysForme = PokemonSpeciesNaming.DeoxysFormeFor(model.GetGameCode());
+         return (i, row) => {
+            if (i < 0 || i >= names.Count) return;
+            string name = null;
+            try { name = names[i].GetStringValue(field); } catch { }
+            var slug = PokemonSpeciesNaming.Slug(name);
+            if (slug == null) return;
+            row["slug"] = slug;
+            var forms = PokemonSpeciesNaming.FormsFor(slug);
+            if (forms != null) {
+               row["forms"] = forms;
+               if (slug == "deoxys" && deoxysForme != null) row["defaultForm"] = deoxysForme;
+            }
+         };
       }
 
       private static void AddPlaceholderNote(Dictionary<string, object?> result, ISet<int> skip) {

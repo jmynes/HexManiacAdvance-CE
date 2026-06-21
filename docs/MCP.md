@@ -93,6 +93,24 @@ To keep the placeholder rows, pass `includePlaceholders: true`:
 {"name": "export_table", "arguments": {"name": "data.pokemon.stats", "outPath": "C:/out/stats.json", "includePlaceholders": true}}
 ```
 
+### Canonical species `slug` (names, genders, forms)
+
+Rows of species-indexed tables also gain a canonical **`slug`** so ROM names line
+up with external sources (e.g. PokeAPI) instead of looking like unique mons:
+
+- punctuation collapses — `MR. MIME` → `mr-mime`, `FARFETCH'D` → `farfetchd`, `HO-OH` → `ho-oh`
+- gender symbols stay distinct — `NIDORAN♀` → `nidoran-f`, `NIDORAN♂` → `nidoran-m`
+- multi-form species also get a **`forms`** array — Deoxys → the four formes,
+  Castform → the weather formes — and Deoxys additionally gets a **`defaultForm`**
+  matching the open game (FireRed = `deoxys-attack`, LeafGreen = `deoxys-defense`,
+  Emerald = `deoxys-speed`, Ruby/Sapphire = `deoxys-normal`).
+
+```json
+{"index": 122, "name": "MR. MIME", "slug": "mr-mime"}
+{"index": 29,  "name": "NIDORAN♀", "slug": "nidoran-f"}
+{"index": 386, "name": "DEOXYS", "slug": "deoxys", "forms": ["deoxys-normal","deoxys-attack","deoxys-defense","deoxys-speed"], "defaultForm": "deoxys-attack"}
+```
+
 ## Editing values (write_value)
 
 `write_value` sets a single field on a table row. The `value` parameter is interpreted by the field's type:
@@ -302,9 +320,9 @@ All 25 tools exposed by this MCP server:
 | `list_shortcuts` | List the GUI 'Goto' shortcut buttons (e.g. Pokemon, Trainers) as {display, anchor}. Targets the GUI's active tab when live; else headless. |
 | `goto` | Navigate the live GUI to a target: a shortcut label (e.g. Pokemon), an anchor name (e.g. data.pokemon.stats), or a hex address. Live GUI only; headless returns an error. |
 | `list_tables` | List the named data tables (anchors) in the open ROM. Targets the GUI's active tab when live; optional substring filter and tab selector. |
-| `read_table` | Read a named table as JSON rows. Targets the GUI's active tab when live. Use start/count to page; tab/tabFile to pick a tab. Species-indexed tables omit the ~25 placeholder/limbo slots by default (`excludedPlaceholders`); pass includePlaceholders=true to keep them. |
+| `read_table` | Read a named table as JSON rows. Targets the GUI's active tab when live. Use start/count to page; tab/tabFile to pick a tab. Species-indexed tables omit the ~25 placeholder/limbo slots by default (`excludedPlaceholders`, pass includePlaceholders=true to keep them) and add a canonical `slug` (+ `forms`/`defaultForm` for Deoxys/Castform). |
 | `write_value` | Set a field on a table row. value is a string (text/enum name), number (integer/enum index), or true/false. For a bit-array checkbox, pass flag="<name>" with value true/false. Live GUI when present (visible+undoable); else headless. |
-| `export_table` | Export an entire table (all rows, no paging) to a JSON file on disk. Targets the GUI's active tab when live; else headless. Species-indexed tables omit the ~25 placeholder/limbo slots by default (`excludedPlaceholders`); pass includePlaceholders=true to keep them. |
+| `export_table` | Export an entire table (all rows, no paging) to a JSON file on disk. Targets the GUI's active tab when live; else headless. Species-indexed tables omit the ~25 placeholder/limbo slots by default (`excludedPlaceholders`, pass includePlaceholders=true to keep them) and add a canonical `slug` (+ `forms`/`defaultForm` for Deoxys/Castform). |
 | `run_script` | Run an HMA script. Provide inline 'script' text OR 'path' to a .hma file. Targets the GUI's active tab when live; else headless. |
 | `undo` | Undo up to 'count' steps on the active tab's change history (same stack as Ctrl+Z). One step reverts the whole uncommitted batch of edits since the last commit boundary (a save_rom, run_script, or prior undo/redo), not necessarily a single write_value. Live GUI when present; else headless. |
 | `redo` | Redo up to 'count' steps on the active tab's change history (same stack as Ctrl+Y); a step replays a whole previously-undone batch. Live GUI when present; else headless. |
