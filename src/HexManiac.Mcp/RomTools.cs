@@ -316,6 +316,18 @@ public sealed class RomTools {
          () => SpeciesSourceExport.Export(session.Require(), session.RequireViewPort().Tools.CodeTool.ScriptParser, outPath));
    }
 
+   [McpServerTool(Name = "export_coin_prizes")]
+   [Description("Read coin-prize Pokemon (the Celadon Game Corner) live from the ROM. Their cost isn't a numeric field - it's baked into the prize menu's option text ('<SPECIES> <n> COINS') in scripts.text.multichoice. This walks every multichoice option, keeps the ones that name a real species and end in COINS, and reports {species, speciesId, coins, optionText}. Works on an edited ROM (it reports that ROM's own prizes/costs). Targets the GUI's active tab when live; else headless.")]
+   public string ExportCoinPrizes(
+      RomSession session,
+      [Description("Absolute path of the .json file to write")] string outPath,
+      [Description("Target GUI tab by index (default: active tab)")] int? tab = null,
+      [Description("Target GUI tab by filename substring")] string? tabFile = null) {
+      var p = new Dictionary<string, object?> { ["outPath"] = outPath };
+      return Dispatch("export_coin_prizes", p, tab, tabFile,
+         () => CoinPrizeExport.Export(session.Require(), outPath));
+   }
+
    [McpServerTool(Name = "run_script")]
    [Description("Run an HMA script. Provide inline 'script' text OR 'path' to a .hma file. Targets the GUI's active tab when live; else headless.")]
    public string RunScript(

@@ -10,8 +10,8 @@
   "gameCorner": {
     "location": "Celadon City - Game Corner (prize exchange)",
     "method": "gameCorner",
-    "note": "Bought with coins from the Pokemon prize clerk (vendor script @ 0x16CB88; the give sits in a menu jump-table the standard script walk can't reach). The species + coin costs below are READ FROM the in-game prize menu in the ROM, not from memory: the scripts.text.multichoice options at 0x3E01C8, whose option text literally reads e.g. 'PORYGON 9,999 COINS'. Verified against this clean FireRed (BPRE0) dump. SCYTHER is the FireRed prize (LeafGreen swaps in PINSIR).",
-    "costSource": "scripts.text.multichoice options @ 0x3E01C8 (option text '<SPECIES> <n> COINS')",
+    "note": "Bought with coins from the Pokemon prize clerk (vendor script @ 0x16CB88; the give sits in a menu jump-table the standard script walk can't reach). The dump now reads the species + costs LIVE from the ROM via the export_coin_prizes MCP tool (scripts.text.multichoice options, e.g. text 'PORYGON 9,999 COINS') - so an edited ROM reports its own prizes. The list below is only a fallback for when that tool's output is absent. SCYTHER is the FireRed prize (LeafGreen swaps in PINSIR).",
+    "costSource": "export_coin_prizes tool reads scripts.text.multichoice option text '<SPECIES> <n> COINS' (vanilla FireRed: options @ 0x3E01C8)",
     "prizes": [
       { "species": "ABRA", "coins": 180 },
       { "species": "CLEFAIRY", "coins": 500 },

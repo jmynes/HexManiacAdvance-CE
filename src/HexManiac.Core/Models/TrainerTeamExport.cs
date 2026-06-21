@@ -263,7 +263,7 @@ namespace HavenSoft.HexManiac.Core.Models {
       }
 
       // Decode the PCS string at `address` to a readable string (null on bad pointer / empty).
-      private static string ReadPcsString(IDataModel model, int address) {
+      internal static string ReadPcsString(IDataModel model, int address) {
          if (address < 0 || address >= model.Count) return null;
          int length = PCSString.ReadString(model.RawData, address, true);
          if (length < 0) return null;

@@ -229,9 +229,13 @@ The `setvar 0x8004, <species>` + `special` give pattern can't be mined generical
 `setvar` is used 340+ times, overwhelmingly to *display* a mon (cry / picture / message), with no
 single "give-mon" special to key on.
 
-These (plus the **roaming beasts** and **ticket legendaries**, likewise set up in code) are filled
-from a small **curated override** — [`docs/firered-obtain-overrides.json`](firered-obtain-overrides.json)
-— which the dump merges as `obtainCurated` kinds (`dojo` / `gameCorner` / `roaming` / `event`). After
+The **Game-Corner costs** specifically *can* be read from the ROM — they live in the prize menu's
+option *text* (`scripts.text.multichoice`, e.g. `"PORYGON 9,999 COINS"`), which is why a numeric-table
+scan misses them. **`export_coin_prizes`** parses species + cost out of that menu, so an edited ROM
+reports its own prizes. The Dojo Hitmons (plus the **roaming beasts** and **ticket legendaries**,
+set up in code) still need the small **curated override** —
+[`docs/firered-obtain-overrides.json`](firered-obtain-overrides.json) — which the dump merges as
+`obtainCurated` kinds (`dojo` / `gameCorner` / `roaming` / `event`). After
 that, the only species with no obtain route are genuinely FireRed-unobtainable: LeafGreen exclusives,
 Johto/Hoenn species (trade-only post-National-Dex), and distribution-only events (Mew/Celebi/Jirachi).
 
@@ -455,6 +459,7 @@ All 25 tools exposed by this MCP server:
 | `export_trainers` | Export every trainer and their team to a JSON file. Each party member has a `hardcodedMoves` flag; members without hardcoded moves get the in-game default level-up moveset filled in (includeDefaultMoves=false to skip). Each trainer also gets a `uses` array of every map-script `trainerbattle` (0x5C) reference — script offset, subtype, map bank/number/name, and intro/win/lose dialogue; an empty array means the trainer is unreferenced (includeUses=false to omit). |
 | `export_script_encounters` | Export script-granted Pokemon the wild/trainer/evolution tables miss: walks every top-level map script for `givePokemon` (0x79 = gifts: fossils, Eevee, Lapras, the Magikarp sale) and `setwildbattle` (0xB6 = statics: the birds, Mewtwo, Snorlax). Each site has kind (gift/static), species, level, held item, map bank/number/name, and script offset; also grouped `bySpecies`. |
 | `export_species_sources` | HMA "Show Uses" for every species at once: `tableRefs` (array fields typed `data.pokemon.names` — catches the starters in `scripts.newgame.starters.*`, trades, evolutions, prizes) + `scriptRefs` (every map-script command with a species arg, generalizing givePokemon/setwildbattle to all species-typed commands incl. `giveEgg`) with map + offset. Literal args only; var-loaded species (some Game Corner prizes) aren't resolved. |
+| `export_coin_prizes` | Read coin-prize Pokemon (the Celadon Game Corner) live from the ROM. Their cost isn't a numeric field — it's baked into the prize menu's option text (`<SPECIES> <n> COINS`) in `scripts.text.multichoice`. Reports `{species, speciesId, coins, optionText}`; reflects an edited ROM's own prizes/costs. |
 | `run_script` | Run an HMA script. Provide inline 'script' text OR 'path' to a .hma file. Targets the GUI's active tab when live; else headless. |
 | `undo` | Undo up to 'count' steps on the active tab's change history (same stack as Ctrl+Z). One step reverts the whole uncommitted batch of edits since the last commit boundary (a save_rom, run_script, or prior undo/redo), not necessarily a single write_value. Live GUI when present; else headless. |
 | `redo` | Redo up to 'count' steps on the active tab's change history (same stack as Ctrl+Y); a step replays a whole previously-undone batch. Live GUI when present; else headless. |
