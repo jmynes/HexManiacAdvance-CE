@@ -229,11 +229,19 @@ The `setvar 0x8004, <species>` + `special` give pattern can't be mined generical
 `setvar` is used 340+ times, overwhelmingly to *display* a mon (cry / picture / message), with no
 single "give-mon" special to key on.
 
-The **Game-Corner costs** specifically *can* be read from the ROM — they live in the prize menu's
-option *text* (`scripts.text.multichoice`, e.g. `"PORYGON 9,999 COINS"`), which is why a numeric-table
-scan misses them. **`export_coin_prizes`** parses species + cost out of that menu, so an edited ROM
-reports its own prizes. The Dojo Hitmons (plus the **roaming beasts** and **ticket legendaries**,
-set up in code) still need the small **curated override** —
+A few of these *can* be read from the ROM after all:
+- **Game-Corner costs** live in the prize menu's option *text* (`scripts.text.multichoice`, e.g.
+  `"PORYGON 9,999 COINS"`) — **`export_coin_prizes`** parses species + cost out of it.
+- **Ticket legendaries** use the named `StartLegendaryBattle` special with the species/level in
+  `VAR_0x8004`/`VAR_0x8005` — `export_script_encounters` reads those as `kind: "legendary"`
+  (**Lugia** @ Navel Rock, **Deoxys** @ Birth Island; Ho-Oh's summit script isn't reachable by the
+  walk, so it stays curated).
+- **Gifted eggs** are the `giveEgg` command (Togepi) — already caught by the script walk.
+
+What genuinely *can't* be read: the **Dojo Hitmons** (species in an ASM special; the 106/107 in the
+script are only `bufferpokemon` for the "you got …!" message) and the **roaming beasts** (`InitRoamer`
+picks the species in ASM by your starter — no literal in the script). Those still need the small
+**curated override** —
 [`docs/firered-obtain-overrides.json`](firered-obtain-overrides.json) — which the dump merges as
 `obtainCurated` kinds (`dojo` / `gameCorner` / `roaming` / `event`). After
 that, the only species with no obtain route are genuinely FireRed-unobtainable: LeafGreen exclusives,

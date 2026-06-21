@@ -32,6 +32,6 @@
       { "species": "HO-OH", "location": "Navel Rock", "ticket": "MysticTicket" },
       { "species": "DEOXYS", "location": "Birth Island", "ticket": "AuroraTicket" }
     ],
-    "note": "Reachable in-game only with an event-distributed ticket item. MEW / CELEBI / JIRACHI were distribution-only (no in-game route) and are left unobtainable."
+    "note": "LUGIA and DEOXYS are now AUTO-DETECTED by export_script_encounters (kind=legendary: the StartLegendaryBattle special with species/level in VAR_0x8004/0x8005), so the dump uses the detected species/level/map for those. HO-OH's Navel Rock summit script isn't reached by the top-level walk, so it stays curated here as a fallback. All three need an event-distributed ticket item to reach in-game. MEW / CELEBI / JIRACHI were distribution-only (no in-game route) and are left unobtainable."
   }
 }
