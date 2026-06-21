@@ -6,7 +6,7 @@ namespace HavenSoft.HexManiac.WPF.Windows {
    partial class AboutWindow {
       public AboutWindow(IMetadataInfo metadata) {
          InitializeComponent();
-         Version.Text = $"Version {metadata.VersionNumber}";
+         Version.Text = $"Community Edition — Version {metadata.VersionNumber}";
          Usage.Text = GetUsageText(metadata);
       }
 

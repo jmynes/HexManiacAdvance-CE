@@ -1,4 +1,13 @@
-# Hex Maniac Advance
+# Hex Maniac Advance — Community Edition
+
+> **Community Edition (0.5.7.0).** A community fork of HexManiacAdvance that:
+> - bundles a [Model Context Protocol (MCP) server](docs/MCP.md) so AI tools (e.g. Claude Code) can
+>   read and edit Pokémon GBA ROM data directly — alongside the full editor; and
+> - **replaces the built-in Python scripting engine** — IronPython → [pythonnet](https://github.com/pythonnet/pythonnet)
+>   (real embedded CPython, with `requests` + BeautifulSoup bundled) — and adds undo/redo, word wrap,
+>   and autocomplete to the Python tool.
+>
+> Prebuilt, no-install-required bundle (editor + MCP): see [**Releases**](../../releases/latest). Built on .NET 6.
 
 > **Using the MCP server?** See [docs/MCP.md](docs/MCP.md) for setup and the tool guide (or call the `help` tool).
 

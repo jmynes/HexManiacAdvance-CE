@@ -159,6 +159,17 @@ namespace HavenSoft.HexManiac.Tests {
          Assert.Null(options);
       }
 
+      [Fact]
+      public void GetAutocomplete_ApostropheInClosedDoubleQuotedString_StillCompletes() {
+         // the lone ' is inside a *closed* double-quoted string, so the cursor is not in a
+         // literal - a naive quote count would miscount and wrongly suppress completion.
+         var line = "x = \"it's \" + pri";
+
+         var options = tool.GetAutocomplete(line, 0, line.Length);
+
+         Assert.Contains(options, o => o.Text == "print");
+      }
+
       [SkippableFact]
       public void BundledPackage_ImportRequests_Succeeds() {
          // guards the pip-bootstrap pipeline in Directory.Build.targets: the embeddable

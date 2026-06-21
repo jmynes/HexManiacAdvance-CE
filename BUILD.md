@@ -1,7 +1,16 @@
 # Building this fork
 
-This fork contains two things with **different .NET toolchain needs**, so there
-are two build commands. This is intentional.
+Everything in this repo builds with the **.NET 6 SDK** (the root `global.json`
+pins it). There are two build outputs — the GUI editor and the MCP server — both
+targeting `net6.0`, so one toolchain covers the whole repo.
+
+> Why net6 (for now): the editor + `HexManiac.Core` are net6 (matching upstream),
+> and the MCP server is pinned to net6 too so the whole repo shares one SDK and
+> upstream merges stay frictionless. The MCP SDK's packages officially target
+> net8+, so they resolve through netstandard2.0 fallbacks here — verified to build
+> and run, but flagged unsupported by those packages (warnings suppressed via
+> `SuppressTfmSupportBuildWarnings`). The intended long-term move is net8 (LTS;
+> net6 is EOL) across the whole repo, once that's regression-tested.
 
 ## 1. The HexManiacAdvance GUI editor (upstream)
 
@@ -19,10 +28,10 @@ Output: `artifacts/HexManiac.WPF/bin/Release/net6.0-windows/HexManiacAdvance.exe
 Launch it by running that exe (double-click or from a terminal). Edit the C#/XAML
 under `src/HexManiac.WPF` or `src/HexManiac.Core`, rebuild, relaunch.
 
-> Note: building a single WPF `.csproj` directly fails (`MC3066`), and building
-> the solution under SDK 8 fails (`CS0102` in the WPF temp project). Use the
-> command above (SDK 6 + solution). That's why the MCP project is **not** part of
-> `HexManiacAdvance.sln`.
+> Note: building a single WPF `.csproj` directly fails (`MC3066`); use the
+> command above (the solution). The MCP project isn't in `HexManiacAdvance.sln`
+> yet, but now that it's also net6 it can build under the same SDK 6 (see below)
+> and could be added to the solution.
 
 > Note: the Python scripting engine (`PythonTool`) is [pythonnet](https://github.com/pythonnet/pythonnet)
 > embedding real CPython, not a system Python install. The first build of
@@ -34,9 +43,8 @@ under `src/HexManiac.WPF` or `src/HexManiac.Core`, rebuild, relaunch.
 
 ## 2. The MCP server (this fork's addition)
 
-Targets `net8.0` and builds with the **.NET 8 SDK**. It has its own
-`src/HexManiac.Mcp/global.json` pinning SDK 8, so build it **from its own
-directory** (or let the smoke test do it):
+Targets `net6.0` (same SDK 6 as everything else). Build it from its own directory
+(or let the smoke test do it):
 
 ```bash
 # from the repo root
@@ -46,14 +54,21 @@ directory** (or let the smoke test do it):
 bash test/mcp-smoke.sh        # expect: ALL GREEN
 ```
 
-Output: `artifacts/HexManiac.Mcp/bin/Release/net8.0/HexManiac.Mcp.exe`
+Output: `artifacts/HexManiac.Mcp/bin/Release/net6.0/HexManiac.Mcp.exe`
 (this is the path `.mcp.json` points at). It's a stdio server — don't run it
 directly; an MCP client (Claude Code) launches it. See `PROMPT.md` / the spec.
 
-Both projects share the same `HexManiac.Core` (net6.0) library, which builds
-fine under either SDK. All build output goes to one repo-root `artifacts/` dir
-(a `SolutionDir` fallback in `src/Directory.Build.props` keeps single-project
-and solution builds consistent).
+For a redistributable build with no .NET install required, publish it
+self-contained (carries the runtime + the `resources/` folder):
+
+```bash
+dotnet publish src/HexManiac.Mcp/HexManiac.Mcp.csproj -c Release -r win-x64 \
+  --self-contained -p:PublishSingleFile=true
+```
+
+All three projects share the same `HexManiac.Core` (net6.0) library, and all
+build output goes to one repo-root `artifacts/` dir (a `SolutionDir` fallback in
+`src/Directory.Build.props` keeps single-project and solution builds consistent).
 
 ## Live GUI mode
 

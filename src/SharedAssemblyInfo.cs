@@ -8,8 +8,12 @@ using System.Diagnostics.CodeAnalysis;
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 
-[assembly: AssemblyVersion("0.5.6.1")]
-[assembly: AssemblyFileVersion("0.5.6.1")]
+// Haven's scheme: Major.Minor.Build.Revision, where Revision == 0 marks a public release
+// (IsPublicRelease) and the displayed VersionNumber drops the trailing .0. The community
+// fork is branded by name ("Community Edition" in the title / About), not by the version
+// number, so these stay purely numeric and Haven-consistent (displays as "0.5.7").
+[assembly: AssemblyVersion("0.5.7.0")]
+[assembly: AssemblyFileVersion("0.5.7.0")]
 
 
 // AutoImplement style issues are expected, since it's compatible with earlier versions of C#.

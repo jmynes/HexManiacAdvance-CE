@@ -168,7 +168,7 @@ def __hma_run__(__hma_code__):
       public IReadOnlyList<AutocompleteItem> GetAutocomplete(string line, int lineIndex, int characterIndex) {
          if (characterIndex < 0 || characterIndex > line.Length) return null;
          // don't offer completions inside a string literal
-         if (line.Take(characterIndex).Count(c => c == '\'' || c == '"') % 2 == 1) return null;
+         if (InStringLiteral(line, characterIndex)) return null;
 
          var wordStart = characterIndex;
          while (wordStart > 0 && IsAutocompleteChar(line[wordStart - 1])) wordStart--;
@@ -200,6 +200,20 @@ def __hma_run__(__hma_code__):
       }
 
       private static bool IsAutocompleteChar(char c) => char.IsLetterOrDigit(c) || c == '_' || c == '.';
+
+      // Whether the cursor (just before characterIndex) sits inside a string literal, tracking
+      // single- vs double-quote context and backslash escapes (same rules as
+      // PythonTextFormatter.Format) so e.g. an apostrophe inside a "double-quoted" string
+      // doesn't flip the state and wrongly suppress completion.
+      private static bool InStringLiteral(string line, int characterIndex) {
+         bool inSingle = false, inDouble = false, escaped = false;
+         for (int i = 0; i < characterIndex && i < line.Length; i++) {
+            if (!escaped && line[i] == '\'' && !inDouble) inSingle = !inSingle;
+            if (!escaped && line[i] == '"' && !inSingle) inDouble = !inDouble;
+            escaped = line[i] == '\\' && !escaped;
+         }
+         return inSingle || inDouble;
+      }
 
       private IEnumerable<string> GetAnchorNames(string prefix) {
          if (editor.SelectedTab is not IViewPort vp || vp.Model is not IDataModel model) return Enumerable.Empty<string>();

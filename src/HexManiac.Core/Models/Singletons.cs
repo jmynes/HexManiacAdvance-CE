@@ -649,8 +649,9 @@ Use `special2 variable name` when doing an action that has a result.
       public MetadataInfo() {
          var assembly = Assembly.GetExecutingAssembly();
          var fvi = FileVersionInfo.GetVersionInfo(assembly.Location);
-         VersionNumber = $"{fvi.FileMajorPart}.{fvi.FileMinorPart}.{fvi.FileBuildPart}";
-         if (fvi.FilePrivatePart != 0) VersionNumber += "." + fvi.FilePrivatePart;
+         // Always show the full 4-part version including the trailing .0 (e.g. "0.5.7.0"),
+         // rather than Haven's convention of dropping a zero revision.
+         VersionNumber = $"{fvi.FileMajorPart}.{fvi.FileMinorPart}.{fvi.FileBuildPart}.{fvi.FilePrivatePart}";
       }
    }
 

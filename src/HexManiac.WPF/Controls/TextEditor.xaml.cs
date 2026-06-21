@@ -50,6 +50,9 @@ namespace HavenSoft.HexManiac.WPF.Controls {
 
       private static void UndoLimitChanged(DependencyObject d, DependencyPropertyChangedEventArgs e) {
          var self = (TextEditor)d;
+         // Guard the (theoretically) pre-template case: if a style/theme ever set UndoLimit
+         // before InitializeComponent built TransparentLayer, the constructor still syncs it.
+         if (self.TransparentLayer == null) return;
          self.TransparentLayer.UndoLimit = (int)e.NewValue;
       }
 
@@ -91,17 +94,7 @@ namespace HavenSoft.HexManiac.WPF.Controls {
          // ExtentWidth is not a DependencyProperty, so check for the horizontal scroll bar when the text chanegs
          TransparentLayer.TextChanged += (sender, e) => {
             if (UpdateLayerWidthsForWordWrap()) return;
-            // measure the width of the text, since ExtentWidth hasn't been updated yet.
-            var typeface = new Typeface(TransparentLayer.FontFamily, FontStyles.Normal, FontWeights.Normal, FontStretches.Normal);
-            var width = new FormattedText(TransparentLayer.Text, CultureInfo.CurrentCulture, FlowDirection, typeface, TransparentLayer.FontSize, Brushes.Transparent, 1).Width;
-            foreach (var layer in Layers) layer.Width = width;
-            if (width > TransparentLayer.ViewportWidth && TransparentLayer.ViewportHeight > TransparentLayer.ExtentHeight) {
-               CornerCover.Width = 16;
-               CornerCover.Height = 17;
-            } else {
-               CornerCover.Width = 0;
-               CornerCover.Height = 0;
-            }
+            RecomputeUnwrappedLayout();
          };
       }
 
@@ -116,7 +109,25 @@ namespace HavenSoft.HexManiac.WPF.Controls {
          TransparentLayer.TextWrapping = wrapping;
          TransparentLayer.HorizontalScrollBarVisibility = wordWrap ? ScrollBarVisibility.Disabled : ScrollBarVisibility.Auto;
          foreach (var layer in Layers) layer.TextWrapping = wrapping;
-         UpdateLayerWidthsForWordWrap();
+         // Turning wrap OFF must restore the unwrapped layout now (extent-sized layers + the
+         // scrollbar corner cover); UpdateLayerWidthsForWordWrap no-ops once wordWrap is false.
+         if (!UpdateLayerWidthsForWordWrap()) RecomputeUnwrappedLayout();
+      }
+
+      // Sizes the colored layers to the unwrapped text extent and shows/hides the scrollbar
+      // corner cover (the non-word-wrap layout). ExtentWidth isn't updated yet on TextChanged,
+      // so measure the text directly.
+      private void RecomputeUnwrappedLayout() {
+         var typeface = new Typeface(TransparentLayer.FontFamily, FontStyles.Normal, FontWeights.Normal, FontStretches.Normal);
+         var width = new FormattedText(TransparentLayer.Text, CultureInfo.CurrentCulture, FlowDirection, typeface, TransparentLayer.FontSize, Brushes.Transparent, 1).Width;
+         foreach (var layer in Layers) layer.Width = width;
+         if (width > TransparentLayer.ViewportWidth && TransparentLayer.ViewportHeight > TransparentLayer.ExtentHeight) {
+            CornerCover.Width = 16;
+            CornerCover.Height = 17;
+         } else {
+            CornerCover.Width = 0;
+            CornerCover.Height = 0;
+         }
       }
 
       // Wraps layers at the same boundary the (also TextWrapping=Wrap) TransparentLayer

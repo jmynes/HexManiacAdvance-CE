@@ -28,3 +28,8 @@ src/HexManiac.Mcp/obj/
 *.user
 # transient test/build scratch dirs, anywhere in the tree
 **/.tmp/
+
+# superpowers planning/spec docs (kept local, not published) - all implemented
+/superpowers/
+docs/superpowers/
+.superpowers/

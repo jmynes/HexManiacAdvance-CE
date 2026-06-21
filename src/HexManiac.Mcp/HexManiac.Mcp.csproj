@@ -2,7 +2,14 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net8.0</TargetFramework>
+    <!-- net6.0 to match HexManiac.Core / the WPF editor, so the whole repo builds with one
+         SDK (root global.json pins SDK 6) and the MCP can live in the solution. The MCP SDK
+         and its transitive deps officially target net8+, so they resolve via netstandard2.0
+         fallbacks here - verified to build and run, but unsupported by those packages.
+         SuppressTfmSupportBuildWarnings silences the resulting "doesn't support net6.0" noise.
+         TODO: move the whole repo to net8 (LTS; net6 is EOL) once that's regression-tested. -->
+    <TargetFramework>net6.0</TargetFramework>
+    <SuppressTfmSupportBuildWarnings>true</SuppressTfmSupportBuildWarnings>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>HexManiac.Mcp</AssemblyName>
