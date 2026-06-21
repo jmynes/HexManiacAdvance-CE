@@ -68,7 +68,7 @@ namespace HavenSoft.HexManiac.WPF.Windows {
             case "read_table": {
                var vp = ResolveTab(p);
                if (vp == null) return NoTab();
-               return Ok(RomAutomation.ReadTable(vp.Model, Str(p, "name"), Int(p, "start", 0), Int(p, "count", 25)));
+               return Ok(RomAutomation.ReadTable(vp.Model, Str(p, "name"), Int(p, "start", 0), Int(p, "count", 25), Bool(p, "includePlaceholders", false)));
             }
             case "write_value": {
                var vp = ResolveTab(p);
@@ -87,7 +87,7 @@ namespace HavenSoft.HexManiac.WPF.Windows {
             case "export_table": {
                var vp = ResolveTab(p);
                if (vp == null) return NoTab();
-               return Ok(RomAutomation.ExportToFile(vp.Model, Str(p, "name"), Str(p, "outPath")));
+               return Ok(RomAutomation.ExportToFile(vp.Model, Str(p, "name"), Str(p, "outPath"), Bool(p, "includePlaceholders", false)));
             }
             case "run_script": {
                var vp = ResolveTab(p);

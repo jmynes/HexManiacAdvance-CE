@@ -123,16 +123,17 @@ public sealed class RomTools {
    }
 
    [McpServerTool(Name = "read_table")]
-   [Description("Read a named table as JSON rows. Targets the GUI's active tab when live. Use start/count to page; tab/tabFile to pick a tab.")]
+   [Description("Read a named table as JSON rows. Targets the GUI's active tab when live. Use start/count to page; tab/tabFile to pick a tab. For species-indexed tables, the ~25 placeholder/limbo slots (unused Unown-variant indices, not real species) are excluded by default and reported as excludedPlaceholders; pass includePlaceholders=true to keep them.")]
    public string ReadTable(
       RomSession session,
       [Description("Anchor/table name, e.g. data.pokemon.stats")] string name,
       [Description("First row index to return")] int start = 0,
       [Description("Maximum rows to return")] int count = 25,
+      [Description("Include the placeholder/limbo species slots (default false: they are omitted from species-indexed tables)")] bool includePlaceholders = false,
       [Description("Target GUI tab by index (default: active tab)")] int? tab = null,
       [Description("Target GUI tab by filename substring")] string? tabFile = null) {
-      var p = new Dictionary<string, object?> { ["name"] = name, ["start"] = start, ["count"] = count };
-      return Dispatch("read_table", p, tab, tabFile, () => RomAutomation.ReadTable(session.Require(), name, start, count));
+      var p = new Dictionary<string, object?> { ["name"] = name, ["start"] = start, ["count"] = count, ["includePlaceholders"] = includePlaceholders };
+      return Dispatch("read_table", p, tab, tabFile, () => RomAutomation.ReadTable(session.Require(), name, start, count, includePlaceholders));
    }
 
    [McpServerTool(Name = "write_value")]
@@ -258,16 +259,17 @@ public sealed class RomTools {
    }
 
    [McpServerTool(Name = "export_table")]
-   [Description("Export an entire table (all rows, no paging) to a JSON file on disk. Targets the GUI's active tab when live; else headless.")]
+   [Description("Export an entire table (all rows, no paging) to a JSON file on disk. Targets the GUI's active tab when live; else headless. For species-indexed tables, the ~25 placeholder/limbo slots (unused Unown-variant indices, not real species) are excluded by default and reported as excludedPlaceholders; pass includePlaceholders=true to keep them.")]
    public string ExportTable(
       RomSession session,
       [Description("Anchor/table name to export")] string name,
       [Description("Absolute path of the .json file to write")] string outPath,
+      [Description("Include the placeholder/limbo species slots (default false: they are omitted from species-indexed tables)")] bool includePlaceholders = false,
       [Description("Target GUI tab by index (default: active tab)")] int? tab = null,
       [Description("Target GUI tab by filename substring")] string? tabFile = null) {
-      var p = new Dictionary<string, object?> { ["name"] = name, ["outPath"] = outPath };
+      var p = new Dictionary<string, object?> { ["name"] = name, ["outPath"] = outPath, ["includePlaceholders"] = includePlaceholders };
       return Dispatch("export_table", p, tab, tabFile,
-         () => RomAutomation.ExportToFile(session.Require(), name, outPath));
+         () => RomAutomation.ExportToFile(session.Require(), name, outPath, includePlaceholders));
    }
 
    [McpServerTool(Name = "run_script")]
