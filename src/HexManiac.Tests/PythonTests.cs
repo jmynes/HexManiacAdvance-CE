@@ -1,4 +1,5 @@
-﻿using HavenSoft.HexManiac.Core.Models;
+﻿using HavenSoft.HexManiac.Core;
+using HavenSoft.HexManiac.Core.Models;
 using HavenSoft.HexManiac.Core.Models.Runs;
 using HavenSoft.HexManiac.Core.ViewModels.Tools;
 using System.Collections.Generic;
@@ -64,6 +65,40 @@ namespace HavenSoft.HexManiac.Tests {
 
          Assert.Equal("3", Execute("len(table['elements'])").Trim()); // removed __len__ -> via .NET Count
          Assert.Equal("5", Execute("table['elements'][2].a").Trim()); // row 2, field a
+      }
+
+      [Fact]
+      public void RunPython_EditsField_UndoRevertsRedoReapplies() {
+         ViewPort.Edit("^elements[a:|t|x::|y::|z:: b:]2 (0 4 0) ");
+         ViewPort.ChangeHistory.ChangeCompleted(); // close the setup edit as its own step, isolating the python run below
+
+         Execute("table['elements'][0].a.y = 7");
+         Assert.Equal(0x0070, Model.ReadMultiByteValue(0, 2));
+
+         ViewPort.Undo.Execute();
+         Assert.Equal(0x0040, Model.ReadMultiByteValue(0, 2));
+
+         ViewPort.Redo.Execute();
+         Assert.Equal(0x0070, Model.ReadMultiByteValue(0, 2));
+      }
+
+      [Fact]
+      public void RunPython_TwoSeparateRuns_AreTwoSeparateUndoSteps() {
+         ViewPort.Edit("^elements[a: b:]2 1 2 3 4 ");
+         ViewPort.ChangeHistory.ChangeCompleted(); // close the setup edit as its own step, isolating the python runs below
+
+         Execute("table['elements'][0].a = 10");
+         Execute("table['elements'][0].b = 20");
+         Assert.Equal(10, Model.ReadMultiByteValue(0, 2));
+         Assert.Equal(20, Model.ReadMultiByteValue(2, 2));
+
+         ViewPort.Undo.Execute(); // undoes only the second run
+         Assert.Equal(10, Model.ReadMultiByteValue(0, 2));
+         Assert.Equal(2, Model.ReadMultiByteValue(2, 2));
+
+         ViewPort.Undo.Execute(); // undoes the first run
+         Assert.Equal(1, Model.ReadMultiByteValue(0, 2));
+         Assert.Equal(2, Model.ReadMultiByteValue(2, 2));
       }
 
       [SkippableFact]

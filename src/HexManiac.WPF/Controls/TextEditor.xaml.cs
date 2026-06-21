@@ -33,6 +33,28 @@ namespace HavenSoft.HexManiac.WPF.Controls {
 
       #endregion
 
+      #region UndoLimit
+
+      // Defaults to 0 (disabled) to preserve existing behavior: most uses of this control
+      // (the main code/hex editor) defer "undo" entirely to the ROM-level ChangeHistory via
+      // the app's global Ctrl+Z, and having the textbox's own native text-undo active too
+      // would fight with that. A use that actually wants normal text-editing undo/redo (e.g.
+      // the Python script box, where Ctrl+Z should undo recent typing like any code editor)
+      // can opt in by setting this to -1 (TextBoxBase's default/unlimited).
+      public static readonly DependencyProperty UndoLimitProperty = DependencyProperty.Register(nameof(UndoLimit), typeof(int), typeof(TextEditor), new FrameworkPropertyMetadata(0, UndoLimitChanged));
+
+      public int UndoLimit {
+         get => (int)GetValue(UndoLimitProperty);
+         set => SetValue(UndoLimitProperty, value);
+      }
+
+      private static void UndoLimitChanged(DependencyObject d, DependencyPropertyChangedEventArgs e) {
+         var self = (TextEditor)d;
+         self.TransparentLayer.UndoLimit = (int)e.NewValue;
+      }
+
+      #endregion
+
       #region ContextMenuOverride
 
       public ContextMenu ContextMenuOverride {
@@ -58,6 +80,10 @@ namespace HavenSoft.HexManiac.WPF.Controls {
 
       public TextEditor() {
          InitializeComponent();
+         // The UndoLimit changed-callback only fires on an actual change, not merely because
+         // a value equals its default - sync explicitly so the default (0, disabled) reaches
+         // the inner TextBox even when nothing ever sets this property.
+         TransparentLayer.UndoLimit = UndoLimit;
          TransparentLayer.SelectionChanged += (sender, e) => {
             SelectionChanged?.Invoke(this, e);
          };

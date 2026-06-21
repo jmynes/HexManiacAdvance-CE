@@ -89,6 +89,11 @@ def __hma_run__(__hma_code__):
 
       public void RunPython() {
          ResultText = RunPythonScript(Text).ErrorMessage ?? "null";
+         // Closes this run's edits into their own undo/redo step (Ctrl+Z/Ctrl+Y), so they
+         // don't bleed into whatever the user does next. RunPythonScript itself can't do
+         // this - it's also used for read-only introspection (HasFunction/GetComment),
+         // where forcibly completing some unrelated in-progress edit elsewhere would be wrong.
+         if (editor.SelectedTab is IEditableViewPort vp) vp.ChangeHistory.ChangeCompleted();
          editor.SelectedTab?.Refresh();
       }
 
