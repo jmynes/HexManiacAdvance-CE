@@ -2,6 +2,7 @@ using HavenSoft.HexManiac.Core.Models;
 using HavenSoft.HexManiac.Core.Models.Runs;
 using Python.Runtime;
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Dynamic;
 using System.IO;
@@ -45,6 +46,23 @@ clr.AddReference('HexManiac.Core')
 import HavenSoft.HexManiac.Core
 from HavenSoft.HexManiac.Core.Models import IDataModel
 import ast as __hma_ast__
+import keyword as __hma_keyword__
+import builtins as __hma_builtins_mod__
+import pkgutil as __hma_pkgutil__
+
+# precomputed once per scope for autocomplete: real keywords/builtins/importable
+# module names from this exact interpreter, rather than a hand-maintained list.
+__hma_keywords__ = list(__hma_keyword__.kwlist)
+__hma_builtin_names__ = [__hma_n__ for __hma_n__ in dir(__hma_builtins_mod__) if not __hma_n__.startswith('_')]
+__hma_module_names__ = sorted(set(__hma_n__ for _, __hma_n__, _ in __hma_pkgutil__.iter_modules()))
+
+def __hma_dir__(obj, prefix):
+   # used for 'installed pip module' attribute completion (e.g. requests.g -> get):
+   # real dir() on whatever the prefix before the dot evaluates to in this scope.
+   try:
+      return [__hma_n__ for __hma_n__ in dir(obj) if __hma_n__.startswith(prefix) and not __hma_n__.startswith('_')]
+   except Exception:
+      return []
 
 def __hma_run__(__hma_code__):
    __hma_tree__ = __hma_ast__.parse(__hma_code__, mode='exec')
@@ -128,6 +146,82 @@ def __hma_run__(__hma_code__):
 
       public void AddVariable(string name, object value) {
          using (Py.GIL()) scope.Value.Set(name, value);
+      }
+
+      private IReadOnlyList<string> keywordNames, builtinNames, moduleNames;
+
+      // line/lineIndex/characterIndex match AutocompleteOverlay's Func<string,int,int,...>
+      // contract (see CodeBody.GetTokenComplete for the established convention): lineIndex
+      // is unused here since Python autocomplete only needs the current line's text.
+      public IReadOnlyList<AutocompleteItem> GetAutocomplete(string line, int lineIndex, int characterIndex) {
+         if (characterIndex < 0 || characterIndex > line.Length) return null;
+         // don't offer completions inside a string literal
+         if (line.Take(characterIndex).Count(c => c == '\'' || c == '"') % 2 == 1) return null;
+
+         var wordStart = characterIndex;
+         while (wordStart > 0 && IsAutocompleteChar(line[wordStart - 1])) wordStart--;
+         var prefix = line.Substring(wordStart, characterIndex - wordStart);
+         if (prefix.Length == 0) return null;
+
+         var before = line.Substring(0, wordStart);
+         var after = line.Substring(characterIndex);
+
+         IEnumerable<string> candidates;
+         var dotIndex = prefix.LastIndexOf('.');
+         if (dotIndex >= 0) {
+            var objectExpr = prefix.Substring(0, dotIndex);
+            var memberPrefix = prefix.Substring(dotIndex + 1);
+            candidates = GetMemberNames(objectExpr, memberPrefix).Select(member => objectExpr + "." + member)
+               .Concat(GetAnchorNames(prefix));
+         } else {
+            EnsureCompletionListsLoaded();
+            candidates = GetAnchorNames(prefix)
+               .Concat(keywordNames.Where(name => name.StartsWith(prefix, StringComparison.Ordinal)))
+               .Concat(builtinNames.Where(name => name.StartsWith(prefix, StringComparison.Ordinal)))
+               .Concat(moduleNames.Where(name => name.StartsWith(prefix, StringComparison.Ordinal)));
+         }
+
+         var results = candidates.Distinct().OrderBy(c => c, StringComparer.Ordinal).Take(50)
+            .Select(candidate => new AutocompleteItem(candidate, before + candidate + after))
+            .ToList();
+         return results.Count > 0 ? results : null;
+      }
+
+      private static bool IsAutocompleteChar(char c) => char.IsLetterOrDigit(c) || c == '_' || c == '.';
+
+      private IEnumerable<string> GetAnchorNames(string prefix) {
+         if (editor.SelectedTab is not IViewPort vp || vp.Model is not IDataModel model) return Enumerable.Empty<string>();
+         return model.Anchors.Where(anchor => anchor.StartsWith(prefix, StringComparison.Ordinal));
+      }
+
+      private IReadOnlyList<string> GetMemberNames(string objectExpr, string memberPrefix) {
+         if (string.IsNullOrWhiteSpace(objectExpr)) return Array.Empty<string>();
+         using (Py.GIL()) {
+            try {
+               using var result = scope.Value.Eval($"__hma_dir__({objectExpr}, '{memberPrefix}')");
+               return result.As<string[]>() ?? Array.Empty<string>();
+            } catch {
+               return Array.Empty<string>();
+            }
+         }
+      }
+
+      private void EnsureCompletionListsLoaded() {
+         if (keywordNames != null) return;
+         using (Py.GIL()) {
+            keywordNames = ReadGlobalStringList("__hma_keywords__");
+            builtinNames = ReadGlobalStringList("__hma_builtin_names__");
+            moduleNames = ReadGlobalStringList("__hma_module_names__");
+         }
+      }
+
+      private IReadOnlyList<string> ReadGlobalStringList(string name) {
+         try {
+            using var value = scope.Value.Eval(name);
+            return value.As<string[]>() ?? Array.Empty<string>();
+         } catch {
+            return Array.Empty<string>();
+         }
       }
 
       public void Printer(string text) {

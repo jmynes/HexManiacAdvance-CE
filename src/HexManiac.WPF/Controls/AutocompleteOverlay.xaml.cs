@@ -96,6 +96,8 @@ namespace HavenSoft.HexManiac.WPF.Controls {
             getAutocomplete = team.GetTrainerAutocomplete;
          } else if (DataContext is CodeBody body) {
             getAutocomplete = body.GetTokenComplete;
+         } else if (DataContext is PythonTool pythonTool) {
+            getAutocomplete = pythonTool.GetAutocomplete;
          } else {
             return;
          }

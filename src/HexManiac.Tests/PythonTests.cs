@@ -101,6 +101,54 @@ namespace HavenSoft.HexManiac.Tests {
          Assert.Equal(2, Model.ReadMultiByteValue(2, 2));
       }
 
+      [Fact]
+      public void GetAutocomplete_AnchorPrefix_SuggestsFullDottedAnchorName() {
+         ViewPort.Edit("@000 ^data.pokemon.stats[hp: atk:]2 (10 20) (30 40) ");
+
+         var options = tool.GetAutocomplete("dat", 0, 3);
+
+         Assert.Contains(options, o => o.LineText == "data.pokemon.stats");
+      }
+
+      [Fact]
+      public void GetAutocomplete_KeywordPrefix_SuggestsKeyword() {
+         var options = tool.GetAutocomplete("imp", 0, 3);
+
+         Assert.Contains(options, o => o.LineText == "import");
+      }
+
+      [Fact]
+      public void GetAutocomplete_BuiltinPrefix_SuggestsBuiltinFunction() {
+         var options = tool.GetAutocomplete("pri", 0, 3);
+
+         Assert.Contains(options, o => o.LineText == "print");
+      }
+
+      [Fact]
+      public void GetAutocomplete_ModulePrefix_SuggestsImportableModule() {
+         // 'os' is always present (stdlib), unlike the pip-bootstrapped packages,
+         // which are allowed to be missing - see BundledPackage_ImportRequests_Succeeds.
+         var options = tool.GetAutocomplete("o", 0, 1);
+
+         Assert.Contains(options, o => o.LineText == "os");
+      }
+
+      [Fact]
+      public void GetAutocomplete_DottedPrefixAfterImport_SuggestsRealModuleMember() {
+         Execute("import os");
+
+         var options = tool.GetAutocomplete("os.path.j", 0, 9);
+
+         Assert.Contains(options, o => o.LineText == "os.path.join");
+      }
+
+      [Fact]
+      public void GetAutocomplete_InsideStringLiteral_ReturnsNull() {
+         var options = tool.GetAutocomplete("print('pri", 0, 10);
+
+         Assert.Null(options);
+      }
+
       [SkippableFact]
       public void BundledPackage_ImportRequests_Succeeds() {
          // guards the pip-bootstrap pipeline in Directory.Build.targets: the embeddable
