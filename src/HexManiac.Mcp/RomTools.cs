@@ -295,7 +295,7 @@ public sealed class RomTools {
    }
 
    [McpServerTool(Name = "export_script_encounters")]
-   [Description("Export script-granted Pokemon that the wild/trainer/evolution tables miss: walks every top-level map script for givePokemon (0x79 = gifts: starters, fossils, Eevee, the Magikarp sale, ...) and setwildbattle (0xB6 = scripted/static battles: the legendary birds, Mewtwo, Snorlax, ...). Each site has kind (gift/static), species, level, held item, map bank/number/name, and the script offset; output is also grouped 'bySpecies'. Targets the GUI's active tab when live; else headless.")]
+   [Description("Export script-granted Pokemon that the wild/trainer/evolution tables miss: walks every top-level map script for givePokemon (gifts: starters, fossils, Eevee, the Magikarp sale, the Fighting-Dojo Hitmons - including 'givePokemon VAR' resolved from a one-time setvar), setwildbattle (statics: birds, Mewtwo, Snorlax), and the StartLegendaryBattle/InitRoamer specials (ticket legendaries / roamers). Each site has kind (gift/static/legendary/roaming), species, level, held item, map bank/number/name, and the script offset; output is also grouped 'bySpecies'. Commands and specials are resolved BY NAME from the engine, so it works on other base games and romhacks. Targets the GUI's active tab when live; else headless.")]
    public string ExportScriptEncounters(
       RomSession session,
       [Description("Absolute path of the .json file to write")] string outPath,
