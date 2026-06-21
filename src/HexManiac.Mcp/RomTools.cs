@@ -304,6 +304,18 @@ public sealed class RomTools {
          () => EncounterScriptExport.Export(session.Require(), session.RequireViewPort().Tools.CodeTool.ScriptParser, outPath));
    }
 
+   [McpServerTool(Name = "export_species_sources")]
+   [Description("Cross-reference every species like HMA's 'Show Uses', for all species at once. Two buckets per species: tableRefs = array fields typed data.pokemon.names (anchor + field + index) - this is where give-command walks miss obtain sources like the starters (scripts.newgame.starters.*), in-game trades, evolutions, battle-tower prizes; scriptRefs = every map-script command with a species arg (generalizes givePokemon/setwildbattle to all species-typed commands) with command + map + offset. Literal args only (a species loaded into a variable first, e.g. some Game Corner prizes, is not resolved); the species' own movesets/trainer teams are omitted. Targets the GUI's active tab when live; else headless.")]
+   public string ExportSpeciesSources(
+      RomSession session,
+      [Description("Absolute path of the .json file to write")] string outPath,
+      [Description("Target GUI tab by index (default: active tab)")] int? tab = null,
+      [Description("Target GUI tab by filename substring")] string? tabFile = null) {
+      var p = new Dictionary<string, object?> { ["outPath"] = outPath };
+      return Dispatch("export_species_sources", p, tab, tabFile,
+         () => SpeciesSourceExport.Export(session.Require(), session.RequireViewPort().Tools.CodeTool.ScriptParser, outPath));
+   }
+
    [McpServerTool(Name = "run_script")]
    [Description("Run an HMA script. Provide inline 'script' text OR 'path' to a .hma file. Targets the GUI's active tab when live; else headless.")]
    public string RunScript(
