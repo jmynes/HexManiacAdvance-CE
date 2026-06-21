@@ -684,6 +684,17 @@ namespace HavenSoft.HexManiac.Core.Models.Code {
          return null;
       }
 
+      // Resolve a command name (e.g. "givePokemon") to its leading opcode byte for THIS game, or
+      // null if the engine doesn't define it. Lets callers match commands by name instead of magic
+      // bytes, so they keep working when a game/romhack uses different opcodes.
+      public byte? CommandCode(string command) {
+         foreach (var line in engine) {
+            if (line.MatchesGame(gameHash) && line.LineCommand == command && line.LineCode.Count > 0)
+               return line.LineCode[0];
+         }
+         return null;
+      }
+
       private LabelLibrary ExtractLocalLabels(IDataModel model, int start, string[] lines) {
          var labels = new Dictionary<string, int>();
          var length = 0;

@@ -243,9 +243,17 @@ A few of these *can* be read from the ROM after all:
   the starters are detected; the Game-Corner prize menu, which sets the var many times, is left to
   `export_coin_prizes`).
 
-What genuinely *can't* be read: the **roaming beasts** — `InitRoamer` picks the species in ASM by your
-starter, with no literal anywhere in the script (confirmed with `read_script`: it's the last command of
-the post-game "Network Machine" script). Those still need the small **curated override** —
+What genuinely *can't* be read **on vanilla FireRed**: the **roaming beasts** — `InitRoamer` picks the
+species in ASM by your starter, with no literal anywhere in the script (confirmed with `read_script`:
+it's the last command of the post-game "Network Machine" script). The tool *does* detect a roamer when
+the species is loaded into a var before `InitRoamer` (CFRU-style romhacks), but vanilla isn't, so it
+stays in the small **curated override** —
+
+> **Romhack-safety:** `export_script_encounters` resolves the command opcodes (`givePokemon`,
+> `setwildbattle`, `setvar`, `special`) and the special indices (`StartLegendaryBattle`, `InitRoamer`)
+> **by name** from the script engine + `GetOptions("specials")`, not as hardcoded bytes — so a hack
+> that uses a different opcode map or specials table still works. (Variable space `0x4000`+ and the
+> `VAR_0x8004/5/6` carry vars are stable Gen-3 conventions and stay constant.)
 [`docs/firered-obtain-overrides.json`](firered-obtain-overrides.json) — which the dump merges as
 `obtainCurated` kinds (`dojo` / `gameCorner` / `roaming` / `event`). After
 that, the only species with no obtain route are genuinely FireRed-unobtainable: LeafGreen exclusives,
@@ -469,7 +477,7 @@ All 25 tools exposed by this MCP server:
 | `write_value` | Set a field on a table row. value is a string (text/enum name), number (integer/enum index), or true/false. For a bit-array checkbox, pass flag="<name>" with value true/false. Live GUI when present (visible+undoable); else headless. |
 | `export_table` | Export an entire table (all rows, no paging) to a JSON file on disk. Targets the GUI's active tab when live; else headless. Species-indexed tables omit the ~25 placeholder/limbo slots by default (`excludedPlaceholders`, pass includePlaceholders=true to keep them) and add a canonical `slug` (+ `forms`/`defaultForm` for Deoxys/Castform). |
 | `export_trainers` | Export every trainer and their team to a JSON file. Each party member has a `hardcodedMoves` flag; members without hardcoded moves get the in-game default level-up moveset filled in (includeDefaultMoves=false to skip). Each trainer also gets a `uses` array of every map-script `trainerbattle` (0x5C) reference — script offset, subtype, map bank/number/name, and intro/win/lose dialogue; an empty array means the trainer is unreferenced (includeUses=false to omit). |
-| `export_script_encounters` | Export script-granted Pokemon the wild/trainer/evolution tables miss: walks every top-level map script for `givePokemon` (0x79 = gifts: fossils, Eevee, Lapras, the Magikarp sale) and `setwildbattle` (0xB6 = statics: the birds, Mewtwo, Snorlax). Each site has kind (gift/static), species, level, held item, map bank/number/name, and script offset; also grouped `bySpecies`. |
+| `export_script_encounters` | Export script-granted Pokemon the wild/trainer/evolution tables miss. Walks every top-level map script for `givePokemon` (gifts: starters, fossils, Eevee, the Magikarp sale, the Dojo Hitmons), `setwildbattle` (statics: birds, Mewtwo, Snorlax), and the `StartLegendaryBattle`/`InitRoamer` specials (ticket legendaries / roamers). Resolves `givePokemon VAR` from a one-time `setvar`. Each site has kind (gift/static/legendary/roaming), species, level, held item, map, script offset; also grouped `bySpecies`. **Commands + specials are resolved by name, so it works on other games/romhacks.** |
 | `export_species_sources` | HMA "Show Uses" for every species at once: `tableRefs` (array fields typed `data.pokemon.names` — catches the starters in `scripts.newgame.starters.*`, trades, evolutions, prizes) + `scriptRefs` (every map-script command with a species arg, generalizing givePokemon/setwildbattle to all species-typed commands incl. `giveEgg`) with map + offset. Literal args only; var-loaded species (some Game Corner prizes) aren't resolved. |
 | `export_coin_prizes` | Read coin-prize Pokemon (the Celadon Game Corner) live from the ROM. Their cost isn't a numeric field — it's baked into the prize menu's option text (`<SPECIES> <n> COINS`) in `scripts.text.multichoice`. Reports `{species, speciesId, coins, optionText}`; reflects an edited ROM's own prizes/costs. |
 | `read_script` | Decode the script at an address to HMA's readable script text — the same listing the code sidebar shows (commands, `# address` section labels, inlined `{text}`/movement). `type`: `xse` (default, overworld event scripts) / `battle` / `animation` / `ai`. Returns `{ address, type, length, script }`. Live or headless. |

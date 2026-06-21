@@ -17,20 +17,13 @@ namespace HavenSoft.HexManiac.Core.Models {
    //
    // Both commands share the same leading arg layout: species:u16 @ +1, level:u8 @ +3, item:u16 @ +4.
    public static class EncounterScriptExport {
-      private const byte GivePokemon = 0x79;
-      private const byte SetWildBattle = 0xB6;
-      private const byte Special = 0x25;
-      // The 'StartLegendaryBattle' special (FRLG special 0x138, named in the engine): the
-      // Navel Rock / Birth Island ticket legendaries set VAR_0x8004 (species) + VAR_0x8005 (level)
-      // right before it, instead of using setwildbattle. (The birds/Mewtwo also call it, but get
-      // their species from a setwildbattle, so they have no nearby VAR_0x8004 and are skipped here.)
-      private const int StartLegendaryBattle = 0x138;
-      private const int Setvar = 0x16, Var_0x8004 = 0x8004, Var_0x8005 = 0x8005, Var_0x8006 = 0x8006;
-      // Script variables are >= 0x4000 (VAR_TEMP_0); real species ids are well below that. So a
-      // givePokemon whose "species" arg is >= 0x4000 is a variable reference - resolve it from the
-      // setvar that fed it earlier in this walk (the Fighting-Dojo Hitmons do `setvar VAR_TEMP_1 <sp>`
-      // in each ball, then a shared `givePokemon VAR_TEMP_1`).
-      private const int VariableBase = 0x4000;
+      // Variable space + the special script vars that carry a species/level into a give. These are
+      // stable Gen-3 engine conventions, NOT per-game offsets - unlike the command opcodes (givePokemon,
+      // setwildbattle, setvar, special) and the special indices (StartLegendaryBattle, InitRoamer),
+      // which are resolved BY NAME at runtime in CollectSites so this keeps working on other games
+      // and romhacks that use a different opcode map or specials table.
+      private const int VariableBase = 0x4000;  // script vars are >= 0x4000; real species ids are below that
+      private const int Var_Species = 0x8004, Var_Level = 0x8005, Var_Item = 0x8006, Var_RoamerSpecies = 0x8000;
 
       public static object Export(IDataModel model, ScriptParser parser, string outPath) {
          if (parser == null) return RomAutomation.Err("export_script_encounters needs the script parser (open a ROM with the code tool / live GUI).");
@@ -41,6 +34,7 @@ namespace HavenSoft.HexManiac.Core.Models {
          int gift = sites.Count(s => (string)s["kind"] == "gift");
          int stat = sites.Count(s => (string)s["kind"] == "static");
          int legend = sites.Count(s => (string)s["kind"] == "legendary");
+         int roam = sites.Count(s => (string)s["kind"] == "roaming");
 
          // group by species id so callers can join straight onto a species table
          var bySpecies = new SortedDictionary<int, List<Dictionary<string, object?>>>();
@@ -53,17 +47,19 @@ namespace HavenSoft.HexManiac.Core.Models {
          foreach (var kv in bySpecies) bySpeciesOut[kv.Key.ToString()] = kv.Value;
 
          var payload = new Dictionary<string, object?> {
-            ["source"] = "HexManiacAdvance MCP — map-script walk for givePokemon (0x79) + setwildbattle (0xB6) + StartLegendaryBattle special",
+            ["source"] = "HexManiacAdvance MCP — map-script walk for givePokemon + setwildbattle + the StartLegendaryBattle/InitRoamer specials (commands/specials resolved by name, so it works across games/romhacks)",
             ["notes"] = new Dictionary<string, object?> {
-               ["kind"] = "gift = givePokemon (0x79), handed to the player (starters, fossils, Eevee, the Magikarp sale, the Fighting-Dojo Hitmons, ...). static = setwildbattle (0xB6), a scripted/standing battle (birds, Mewtwo, Snorlax, ...). legendary = the StartLegendaryBattle special with species/level loaded into VAR_0x8004/0x8005 just before it - the Navel Rock / Birth Island ticket legendaries (Ho-Oh, Lugia, Deoxys).",
+               ["kind"] = "gift = givePokemon, handed to the player (starters, fossils, Eevee, the Magikarp sale, the Fighting-Dojo Hitmons, ...). static = setwildbattle, a scripted/standing battle (birds, Mewtwo, Snorlax, ...). legendary = the StartLegendaryBattle special with species/level in VAR_0x8004/0x8005 (the Navel Rock / Birth Island ticket legendaries). roaming = the InitRoamer special with the species in a var (CFRU-style hacks; vanilla picks it in ASM and is absent).",
                ["scriptOffset"] = "Bare uppercase hex address of the command.",
                ["level"] = "The level baked into the script (gifts/statics/legendaries use a fixed level).",
                ["heldItem"] = "Item argument, null when 0.",
-               ["coverage"] = "Only commands reachable from top-level map scripts (object events + map-header scripts) are walked; hand-written ASM is not covered. A 'givePokemon VAR' is resolved from the setvar that fed it when that var was set exactly once in the walk (the Dojo Hitmons, the starters). A var set many times before the give is a runtime menu (the Game Corner prizes) - left to export_coin_prizes. The InitRoamer beasts pick their species in ASM, so they're not here.",
+               ["resolution"] = "Command opcodes (givePokemon/setwildbattle/setvar/special) and special indices (StartLegendaryBattle/InitRoamer) are resolved BY NAME from the engine + GetOptions('specials'), not hardcoded - so a romhack with a different opcode map or specials table still works.",
+               ["coverage"] = "Only commands reachable from top-level map scripts (object events + map-header scripts) are walked; hand-written ASM is not covered. A 'givePokemon VAR' is resolved from the setvar that fed it when that var was set exactly once in the walk (the Dojo Hitmons, the starters). A var set many times before the give is a runtime menu (the Game Corner prizes) - left to export_coin_prizes. Vanilla InitRoamer picks its species in ASM (no setvar) so the roaming beasts are absent there.",
             },
             ["giftCount"] = gift,
             ["staticCount"] = stat,
             ["legendaryCount"] = legend,
+            ["roamingCount"] = roam,
             ["siteCount"] = sites.Count,
             ["speciesCovered"] = bySpecies.Count,
             ["bySpecies"] = bySpeciesOut,
@@ -73,20 +69,28 @@ namespace HavenSoft.HexManiac.Core.Models {
             WriteIndented = true, Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
          }));
          return new Dictionary<string, object?> {
-            ["ok"] = true, ["giftCount"] = gift, ["staticCount"] = stat, ["legendaryCount"] = legend,
+            ["ok"] = true, ["giftCount"] = gift, ["staticCount"] = stat, ["legendaryCount"] = legend, ["roamingCount"] = roam,
             ["siteCount"] = sites.Count, ["speciesCovered"] = bySpecies.Count, ["path"] = outPath,
          };
       }
 
-      // Scan backward from `addr` for a `setvar <var>, value` (opcode 0x16) and return its value,
-      // or -1. Used to recover the species/level a ticket-legendary loads into VAR_0x8004/0x8005
-      // right before StartLegendaryBattle. Small window so it only matches the adjacent setup.
-      private static int BackScanSetvar(IDataModel model, int addr, int var, int maxBack = 48) {
+      // Scan backward from `addr` for a `setvar <var>, value` and return its value, or -1. Used to
+      // recover the species/level a legendary/roamer loads into a var right before its special.
+      private static int BackScanSetvar(IDataModel model, byte setvarOp, int addr, int var, int maxBack = 48) {
          for (int k = 3; k <= maxBack; k++) {
             int a = addr - k;
             if (a < 0) break;
-            if (model[a] == Setvar && model.ReadMultiByteValue(a + 1, 2) == var) return model.ReadMultiByteValue(a + 3, 2);
+            if (model[a] == setvarOp && model.ReadMultiByteValue(a + 1, 2) == var) return model.ReadMultiByteValue(a + 3, 2);
          }
+         return -1;
+      }
+
+      // Index of a named special (e.g. "StartLegendaryBattle") in this game's specials table, or -1.
+      private static int SpecialIndex(IDataModel model, string name) {
+         try {
+            var opts = model.GetOptions("specials");
+            if (opts != null) for (int i = 0; i < opts.Count; i++) if (opts[i] == name) return i;
+         } catch { }
          return -1;
       }
 
@@ -95,17 +99,30 @@ namespace HavenSoft.HexManiac.Core.Models {
          var sites = new List<Dictionary<string, object?>>();
          var mapNames = TrainerTeamExport.MapNameColumn(model);
 
+         // Resolve commands + specials by name for THIS game (romhack-safe).
+         byte givePokemon = parser.CommandCode("givePokemon") ?? 0;
+         byte setWildBattle = parser.CommandCode("setwildbattle") ?? 0;
+         byte setvar = parser.CommandCode("setvar") ?? 0;
+         byte special = parser.CommandCode("special") ?? 0;
+         if (givePokemon == 0 || setvar == 0) return sites;  // engine doesn't define the basics we rely on
+         int startLegendaryBattle = SpecialIndex(model, "StartLegendaryBattle");
+         int initRoamer = SpecialIndex(model, "InitRoamer");
+         var filter = new List<byte> { givePokemon, setvar };
+         if (setWildBattle != 0) filter.Add(setWildBattle);
+         if (special != 0) filter.Add(special);
+         var filterArray = filter.ToArray();
+
          void Record(int scriptStart, int bank, int mapNumber, string mapName) {
             if (scriptStart < 0 || scriptStart >= model.Count) return;
             IEnumerable<ScriptSpot> spots;
-            try { spots = Flags.GetAllScriptSpots(model, parser, new[] { scriptStart }, GivePokemon, SetWildBattle, Special, (byte)Setvar).ToList(); }
+            try { spots = Flags.GetAllScriptSpots(model, parser, new[] { scriptStart }, filterArray).ToList(); }
             catch { return; }
             var varValues = new Dictionary<int, int>();   // var -> last literal value set in this walk
             var varSetCount = new Dictionary<int, int>();  // how many times each var was set (>1 = ambiguous)
             foreach (var spot in spots) {
                try {
                   byte op = model[spot.Address];
-                  if (op == Setvar) {
+                  if (op == setvar) {
                      int v = model.ReadMultiByteValue(spot.Address + 1, 2);
                      varValues[v] = model.ReadMultiByteValue(spot.Address + 3, 2);
                      varSetCount[v] = (varSetCount.TryGetValue(v, out var c) ? c : 0) + 1;
@@ -113,7 +130,7 @@ namespace HavenSoft.HexManiac.Core.Models {
                   }
                   int species, level, item;
                   string kind;
-                  if (op == GivePokemon || op == SetWildBattle) {
+                  if (op == givePokemon || op == setWildBattle) {
                      species = model.ReadMultiByteValue(spot.Address + 1, 2); // species:u16 @ +1, level:u8 @ +3, item:u16 @ +4
                      if (species >= VariableBase) {
                         // variable species: resolve only when that var was set exactly once in this walk.
@@ -125,14 +142,26 @@ namespace HavenSoft.HexManiac.Core.Models {
                      }
                      level = model[spot.Address + 3];
                      item = model.ReadMultiByteValue(spot.Address + 4, 2);
-                     kind = op == GivePokemon ? "gift" : "static";
-                  } else if (op == Special && model.ReadMultiByteValue(spot.Address + 1, 2) == StartLegendaryBattle) {
-                     // ticket legendary: species/level are loaded into VAR_0x8004/0x8005 just before the special
-                     species = BackScanSetvar(model, spot.Address, Var_0x8004);
-                     if (species < 0) continue;                 // birds/Mewtwo path: species came from a setwildbattle instead
-                     level = Math.Max(0, BackScanSetvar(model, spot.Address, Var_0x8005));
-                     item = Math.Max(0, BackScanSetvar(model, spot.Address, Var_0x8006));
-                     kind = "legendary";
+                     kind = op == givePokemon ? "gift" : "static";
+                  } else if (op == special) {
+                     int idx = model.ReadMultiByteValue(spot.Address + 1, 2);
+                     if (startLegendaryBattle >= 0 && idx == startLegendaryBattle) {
+                        // ticket legendary: species/level are loaded into VAR_0x8004/0x8005 just before the special
+                        species = BackScanSetvar(model, setvar, spot.Address, Var_Species);
+                        if (species < 0) continue;              // birds/Mewtwo path: species came from a setwildbattle instead
+                        level = Math.Max(0, BackScanSetvar(model, setvar, spot.Address, Var_Level));
+                        item = Math.Max(0, BackScanSetvar(model, setvar, spot.Address, Var_Item));
+                        kind = "legendary";
+                     } else if (initRoamer >= 0 && idx == initRoamer) {
+                        // roamer: CFRU-style engines load the species into a var before InitRoamer; vanilla
+                        // FRLG picks it in ASM (no setvar) and is skipped here, staying curated.
+                        species = BackScanSetvar(model, setvar, spot.Address, Var_RoamerSpecies);
+                        if (species < 0) species = BackScanSetvar(model, setvar, spot.Address, Var_Species);
+                        if (species < 0) continue;
+                        level = Math.Max(0, BackScanSetvar(model, setvar, spot.Address, Var_Level));
+                        item = 0;
+                        kind = "roaming";
+                     } else continue;
                   } else continue;
                   if (species <= 0 || species >= speciesNames.Count) continue; // SPECIES_NONE / var-loaded / stray parse
                   sites.Add(new Dictionary<string, object?> {
