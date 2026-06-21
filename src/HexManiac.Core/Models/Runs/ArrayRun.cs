@@ -590,6 +590,7 @@ namespace HavenSoft.HexManiac.Core.Models.Runs {
          if (!length.All(c => IsValidTableNameCharacter(c) || c.IsAny('-', '+'))) throw new ArrayRunParseException("Array length must be an anchor name or a number."); // the name might end with "-1" so also allow +/-
          ElementContent = ParseSegments(segments, data);
          if (ElementContent.Count == 0) throw new ArrayRunParseException("Array Content must not be empty.");
+         if (ElementContent.Any(e => e is InlineArraySegment)) throw new ArrayRunParseException("Inline variable-length arrays (field[...]/.countField) are only supported inside a struct pointer destination, not a top-level table.");
          ElementLength = ElementContent.Sum(e => e.Length);
          if (ElementLength == 0) throw new ArrayRunParseException("Array Content Length must not be zero.");
 
@@ -1322,6 +1323,17 @@ namespace HavenSoft.HexManiac.Core.Models.Runs {
                segments = segments.Slice(subArrayClose + 1);
                var repeatEnd = segments.IndexOf(' ');
                if (repeatEnd == -1) repeatEnd = segments.Length;
+               if (segments.Length > 0 && segments[0] == '/') {
+                  // length comes from a sibling field's value, resolved by name at read time
+                  // (rather than a literal repeat count known at parse time) - only meaningful
+                  // inside a StructRun, which resolves the placeholder against its own fields.
+                  // See StructRun.Expand.
+                  if (innerSegments.Count != 1) throw new ArrayRunParseException("Inline variable-length arrays must contain exactly one field.");
+                  var countFieldName = segments.Slice(1, repeatEnd - 1).ToString();
+                  list.Add(new InlineArraySegment(innerSegments[0], countFieldName));
+                  segments = segments.Slice(repeatEnd);
+                  continue;
+               }
                if (!int.TryParse(segments.Slice(0, repeatEnd), out int innerCount)) {
                   throw new ArrayRunParseException($"Could not parse '{segments}' as a number.");
                }
