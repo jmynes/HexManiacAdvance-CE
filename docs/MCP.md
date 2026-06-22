@@ -400,6 +400,43 @@ This is useful for detecting whether a loaded ROM is an unmodified clean dump or
 
 Returns `{"ok": true/false, "errors": [...], "messages": [...]}`.
 
+## Python scripting (run_python / python_introspect)
+
+`run_python` runs Python against the open ROM using HexManiacAdvance's built-in
+pythonnet engine (real CPython). A script can read **and** edit; a trailing
+expression is returned REPL-style, and `print(...)` output is captured.
+
+In scope:
+- `data.<group>.<table>` anchor groups, so `data.pokemon.stats[1].hp` works;
+- `table['<anchor>']` (e.g. `table['data.pokemon.stats']`);
+- `model` (the `IDataModel`) and `editor`.
+
+Edits commit as **one undo step** (a single `undo`), exactly like `write_value`.
+
+```json
+{"name": "python_introspect", "arguments": {"target": "data.pokemon.stats"}}
+{"name": "run_python", "arguments": {"code": "for mon in data.pokemon.stats:\n  mon.catchRate = 255\nlen(data.pokemon.stats)"}}
+```
+
+Returns `{ ok, result, prints, error }`.
+
+**Discovery workflow (do this first).** You can't see the object model the way the
+GUI's autocomplete shows it to a human, so query it:
+- `python_introspect` with **no target** → the top-level namespace:
+  `{ namespaces: [data, scripts, ...], globals: [editor, table, model], hint }`.
+- `python_introspect` with a **table anchor** (e.g. `data.pokemon.stats`) →
+  `{ kind: "table", count, fields: [{name, type, length, enumSource?}], sample }`
+  (`sample` is a dump of row 0).
+- `python_introspect` with **any other expression** (e.g. `data.pokemon.stats[0]`) →
+  `{ kind: "value", members: [dir() names], value }`.
+- In a script: `print(data.pokemon.stats[0])` dumps a row's fields; a wrong field
+  name raises an error that lists the valid ones; `model.Anchors` lists every table.
+
+`python_introspect` is read-only (it never edits).
+
+**pythonnet note:** C# extension methods are static-only here (no
+`clr.ImportExtensions`) — call them as `SomeClass.Method(obj, ...)`.
+
 ## Metadata & unrecognized ROMs
 
 When `open_rom` is called with `metadata="auto"` (the default) on a ROM that is not a recognized base game and has no sidecar `.toml`, it returns a warning instead of opening:
@@ -487,6 +524,8 @@ All 25 tools exposed by this MCP server:
 | `read_script` | Decode the script at an address to HMA's readable script text — the same listing the code sidebar shows (commands, `# address` section labels, inlined `{text}`/movement). `type`: `xse` (default, overworld event scripts) / `battle` / `animation` / `ai`. Returns `{ address, type, length, script }`. Live or headless. |
 | `export_pokedex` | Export Pokédex flavor from `data.pokedex.stats`, grouped `byNationalDex`: category (e.g. "Seed Pokémon"), height (m), weight (kg), and the dex entry text (line breaks flattened). |
 | `run_script` | Run an HMA script. Provide inline 'script' text OR 'path' to a .hma file. Targets the GUI's active tab when live; else headless. |
+| `run_python` | Run Python against the open ROM via HMA's pythonnet engine (real CPython). Reads AND edits; a trailing expression is returned, print(...) captured; edits commit as one undo step. In scope: editor, model, table['<anchor>'], and anchor groups (data.pokemon.stats[1].hp). Call python_introspect first to discover the model. Live or headless. Returns { ok, result, prints, error }. |
+| `python_introspect` | Discover the run_python object model (the agent's autocomplete). No target: { namespaces, globals, hint }. A table anchor: { kind:"table", count, fields, sample }. Any expression: { kind:"value", members, value }. Read-only. Live or headless. |
 | `undo` | Undo up to 'count' steps on the active tab's change history (same stack as Ctrl+Z). One step reverts the whole uncommitted batch of edits since the last commit boundary (a save_rom, run_script, or prior undo/redo), not necessarily a single write_value. Live GUI when present; else headless. |
 | `redo` | Redo up to 'count' steps on the active tab's change history (same stack as Ctrl+Y); a step replays a whole previously-undone batch. Live GUI when present; else headless. |
 | `select` | Select rows in the live GUI: 'count' rows from 'index', or the whole table if 'index' is omitted. Live GUI only. |
