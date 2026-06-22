@@ -352,6 +352,18 @@ public sealed class RomTools {
       return Dispatch("export_moves", p, tab, tabFile, () => MoveExport.Export(session.Require(), outPath));
    }
 
+   [McpServerTool(Name = "export_move_tutors")]
+   [Description("Export move-tutor NPC locations: walks map scripts for the move-tutor specials (SelectMoveTutorMon / ChooseMonForMoveTutor / DisplayMoveTutorMenu, resolved by name). Each site has the special, the taught move (back-scanned from VAR_0x8005/0x8004, or null when the tutor picks the move in script logic - e.g. the Cape Brink starter-move tutor), and map bank/number/name + script offset; also lists candidateTutorMoves (data.pokemon.moves.tutors). NOTE: vanilla FRLG locates only a couple; Emerald's Battle Frontier tutors are denser. Targets the GUI's active tab when live; else headless.")]
+   public string ExportMoveTutors(
+      RomSession session,
+      [Description("Absolute path of the .json file to write")] string outPath,
+      [Description("Target GUI tab by index (default: active tab)")] int? tab = null,
+      [Description("Target GUI tab by filename substring")] string? tabFile = null) {
+      var p = new Dictionary<string, object?> { ["outPath"] = outPath };
+      return Dispatch("export_move_tutors", p, tab, tabFile,
+         () => MoveTutorLocationExport.Export(session.Require(), session.RequireViewPort().Tools.CodeTool.ScriptParser, outPath));
+   }
+
    [McpServerTool(Name = "export_item_locations")]
    [Description("Export where each item is BOUGHT or FOUND by walking every top-level map script + signpost: pokemart product lists (kind=mart; the buy price is in data.items.stats), item-ball / found-item scripts (kind=field), NPC give-item scripts (kind=gift), raw additem commands (kind=scripted), and hidden-item signposts (kind=hidden). Each site has item, itemId, map bank/number/name, quantity, x/y (for field/hidden), and the script/event offset; output is also grouped 'byItem'. Commands are resolved BY NAME from the engine, so it works on other base games and romhacks. Targets the GUI's active tab when live; else headless.")]
    public string ExportItemLocations(

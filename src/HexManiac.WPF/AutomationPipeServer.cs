@@ -200,6 +200,11 @@ namespace HavenSoft.HexManiac.WPF.Windows {
                if (vp == null) return NoTab();
                return Ok(MoveExport.Export(vp.Model, Str(p, "outPath")));
             }
+            case "export_move_tutors": {
+               var vp = ResolveTab(p);
+               if (vp == null) return NoTab();
+               return Ok(MoveTutorLocationExport.Export(vp.Model, vp.Tools.CodeTool.ScriptParser, Str(p, "outPath")));
+            }
             case "export_items": {
                var vp = ResolveTab(p);
                if (vp == null) return NoTab();
