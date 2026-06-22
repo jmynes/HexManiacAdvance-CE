@@ -274,8 +274,11 @@ def __hma_run__(__hma_code__):
          return info;
       }
 
-      // Read-only: evaluate an arbitrary expression and report its stringified value plus its
-      // public dir() members - the agent's equivalent of the GUI autocomplete dropdown.
+      // Evaluate an arbitrary expression and report its stringified value plus its public dir()
+      // members - the agent's equivalent of the GUI autocomplete dropdown. "Read-only" here is
+      // behavioral, not structural: like RunPythonScript it never calls ChangeCompleted, so it
+      // opens no undo step - but callers are expected to pass an expression, not an assignment
+      // (a target like "data.x.y = 5" would still mutate the model without a commit boundary).
       public object DescribeExpression(string target) {
          var valueResult = RunPythonScript(target);
          if (valueResult.HasError && !valueResult.IsWarning)

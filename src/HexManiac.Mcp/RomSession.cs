@@ -55,11 +55,20 @@ public sealed class RomSession {
    private EditorViewModel? pythonEditor;
    private ViewPort? pythonEditorTab;
    private readonly List<string> pythonPrints = new();
+   // The MCP host dispatches tool calls concurrently, but the Python engine (one CPython
+   // scope + GIL, and a non-thread-safe EditorViewModel) is not concurrency-safe — two
+   // overlapping run_python calls deadlock. Serialize all Python access here, the way the
+   // live GUI path is serialized by marshalling onto the WPF UI thread.
+   private readonly object pythonLock = new();
 
    private PythonTool EnsurePythonTool() {
       var vp = RequireViewPort();
-      pythonEditor ??= new EditorViewModel(FileSystem, InstantDispatch.Instance, allowLoadingMetadata: false);
-      if (!ReferenceEquals(pythonEditorTab, vp)) {
+      // Rebuild the whole headless editor when the ROM changes, rather than Add()-ing the new
+      // tab onto the old one: EditorViewModel.Add never removes the prior tab, so re-opening
+      // ROMs in one session would otherwise leak each stale ViewPort + model. The Python engine
+      // is a process-wide singleton, so the fresh PythonTool reuses it (no re-init cost).
+      if (pythonEditor == null || !ReferenceEquals(pythonEditorTab, vp)) {
+         pythonEditor = new EditorViewModel(FileSystem, InstantDispatch.Instance, allowLoadingMetadata: false);
          pythonEditor.Add(vp);          // Add() sets SelectedIndex to this tab
          pythonEditorTab = vp;
       }
@@ -69,22 +78,26 @@ public sealed class RomSession {
    }
 
    public (bool ok, string? result, IReadOnlyList<string> prints, string? error) RunPython(string code) {
-      var tool = EnsurePythonTool();
-      pythonPrints.Clear();
-      var info = tool.RunForAutomation(code);
-      string? result = null, error = null;
-      if (info.HasError && info.IsWarning) result = info.ErrorMessage;   // REPL value
-      else if (info.HasError) error = info.ErrorMessage;                 // exception
-      return (error == null, result, pythonPrints.ToList(), error);
+      lock (pythonLock) {
+         var tool = EnsurePythonTool();
+         pythonPrints.Clear();
+         var info = tool.RunForAutomation(code);
+         string? result = null, error = null;
+         if (info.HasError && info.IsWarning) result = info.ErrorMessage;   // REPL value
+         else if (info.HasError) error = info.ErrorMessage;                 // exception
+         return (error == null, result, pythonPrints.ToList(), error);
+      }
    }
 
    public object Introspect(string? target) {
-      var model = Require();
-      if (string.IsNullOrWhiteSpace(target)) return PythonIntrospection.Namespaces(model);
-      var run = PythonIntrospection.ResolveTable(model, target);
-      if (run != null) return PythonIntrospection.TableSchema(model, run, target);
-      var tool = EnsurePythonTool();
-      pythonPrints.Clear();
-      return tool.DescribeExpression(target);
+      lock (pythonLock) {
+         var model = Require();
+         if (string.IsNullOrWhiteSpace(target)) return PythonIntrospection.Namespaces(model);
+         var run = PythonIntrospection.ResolveTable(model, target);
+         if (run != null) return PythonIntrospection.TableSchema(model, run, target);
+         var tool = EnsurePythonTool();
+         pythonPrints.Clear();
+         return tool.DescribeExpression(target);
+      }
    }
 }

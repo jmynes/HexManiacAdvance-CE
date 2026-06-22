@@ -109,6 +109,7 @@ echo "== 2-6. drive server =="
   printf '%s\n' '{"jsonrpc":"2.0","id":72,"method":"tools/call","params":{"name":"run_python","arguments":{"code":"print(\"smoke\")\ndata.pokemon.names[1].name"}}}'; sleep 2
   printf '%s\n' '{"jsonrpc":"2.0","id":73,"method":"tools/call","params":{"name":"run_python","arguments":{"code":"data.pokemon.stats[1].hp = 123"}}}'; sleep 2
   printf '%s\n' '{"jsonrpc":"2.0","id":74,"method":"tools/call","params":{"name":"undo","arguments":{"count":1}}}'; sleep 2
+  printf '%s\n' '{"jsonrpc":"2.0","id":75,"method":"tools/call","params":{"name":"read_table","arguments":{"name":"data.pokemon.stats","start":1,"count":1}}}'; sleep 2
 } | "./$EXE" > "$OUT" 2>"$ERR"
 
 echo "== assertions =="
@@ -195,6 +196,8 @@ RUNPY_W="$(result_text 73)"
 echo "$RUNPY_W" | jq -e '.ok==true' >/dev/null 2>&1 && ok "run_python write" || bad "run_python write: $RUNPY_W"
 HPBACK="$(result_text 74)"
 echo "$HPBACK" | jq -e '.applied>=1' >/dev/null 2>&1 && ok "run_python edit undone in one step" || bad "run_python undo: $HPBACK"
+HPREV="$(result_text 75)"
+echo "$HPREV" | jq -e '.rows[0].hp != 123' >/dev/null 2>&1 && ok "run_python edit reverted (hp != 123)" || bad "run_python edit not reverted: $HPREV"
 
 echo "================="
 echo "PASS=$PASS  FAIL=$FAIL"

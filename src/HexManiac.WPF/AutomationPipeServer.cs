@@ -144,7 +144,15 @@ namespace HavenSoft.HexManiac.WPF.Windows {
                if (string.IsNullOrEmpty(target)) return Ok(PythonIntrospection.Namespaces(vp.Model));
                var run = PythonIntrospection.ResolveTable(vp.Model, target);
                if (run != null) return Ok(PythonIntrospection.TableSchema(vp.Model, run, target));
-               return Ok(editor.PythonTool.DescribeExpression(target));
+               // Sink any print(...) during expression evaluation so it can't pop a modal at the
+               // GUI user; restore so a normal run_python/GUI print still shows a dialog.
+               var introTool = editor.PythonTool;
+               introTool.PrintCapture = _ => { };
+               try {
+                  return Ok(introTool.DescribeExpression(target));
+               } finally {
+                  introTool.PrintCapture = null;
+               }
             }
             case "export_pokedex": {
                var vp = ResolveTab(p);
