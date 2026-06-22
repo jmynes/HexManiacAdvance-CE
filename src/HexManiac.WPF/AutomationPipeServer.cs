@@ -119,6 +119,33 @@ namespace HavenSoft.HexManiac.WPF.Windows {
                }
                return Ok(new { ok = errs.Count == 0, errors = errs, ranOn = vp.FullFileName ?? vp.Name });
             }
+            case "run_python": {
+               var vp = ResolveTab(p);
+               if (vp == null) return NoTab();
+               SelectTab(vp);
+               var tool = editor.PythonTool;
+               var prints = new List<string>();
+               tool.PrintCapture = prints.Add;
+               try {
+                  var info = tool.RunForAutomation(Str(p, "code"));
+                  string result = null, error = null;
+                  if (info.HasError && info.IsWarning) result = info.ErrorMessage;
+                  else if (info.HasError) error = info.ErrorMessage;
+                  return Ok(new { ok = error == null, result, prints, error });
+               } finally {
+                  tool.PrintCapture = null;
+               }
+            }
+            case "python_introspect": {
+               var vp = ResolveTab(p);
+               if (vp == null) return NoTab();
+               SelectTab(vp);
+               var target = StrOrNull(p, "target");
+               if (string.IsNullOrEmpty(target)) return Ok(PythonIntrospection.Namespaces(vp.Model));
+               var run = PythonIntrospection.ResolveTable(vp.Model, target);
+               if (run != null) return Ok(PythonIntrospection.TableSchema(vp.Model, run, target));
+               return Ok(editor.PythonTool.DescribeExpression(target));
+            }
             case "export_pokedex": {
                var vp = ResolveTab(p);
                if (vp == null) return NoTab();
@@ -300,6 +327,12 @@ namespace HavenSoft.HexManiac.WPF.Windows {
             }
          }
          return editor.SelectedTab as ViewPort ?? tabs.FirstOrDefault();
+      }
+
+      // The GUI PythonTool runs against editor.SelectedTab; select the resolved tab first.
+      private void SelectTab(ViewPort vp) {
+         int i = 0;
+         foreach (var t in editor) { if (ReferenceEquals(t, vp)) { editor.SelectedIndex = i; return; } i++; }
       }
 
       // Resolve a goto target without mutating data. A shortcut DisplayText maps

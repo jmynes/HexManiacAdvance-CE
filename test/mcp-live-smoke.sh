@@ -50,6 +50,11 @@ echo "== drive MCP =="
   printf '%s\n' '{"jsonrpc":"2.0","id":10,"method":"tools/call","params":{"name":"read_table","arguments":{"name":"data.pokemon.moves.names","start":19,"count":1}}}'; sleep 1
   printf '%s\n' '{"jsonrpc":"2.0","id":11,"method":"tools/call","params":{"name":"select","arguments":{"table":"data.pokemon.stats","index":1,"count":2}}}'; sleep 1
   printf '%s\n' '{"jsonrpc":"2.0","id":12,"method":"tools/call","params":{"name":"clipboard_copy","arguments":{}}}'; sleep 1
+  printf '%s\n' '{"jsonrpc":"2.0","id":30,"method":"tools/call","params":{"name":"python_introspect","arguments":{}}}'; sleep 1
+  printf '%s\n' '{"jsonrpc":"2.0","id":31,"method":"tools/call","params":{"name":"run_python","arguments":{"code":"data.pokemon.stats[1].hp"}}}'; sleep 1
+  printf '%s\n' '{"jsonrpc":"2.0","id":32,"method":"tools/call","params":{"name":"run_python","arguments":{"code":"data.pokemon.stats[1].hp = 7"}}}'; sleep 1
+  printf '%s\n' '{"jsonrpc":"2.0","id":33,"method":"tools/call","params":{"name":"read_table","arguments":{"name":"data.pokemon.stats","start":1,"count":1}}}'; sleep 1
+  printf '%s\n' '{"jsonrpc":"2.0","id":34,"method":"tools/call","params":{"name":"undo","arguments":{"count":1}}}'; sleep 1
   printf '%s\n' "{\"jsonrpc\":\"2.0\",\"id\":13,\"method\":\"tools/call\",\"params\":{\"name\":\"open_rom\",\"arguments\":{\"path\":\"$ROMW_JSON\"}}}"; sleep 8
   printf '%s\n' '{"jsonrpc":"2.0","id":14,"method":"tools/call","params":{"name":"list_open_roms","arguments":{}}}'; sleep 1
   printf '%s\n' '{"jsonrpc":"2.0","id":15,"method":"tools/call","params":{"name":"close_tab","arguments":{"tab":1}}}'; sleep 1
@@ -98,6 +103,14 @@ echo "== assertions =="
 [ "$(rt 20 | jq -r '.ok' 2>/dev/null)" = "true" ] && ok "live save_rom outPath copy ok" || bad "live save copy"
 [ "$(rt 21 | jq -r '.error' 2>/dev/null | grep -ci 'Refusing to overwrite')" -ge 1 ] && ok "live save_rom guards in-place" || bad "live save guard"
 [ -s "test/.tmp/live-savecopy.gba" ] && ok "live-savecopy.gba exists and non-empty" || bad "live-savecopy.gba missing or empty"
+# python tools, live mode
+[ "$(rt 30 | jq -r '.mode' 2>/dev/null)" = "live" ] && ok "python_introspect mode=live" || bad "python_introspect not live"
+rt 30 | jq -e '.namespaces | index("data")' >/dev/null 2>&1 && ok "python_introspect namespaces has data" || bad "python_introspect namespaces"
+[ "$(rt 31 | jq -r '.mode' 2>/dev/null)" = "live" ] && ok "run_python read mode=live" || bad "run_python read not live"
+[ -n "$(rt 31 | jq -r '.result // empty' 2>/dev/null)" ] && ok "run_python read result non-empty" || bad "run_python read result empty"
+[ "$(rt 32 | jq -r '.ok' 2>/dev/null)" = "true" ] && ok "run_python write ok" || bad "run_python write"
+[ "$(rt 33 | jq -r '.rows[0].hp' 2>/dev/null)" = "7" ] && ok "run_python write reflected hp=7 in live tab" || bad "run_python write not reflected"
+[ "$(rt 34 | jq -r '.applied' 2>/dev/null)" -ge 1 ] && ok "run_python edit undone in live tab" || bad "run_python undo"
 
 taskkill //F //IM HexManiacAdvance.exe >/dev/null 2>&1 || true
 echo "================="
