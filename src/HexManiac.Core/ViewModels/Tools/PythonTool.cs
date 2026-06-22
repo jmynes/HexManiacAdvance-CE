@@ -255,8 +255,23 @@ def __hma_run__(__hma_code__):
          }
       }
 
+      // When non-null, print(...) output is routed here (automation/MCP capture) instead of
+      // popping a message box. Null in normal GUI use, so the editor still shows a dialog.
+      public Action<string> PrintCapture { get; set; }
+
       public void Printer(string text) {
+         if (PrintCapture != null) { PrintCapture(text); return; }
          editor.FileSystem.ShowCustomMessageBox(text, false);
+      }
+
+      // Run code for automation (MCP / pipe): execute, then close this run's edits into a single
+      // undo/redo step and refresh the tab - same commit boundary as the GUI's RunPython() button.
+      // Returns the raw ErrorInfo so callers can split value (HasError && IsWarning) from exception.
+      public ErrorInfo RunForAutomation(string code) {
+         var info = RunPythonScript(code);
+         if (editor.SelectedTab is IEditableViewPort vp) vp.ChangeHistory.ChangeCompleted();
+         editor.SelectedTab?.Refresh();
+         return info;
       }
 
       private static void EnsureEngineInitialized() {

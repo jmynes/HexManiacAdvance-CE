@@ -170,6 +170,35 @@ namespace HavenSoft.HexManiac.Tests {
          Assert.Contains(options, o => o.Text == "print");
       }
 
+      [Fact]
+      public void PrintCapture_WhenSet_ReceivesPrintInsteadOfMessageBox() {
+         var captured = new List<string>();
+         tool.PrintCapture = captured.Add;
+         try {
+            tool.RunForAutomation("print('hello')");
+         } finally {
+            tool.PrintCapture = null;
+         }
+         Assert.Contains("hello", captured);
+         Assert.DoesNotContain("hello", Prints); // did NOT fall through to ShowCustomMessageBox
+      }
+
+      [Fact]
+      public void RunForAutomation_TrailingExpression_ReturnsStringifiedValue() {
+         var info = tool.RunForAutomation("1 + 1");
+         Assert.True(info.HasError);      // ErrorInfo carries the result text here
+         Assert.True(info.IsWarning);     // warning-level == a value, not an exception
+         Assert.Equal("2", info.ErrorMessage.Trim());
+      }
+
+      [Fact]
+      public void RunForAutomation_Exception_IsNotWarningLevel() {
+         var info = tool.RunForAutomation("raise ValueError('boom')");
+         Assert.True(info.HasError);
+         Assert.False(info.IsWarning);    // an exception, not a value
+         Assert.Contains("boom", info.ErrorMessage);
+      }
+
       [SkippableFact]
       public void BundledPackage_ImportRequests_Succeeds() {
          // guards the pip-bootstrap pipeline in Directory.Build.targets: the embeddable
