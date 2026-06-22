@@ -103,11 +103,17 @@ echo "== 2-6. drive server =="
   printf '%s\n' '{"jsonrpc":"2.0","id":61,"method":"tools/call","params":{"name":"identify_rom","arguments":{}}}'; sleep 1
   printf '%s\n' '{"jsonrpc":"2.0","id":62,"method":"tools/call","params":{"name":"write_value","arguments":{"table":"data.pokemon.stats","index":1,"field":"hp","value":"61"}}}'; sleep 1
   printf '%s\n' '{"jsonrpc":"2.0","id":63,"method":"tools/call","params":{"name":"identify_rom","arguments":{}}}'; sleep 1
+  # python: introspect (no target + table anchor) then run_python (read+print, write, undo). $R (clean FireRed) is loaded.
+  printf '%s\n' '{"jsonrpc":"2.0","id":70,"method":"tools/call","params":{"name":"python_introspect","arguments":{}}}'; sleep 2
+  printf '%s\n' '{"jsonrpc":"2.0","id":71,"method":"tools/call","params":{"name":"python_introspect","arguments":{"target":"data.pokemon.stats"}}}'; sleep 2
+  printf '%s\n' '{"jsonrpc":"2.0","id":72,"method":"tools/call","params":{"name":"run_python","arguments":{"code":"print(\"smoke\")\ndata.pokemon.names[1].name"}}}'; sleep 2
+  printf '%s\n' '{"jsonrpc":"2.0","id":73,"method":"tools/call","params":{"name":"run_python","arguments":{"code":"data.pokemon.stats[1].hp = 123"}}}'; sleep 2
+  printf '%s\n' '{"jsonrpc":"2.0","id":74,"method":"tools/call","params":{"name":"undo","arguments":{"count":1}}}'; sleep 2
 } | "./$EXE" > "$OUT" 2>"$ERR"
 
 echo "== assertions =="
 # 2. protocol + tools/list
-[ "$(jq -rs 'map(select(.id==2))[0].result.tools|length' "$OUT" 2>/dev/null)" = "31" ] && ok "tools/list shows 31 tools" || bad "tools/list"
+[ "$(jq -rs 'map(select(.id==2))[0].result.tools|length' "$OUT" 2>/dev/null)" = "33" ] && ok "tools/list shows 33 tools" || bad "tools/list"
 # 3. open + read known value
 [ "$(is_error 3)" = "false" ] && ok "open_rom" || bad "open_rom"
 [ "$(result_text 4 | jq -r '.rows[0].hp' 2>/dev/null)" = "45" ] && ok "read_table Bulbasaur hp=45" || bad "read_table known value"
@@ -178,6 +184,17 @@ echo "== assertions =="
 [ "$(result_text 61 | jq -r '.baseGame' 2>/dev/null | grep -ci 'FireRed')" -ge 1 ] && ok "identify_rom base FireRed" || bad "identify base"
 [ "$(result_text 63 | jq -r '.isCleanDump' 2>/dev/null)" = "false" ] && ok "identify_rom detects edit" || bad "identify edited"
 [ "$(result_text 63 | jq -r '.baseGame' 2>/dev/null | grep -ci 'FireRed')" -ge 1 ] && ok "identify_rom base after edit (hack base)" || bad "identify base after edit"
+# python: introspect + run_python
+INTRO_NS="$(result_text 70)"
+echo "$INTRO_NS" | jq -e '.namespaces | index("data")' >/dev/null 2>&1 && ok "python_introspect namespaces" || bad "python_introspect namespaces: $INTRO_NS"
+INTRO_TBL="$(result_text 71)"
+echo "$INTRO_TBL" | jq -e '.kind=="table" and (.fields | map(.name) | index("hp"))' >/dev/null 2>&1 && ok "python_introspect table schema" || bad "python_introspect table schema: $INTRO_TBL"
+RUNPY="$(result_text 72)"
+echo "$RUNPY" | jq -e '.ok==true and (.prints | index("smoke")) and (.result | length > 0)' >/dev/null 2>&1 && ok "run_python read + print" || bad "run_python read + print: $RUNPY"
+RUNPY_W="$(result_text 73)"
+echo "$RUNPY_W" | jq -e '.ok==true' >/dev/null 2>&1 && ok "run_python write" || bad "run_python write: $RUNPY_W"
+HPBACK="$(result_text 74)"
+echo "$HPBACK" | jq -e '.applied>=1' >/dev/null 2>&1 && ok "run_python edit undone in one step" || bad "run_python undo: $HPBACK"
 
 echo "================="
 echo "PASS=$PASS  FAIL=$FAIL"

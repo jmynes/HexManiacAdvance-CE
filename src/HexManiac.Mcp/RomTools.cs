@@ -394,6 +394,32 @@ public sealed class RomTools {
       return new { ok = errors.Count == 0, errors, messages = session.Messages.ToList() };
    }
 
+   [McpServerTool(Name = "run_python")]
+   [Description("Run Python against the open ROM using HexManiacAdvance's built-in pythonnet engine (real CPython). The script can read AND edit; a final expression is returned (REPL-style). In scope: 'editor', 'model', 'table' (table['data.pokemon.stats']), and anchor groups so 'data.pokemon.stats[1].hp' works; print(...) is captured. Edits commit as ONE undo step (like write_value). DISCOVERY: call python_introspect first - python_introspect with no target lists namespaces; with a table anchor it returns the field schema. print(row) dumps a row's fields; a wrong field name's error lists the valid ones; model.Anchors lists every table. Note (pythonnet): C# extension methods are static-only, e.g. SomeClass.Method(obj, ...). Live GUI when present (visible+undoable); else headless. Returns { ok, result, prints[], error }.")]
+   public string RunPython(
+      RomSession session,
+      [Description("Python source: statements plus an optional final expression to return")] string code,
+      [Description("Target GUI tab by index (default: active tab)")] int? tab = null,
+      [Description("Target GUI tab by filename substring")] string? tabFile = null) {
+      var p = new Dictionary<string, object?> { ["code"] = code };
+      return Dispatch("run_python", p, tab, tabFile, () => {
+         var (ok, result, prints, error) = session.RunPython(code);
+         return new Dictionary<string, object?> { ["ok"] = ok, ["result"] = result, ["prints"] = prints, ["error"] = error };
+      });
+   }
+
+   [McpServerTool(Name = "python_introspect")]
+   [Description("Discover the Python object model for run_python (the agent's equivalent of the GUI autocomplete). No target: the top-level namespace { namespaces:[data, scripts, ...], globals:[editor, table, model], hint }. A table anchor (e.g. data.pokemon.stats): { kind:'table', count, fields:[{name,type,length,enumSource?}], sample } - sample is a dump of row 0. Any other expression (e.g. data.pokemon.stats[0]): { kind:'value', members:[dir() names], value }. Read-only (never edits). Live GUI when present; else headless.")]
+   public string PythonIntrospect(
+      RomSession session,
+      [Description("A table anchor, a Python expression, or omit for the top-level namespace")] string? target = null,
+      [Description("Target GUI tab by index (default: active tab)")] int? tab = null,
+      [Description("Target GUI tab by filename substring")] string? tabFile = null) {
+      var p = new Dictionary<string, object?>();
+      if (!string.IsNullOrEmpty(target)) p["target"] = target;
+      return Dispatch("python_introspect", p, tab, tabFile, () => session.Introspect(target));
+   }
+
    [McpServerTool(Name = "backup_rom")]
    [Description("Make a timestamped backup of the ROM (plus its .toml and matching .sav, if present) under a backups/ folder next to it. Live targets the resolved tab; else headless.")]
    public string BackupRom(RomSession session,

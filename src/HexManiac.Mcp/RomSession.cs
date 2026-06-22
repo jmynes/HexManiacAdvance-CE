@@ -1,5 +1,6 @@
 using HavenSoft.HexManiac.Core.Models;
 using HavenSoft.HexManiac.Core.ViewModels;
+using HavenSoft.HexManiac.Core.ViewModels.Tools;
 
 namespace HavenSoft.HexManiac.Mcp;
 
@@ -48,4 +49,42 @@ public sealed class RomSession {
 
    public ViewPort RequireViewPort() =>
       ViewPort ?? throw new InvalidOperationException("No ROM loaded. Call open_rom with an absolute .gba path first.");
+
+   // Lazily-built headless editor that hosts the Python engine. Mirrors PythonTests:
+   // new EditorViewModel(fileSystem) + editor.Add(viewPort). Rebound when the ROM changes.
+   private EditorViewModel? pythonEditor;
+   private ViewPort? pythonEditorTab;
+   private readonly List<string> pythonPrints = new();
+
+   private PythonTool EnsurePythonTool() {
+      var vp = RequireViewPort();
+      pythonEditor ??= new EditorViewModel(FileSystem, InstantDispatch.Instance, allowLoadingMetadata: false);
+      if (!ReferenceEquals(pythonEditorTab, vp)) {
+         pythonEditor.Add(vp);          // Add() sets SelectedIndex to this tab
+         pythonEditorTab = vp;
+      }
+      var tool = pythonEditor.PythonTool;
+      tool.PrintCapture = pythonPrints.Add;
+      return tool;
+   }
+
+   public (bool ok, string? result, IReadOnlyList<string> prints, string? error) RunPython(string code) {
+      var tool = EnsurePythonTool();
+      pythonPrints.Clear();
+      var info = tool.RunForAutomation(code);
+      string? result = null, error = null;
+      if (info.HasError && info.IsWarning) result = info.ErrorMessage;   // REPL value
+      else if (info.HasError) error = info.ErrorMessage;                 // exception
+      return (error == null, result, pythonPrints.ToList(), error);
+   }
+
+   public object Introspect(string? target) {
+      var model = Require();
+      if (string.IsNullOrWhiteSpace(target)) return PythonIntrospection.Namespaces(model);
+      var run = PythonIntrospection.ResolveTable(model, target);
+      if (run != null) return PythonIntrospection.TableSchema(model, run, target);
+      var tool = EnsurePythonTool();
+      pythonPrints.Clear();
+      return tool.DescribeExpression(target);
+   }
 }
