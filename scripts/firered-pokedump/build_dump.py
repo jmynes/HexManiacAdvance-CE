@@ -283,6 +283,32 @@ for p in out:
     p["obtainFromRomData"]=direct_methods(p)
     p["obtainCurated"]=[]
 
+# ---- ROM-derived roaming beasts --------------------------------------------------------------------
+# Vanilla FRLG picks the roaming legendary in an ASM starter-switch (no setvar), so the script walk
+# can't read it. Follow the InitRoamer special's handler pointer (gSpecials[idx]) and read the species
+# straight out of the `movs rX, #species` switch in that code. Returns [] off BPRE0 or if not found.
+GSPECIALS_BPRE0=0x15FD60   # scripts.commands.events.specials (gSpecials), FireRed (BPRE0)
+INITROAMER_SPECIAL=297     # index of the InitRoamer special in gSpecials (BPRE0)
+def asm_roamer_species():
+    if rom[0xAC:0xB0]!=b"BPRE": return []                  # constants are FireRed(BPRE0)-specific
+    handler=ptr(GSPECIALS_BPRE0+INITROAMER_SPECIAL*4)
+    if handler is None or handler+0x60>len(rom): return []
+    handler&=~1                                             # clear the Thumb bit so instruction reads stay 2-byte aligned
+    byreg={}                                                # reg -> [(addr, speciesId)] of movs species loads
+    a=max(0,handler-0x140)&~1
+    while a<handler+0x60:
+        hw=u16(a)
+        if 0x2000<=hw<0x2800:                              # Thumb: movs rR, #imm
+            reg,imm=(hw>>8)&7, hw&0xFF
+            if NAME.get(imm): byreg.setdefault(reg,[]).append((a,imm))   # imm is a real species id
+        a+=2
+    # the starter switch loads ONE register with the most distinct species in a tight cluster
+    best=[]
+    for lst in byreg.values():
+        sp=sorted({s for _,s in lst})
+        if len(sp)>=2 and (lst[-1][0]-lst[0][0])<=0x18 and len(sp)>len(best): best=sp
+    return best
+
 # ---- curated overrides: FRLG mechanisms that aren't in the script data (docs/firered-obtain-overrides.json) ----
 try:
     OV=json.load(open(OVERRIDE,encoding="utf-8"))
@@ -305,11 +331,26 @@ try:
         q["scriptObtains"].append({"kind":"gameCorner","location":OV["gameCorner"]["location"],"coins":pr["coins"]})
         if "gameCorner" not in q["obtainFromRomData"]: q["obtainFromRomData"].append("gameCorner")
     print("game corner prizes from:",gc_src,"->",[(pr["species"],pr["coins"]) for pr in gc])
-    # roamers: detected on CFRU-style hacks (kind=roaming); vanilla picks the species in ASM, so curate as fallback
-    for n in OV["roaming"]["pickOneOf"]:
-        q=byname.get(n)
-        if q and any(s["kind"]=="roaming" for s in q["scriptObtains"]): continue
-        add_cur(n,{"kind":"roaming","pickOne":True,"note":OV["roaming"]["note"]})
+    # roamers: read the beast trio from the ASM starter-switch (ROM-derived). CFRU-style hacks instead
+    # load it via setvar (already kind=roaming from the walk). Only if BOTH come up empty do we fall
+    # back to the curated override.
+    roamer_ids=asm_roamer_species()
+    walk_roamers=[p["name"] for p in out if any(s["kind"]=="roaming" for s in p["scriptObtains"])]
+    if roamer_ids:
+        for sid in roamer_ids:
+            q=byname.get(NAME[sid])
+            if not q or any(s["kind"]=="roaming" for s in q["scriptObtains"]): continue
+            q["scriptObtains"].append({"kind":"roaming","pickOne":True,"source":"asm:InitRoamer switch"})
+            if "roaming" not in q["obtainFromRomData"]: q["obtainFromRomData"].append("roaming")
+        roamer_src="ROM ASM (InitRoamer handler switch)"
+    elif walk_roamers:
+        roamer_src="script walk (setvar before InitRoamer)"
+    else:
+        for n in OV["roaming"]["pickOneOf"]:
+            add_cur(n,{"kind":"roaming","pickOne":True,"note":OV["roaming"]["note"]})
+        roamer_src="curated override (ASM scan + walk both empty)"
+    print("roaming beasts from:",roamer_src,"->",
+          [NAME[s] for s in roamer_ids] or walk_roamers or OV["roaming"]["pickOneOf"])
     # ticket legendaries: Lugia/Deoxys are auto-detected (kind=legendary); only curate the ones the walk misses (Ho-Oh)
     for e in OV["eventTicket"]["entries"]:
         q=byname.get(e["species"])
@@ -436,9 +477,9 @@ doc={
     "wildLocations":"grass/surf/rockSmash/fishing slots from data.pokemon.wild, with resolved map names; level ranges merged per map+method.",
     "trades":"in-game trade where this species is RECEIVED (data.pokemon.trades). NPC/location is script-based and not fully captured.",
     "heldItemsWild":"items held by wild members (data.pokemon.stats item1/item2).",
-    "scriptObtains":"How the wild/evolution/trade tables don't cover obtaining, all AUTO-derived from the ROM scripts: kind=gift (givePokemon: fossils, Eevee, Lapras, the Magikarp sale, the dojo Hitmon), static (setwildbattle: birds, Mewtwo, Snorlax), legendary (StartLegendaryBattle: Lugia/Ho-Oh/Deoxys ticket mons), starter (scripts.newgame.starters.* table), egg (giveEgg: Togepi), gameCorner (read from the prize multichoice). The only curated kind is roaming.",
-    "obtainFromRomData":"Auto-derived methods: wild/gift/static/legendary/starter/egg/trade/gameCorner are direct sources; 'evolution' is added TRANSITIVELY (only when a pre-evolution is itself reachable and the evolution actually fires on a FireRed cart - Day/Night-friendship never does, so Espeon/Umbreon are out); 'breeding' = a base-form baby whose adult line is reachable, bred with Ditto.",
-    "obtainCurated":"The residue that genuinely can't be read from the ROM, supplied by docs/firered-obtain-overrides.json. In vanilla FireRed this is ONLY 'roaming' (the beast trio - chosen in ASM by your starter, no literal species in the script). EMPTY obtainFromRomData AND obtainCurated = truly unobtainable in FireRed (gaps.unobtainableInFireRed).",
+    "scriptObtains":"How the wild/evolution/trade tables don't cover obtaining, all AUTO-derived from the ROM: kind=gift (givePokemon: fossils, Eevee, Lapras, the Magikarp sale, the dojo Hitmon), static (setwildbattle: birds, Mewtwo, Snorlax), legendary (StartLegendaryBattle: Lugia/Ho-Oh/Deoxys ticket mons), starter (scripts.newgame.starters.* table), egg (giveEgg: Togepi), gameCorner (read from the prize multichoice), roaming (the beast trio, read from the InitRoamer ASM starter-switch). Nothing is curated in vanilla FRLG.",
+    "obtainFromRomData":"Auto-derived methods: wild/gift/static/legendary/roaming/starter/egg/trade/gameCorner are direct sources; 'evolution' is added TRANSITIVELY (only when a pre-evolution is itself reachable and the evolution actually fires on a FireRed cart - Day/Night-friendship never does, so Espeon/Umbreon are out); 'breeding' = a base-form baby whose adult line is reachable, bred with Ditto.",
+    "obtainCurated":"Methods that can't be read from the ROM, supplied by docs/firered-obtain-overrides.json as a FALLBACK only. In vanilla FireRed this is EMPTY for every species - even the roaming beasts are now read from the InitRoamer ASM switch. EMPTY obtainFromRomData AND obtainCurated = truly unobtainable in FireRed (gaps.unobtainableInFireRed).",
     "obtainableWithoutTrade":"true if reachable on a SINGLE cartridge - in-game NPC trades count, but trade-evolutions (Alakazam/Machamp/Golem/Gengar/Steelix/Scizor/Kingdra/Politoed/Slowking/Porygon2/...) and Day/Night friendship do not. This is the community 'single-player' count; evolvesFrom[].requiresTrade marks the trade-gated step.",
   },
   "choiceGroups":choice_groups,
@@ -461,7 +502,7 @@ doc={
   },
   "curatedOverrides":"docs/firered-obtain-overrides.json",
   "gaps":{
-    "curatedResidue":"Almost everything is now auto-captured from the ROM: the FIGHTING-DOJO Hitmons (givePokemon VAR resolved from a one-time setvar), the GAME-CORNER prizes (read from the prize multichoice via export_coin_prizes), and the ticket legendaries Lugia/Ho-Oh/Deoxys (StartLegendaryBattle). The ONLY species still supplied by the curated override file (docs/firered-obtain-overrides.json) are the three roaming beasts RAIKOU/ENTEI/SUICUNE - exactly one roams per save, chosen in ASM by your starter with no literal species anywhere in the script.",
+    "curatedResidue":"Vanilla FireRed is now FULLY ROM-derived - zero curated species. Auto-captured: the FIGHTING-DOJO Hitmons (givePokemon VAR from a one-time setvar), the GAME-CORNER prizes (prize multichoice via export_coin_prizes), the ticket legendaries Lugia/Ho-Oh/Deoxys (StartLegendaryBattle), and the roaming beasts RAIKOU/ENTEI/SUICUNE (read from the movs-species switch in the InitRoamer special's handler, since vanilla picks the roamer in ASM by starter with no setvar). docs/firered-obtain-overrides.json now only serves as a fallback if a romhack's ASM scan and script walk both come up empty.",
     "tradeNpcLocation":"data.pokemon.trades gives the received/offered species + NPC name, but WHICH map the trade NPC is on is script-based and not captured.",
     "alteringCave":"data.pokemon.wild lists 8 Johto species (Mareep, Aipom, Pineco, Shuckle, Teddiursa, Houndour, Stantler, Smeargle) in ALTERING CAVE, but every released FRLG locks that slot to ZUBAT; the alternates required a Japan-only e-Reader card. They are NOT counted as obtainable (their wildLocations entry is kept for ROM fidelity).",
     "obtainableCount":obtainable_count,

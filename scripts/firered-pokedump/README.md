@@ -53,8 +53,12 @@ cartridge (trade-/event-only) — counted in `gaps.unobtainableInFireRed`.
   trade (species, nickname, held item, IVs, OT, **and map**), egg, breeding (derived), evolution,
   and Game-Corner cost. The script walk resolves commands/specials **by name**, so it also works on
   Emerald/romhacks. The uncatchable Pokémon-Tower ghost Marowak (`StartMarowakBattle`) is excluded.
-- **Curated** (`docs/firered-obtain-overrides.json`): only the **roaming beast** remains — its species
-  is chosen in ASM by your starter, with no literal anywhere in the script.
+- **Roaming beasts** (Raikou/Entei/Suicune): vanilla FRLG picks the roamer in an ASM starter-switch
+  with no `setvar`, so the script walk can't see it. `build_dump.py` follows the `InitRoamer` special's
+  handler pointer (`gSpecials[idx]`) and reads the species out of the `movs rX, #species` switch in
+  that code. (CFRU-style hacks `setvar` it instead, caught by the walk.)
+- **Curated** (`docs/firered-obtain-overrides.json`): now a **fallback only** — vanilla FireRed is
+  fully ROM-derived with **zero** curated species.
 
 Evolution is added **transitively** (a species counts only if a pre-evolution is itself reachable),
 and respects FRLG reality: **trade evolutions** (Alakazam, Machamp, …) carry `evolvesFrom[].requiresTrade`,
