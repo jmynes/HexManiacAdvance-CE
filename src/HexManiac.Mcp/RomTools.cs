@@ -330,6 +330,29 @@ public sealed class RomTools {
          () => CoinPrizeExport.Export(session.Require(), outPath));
    }
 
+   [McpServerTool(Name = "export_items")]
+   [Description("Export every item from data.items.stats to a JSON file: id, name, price, the RESOLVED description text (read_table/export_table only give the raw description text-pointer; this decodes it the same way HMA's sidebar does), pocket (+ pocketId), hold effect + param, and type. Targets the GUI's active tab when live; else headless.")]
+   public string ExportItems(
+      RomSession session,
+      [Description("Absolute path of the .json file to write")] string outPath,
+      [Description("Target GUI tab by index (default: active tab)")] int? tab = null,
+      [Description("Target GUI tab by filename substring")] string? tabFile = null) {
+      var p = new Dictionary<string, object?> { ["outPath"] = outPath };
+      return Dispatch("export_items", p, tab, tabFile, () => ItemExport.Export(session.Require(), outPath));
+   }
+
+   [McpServerTool(Name = "export_item_locations")]
+   [Description("Export where each item is BOUGHT or FOUND by walking every top-level map script + signpost: pokemart product lists (kind=mart; the buy price is in data.items.stats), item-ball / found-item scripts (kind=field), NPC give-item scripts (kind=gift), raw additem commands (kind=scripted), and hidden-item signposts (kind=hidden). Each site has item, itemId, map bank/number/name, quantity, x/y (for field/hidden), and the script/event offset; output is also grouped 'byItem'. Commands are resolved BY NAME from the engine, so it works on other base games and romhacks. Targets the GUI's active tab when live; else headless.")]
+   public string ExportItemLocations(
+      RomSession session,
+      [Description("Absolute path of the .json file to write")] string outPath,
+      [Description("Target GUI tab by index (default: active tab)")] int? tab = null,
+      [Description("Target GUI tab by filename substring")] string? tabFile = null) {
+      var p = new Dictionary<string, object?> { ["outPath"] = outPath };
+      return Dispatch("export_item_locations", p, tab, tabFile,
+         () => ItemLocationExport.Export(session.Require(), session.RequireViewPort().Tools.CodeTool.ScriptParser, outPath));
+   }
+
    [McpServerTool(Name = "export_pokedex")]
    [Description("Export Pokedex flavor from data.pokedex.stats: per national-dex number, the category (e.g. 'Seed Pokémon'), height (m), weight (kg), and the dex entry text. Output is grouped 'byNationalDex'. Targets the GUI's active tab when live; else headless.")]
    public string ExportPokedex(
