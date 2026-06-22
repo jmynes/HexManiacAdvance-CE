@@ -7,7 +7,9 @@
          and its transitive deps officially target net8+, so they resolve via netstandard2.0
          fallbacks here - verified to build and run, but unsupported by those packages.
          SuppressTfmSupportBuildWarnings silences the resulting "doesn't support net6.0" noise.
-         TODO: move the whole repo to net8 (LTS; net6 is EOL) once that's regression-tested. -->
+         Deliberate: one TFM (net6) across the app and the MCP for now. A future repo-wide
+         move to net8 (LTS; net6 is EOL) is possible but should happen for the whole repo at
+         once, when upstream moves - don't bump just the MCP back to net8. -->
     <TargetFramework>net6.0</TargetFramework>
     <SuppressTfmSupportBuildWarnings>true</SuppressTfmSupportBuildWarnings>
     <Nullable>enable</Nullable>

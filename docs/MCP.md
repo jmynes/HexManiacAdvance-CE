@@ -10,7 +10,7 @@ Add the server to your `.mcp.json`:
 {
   "mcpServers": {
     "hexmaniac": {
-      "command": "artifacts/HexManiac.Mcp/bin/Release/net8.0/HexManiac.Mcp.exe",
+      "command": "artifacts/HexManiac.Mcp/bin/Release/net6.0/HexManiac.Mcp.exe",
       "args": []
     }
   }

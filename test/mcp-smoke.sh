@@ -3,8 +3,8 @@
 # Builds the server, drives it over stdio (newline-delimited JSON-RPC), and
 # asserts each capability in the definition-of-done. Exit 0 only if ALL pass.
 #
-# This is the promise gate for the Ralph loop. Requirements: dotnet (SDK 8),
-# jq, and a clean FireRed at test/roms/firered.gba.
+# This is the promise gate for the Ralph loop. Requirements: dotnet (SDK 6,
+# pinned by the root global.json), jq, and a clean FireRed at test/roms/firered.gba.
 set -uo pipefail
 cd "$(dirname "$0")/.." || exit 2
 export PATH="/c/Program Files/dotnet:$PATH"
@@ -14,7 +14,7 @@ ROM="$(pwd)/test/roms/Pokemon - FireRed Version (USA).gba"
 TMP="$(pwd)/test/.tmp"
 OUT="$TMP/out.jsonl"
 ERR="$TMP/err.txt"
-EXE="artifacts/HexManiac.Mcp/bin/Release/net8.0/HexManiac.Mcp.exe"
+EXE="artifacts/HexManiac.Mcp/bin/Release/net6.0/HexManiac.Mcp.exe"
 mkdir -p "$TMP"
 # Kill any stray server from a previous/interrupted run so it can't lock the exe.
 taskkill //F //IM HexManiac.Mcp.exe >/dev/null 2>&1 || true
@@ -23,7 +23,7 @@ ok()   { echo "  PASS: $1"; PASS=$((PASS+1)); }
 bad()  { echo "  FAIL: $1"; FAIL=$((FAIL+1)); }
 
 echo "== 1. build =="
-# Build from the MCP project dir so its project-local global.json (SDK 8) applies.
+# Build the MCP project (the root global.json pins SDK 6 for the whole repo).
 if ( cd src/HexManiac.Mcp && dotnet build HexManiac.Mcp.csproj -c Release -v quiet ) >/dev/null 2>&1; then ok "build"; else bad "build (cd src/HexManiac.Mcp && dotnet build to see errors)"; echo "BUILD FAILED — stopping"; exit 1; fi
 [ -f "$ROM" ] || { echo "missing test ROM at $ROM"; exit 2; }
 

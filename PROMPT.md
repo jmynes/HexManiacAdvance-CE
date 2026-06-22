@@ -27,7 +27,7 @@ Edit **`src/HexManiac.Mcp/RomTools.cs`**. Replace the four `NotImplementedExcept
 ### Build & test commands
 
 ```bash
-export PATH="/c/Program Files/dotnet:$PATH"          # dotnet SDK 8
+export PATH="/c/Program Files/dotnet:$PATH"          # dotnet SDK 6
 dotnet build src/HexManiac.Mcp/HexManiac.Mcp.csproj -c Release   # must be 0 errors
 bash test/mcp-smoke.sh                                # the gate
 ```
