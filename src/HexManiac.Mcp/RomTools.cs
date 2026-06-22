@@ -341,6 +341,17 @@ public sealed class RomTools {
       return Dispatch("export_items", p, tab, tabFile, () => ItemExport.Export(session.Require(), outPath));
    }
 
+   [McpServerTool(Name = "export_moves")]
+   [Description("Export every move to a JSON file: name, power, type, accuracy, pp, priority, effect chance, the RESOLVED description text, the effect NAME from HMA's own dropdown enum (e.g. SleepPrimary) + raw effectId, decoded target and flag lists, and TM/HM/tutor membership. Also emits the full effectId->name legend (moveEffects). TMs/HMs are items - pair with export_item_locations for where they're sold/found. Targets the GUI's active tab when live; else headless.")]
+   public string ExportMoves(
+      RomSession session,
+      [Description("Absolute path of the .json file to write")] string outPath,
+      [Description("Target GUI tab by index (default: active tab)")] int? tab = null,
+      [Description("Target GUI tab by filename substring")] string? tabFile = null) {
+      var p = new Dictionary<string, object?> { ["outPath"] = outPath };
+      return Dispatch("export_moves", p, tab, tabFile, () => MoveExport.Export(session.Require(), outPath));
+   }
+
    [McpServerTool(Name = "export_item_locations")]
    [Description("Export where each item is BOUGHT or FOUND by walking every top-level map script + signpost: pokemart product lists (kind=mart; the buy price is in data.items.stats), item-ball / found-item scripts (kind=field), NPC give-item scripts (kind=gift), raw additem commands (kind=scripted), and hidden-item signposts (kind=hidden). Each site has item, itemId, map bank/number/name, quantity, x/y (for field/hidden), and the script/event offset; output is also grouped 'byItem'. Commands are resolved BY NAME from the engine, so it works on other base games and romhacks. Targets the GUI's active tab when live; else headless.")]
    public string ExportItemLocations(

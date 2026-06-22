@@ -195,6 +195,11 @@ namespace HavenSoft.HexManiac.WPF.Windows {
                if (vp == null) return NoTab();
                return Ok(PokedexExport.Export(vp.Model, Str(p, "outPath")));
             }
+            case "export_moves": {
+               var vp = ResolveTab(p);
+               if (vp == null) return NoTab();
+               return Ok(MoveExport.Export(vp.Model, Str(p, "outPath")));
+            }
             case "read_script": {
                var vp = ResolveTab(p);
                if (vp == null) return NoTab();
