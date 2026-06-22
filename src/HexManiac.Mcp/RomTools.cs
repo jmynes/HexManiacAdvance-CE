@@ -519,6 +519,70 @@ public sealed class RomTools {
       return Dispatch("list_specials", p, tab, tabFile, () => RomAutomation.ListSpecials(session.Require(), filter));
    }
 
+   [McpServerTool(Name = "export_sprite")]
+   [Description("Export a sprite to an indexed PNG (palette indices preserved exactly; index 0 transparent). sprite: anchor name or hex address (e.g. graphics.pokemon.sprites.front or 0x2350F0). palette: optional explicit palette anchor/address (default: HMA auto-pairs it). page/palettePage select a frame / palette page for multi-page runs. Edit the PNG and bring it back with import_sprite.")]
+   public string ExportSprite(
+      RomSession session,
+      [Description("Sprite anchor name or hex address")] string sprite,
+      [Description("Output .png file path")] string outPath,
+      [Description("Optional explicit palette anchor/address (default: auto-paired)")] string? palette = null,
+      [Description("Sprite page/frame index (default 0)")] int page = 0,
+      [Description("Palette page index (default 0)")] int palettePage = 0,
+      [Description("Target GUI tab by index")] int? tab = null,
+      [Description("Target GUI tab by filename substring")] string? tabFile = null) {
+      var p = new Dictionary<string, object?> { ["sprite"] = sprite, ["outPath"] = outPath, ["page"] = page, ["palettePage"] = palettePage };
+      if (!string.IsNullOrEmpty(palette)) p["palette"] = palette;
+      return Dispatch("export_sprite", p, tab, tabFile, () => SpriteIO.ExportSprite(session.Require(), sprite, palette, page, palettePage, outPath));
+   }
+
+   [McpServerTool(Name = "import_sprite")]
+   [Description("Write a PNG into a sprite in the ROM (one undo step). The image must match the sprite's pixel dimensions (export it first to see them). An INDEXED PNG uses its indices directly (pass applyPalette=true to also write its PLTE into the paired palette); a truecolor PNG is nearest-matched to the sprite's palette. Live GUI when present (visible+undoable); else headless.")]
+   public string ImportSprite(
+      RomSession session,
+      [Description("Sprite anchor name or hex address")] string sprite,
+      [Description("Input .png file path")] string inPath,
+      [Description("Sprite page/frame index (default 0)")] int page = 0,
+      [Description("Also write the PNG's palette into the paired palette (indexed PNG only)")] bool applyPalette = false,
+      [Description("Optional explicit palette anchor/address (default: auto-paired)")] string? palette = null,
+      [Description("Palette page index (default 0)")] int palettePage = 0,
+      [Description("Target GUI tab by index")] int? tab = null,
+      [Description("Target GUI tab by filename substring")] string? tabFile = null) {
+      var p = new Dictionary<string, object?> { ["sprite"] = sprite, ["inPath"] = inPath, ["page"] = page, ["applyPalette"] = applyPalette, ["palettePage"] = palettePage };
+      if (!string.IsNullOrEmpty(palette)) p["palette"] = palette;
+      return Dispatch("import_sprite", p, tab, tabFile,
+         () => SpriteIO.ImportSprite(session.Require(), () => session.Token, sprite, inPath, page, applyPalette, palette, palettePage));
+   }
+
+   [McpServerTool(Name = "export_palette")]
+   [Description("Export a palette to JSON ({address, bits, pages, palettes:[{page, colors:[#RRGGBB,...]}]}). palette: anchor name or hex address. page: a single page, or -1 (default) for all pages.")]
+   public string ExportPalette(
+      RomSession session,
+      [Description("Palette anchor name or hex address")] string palette,
+      [Description("Output .json file path")] string outPath,
+      [Description("Palette page, or -1 for all (default)")] int page = -1,
+      [Description("Target GUI tab by index")] int? tab = null,
+      [Description("Target GUI tab by filename substring")] string? tabFile = null) {
+      var p = new Dictionary<string, object?> { ["palette"] = palette, ["outPath"] = outPath, ["page"] = page };
+      return Dispatch("export_palette", p, tab, tabFile, () => SpriteIO.ExportPalette(session.Require(), palette, page, outPath));
+   }
+
+   [McpServerTool(Name = "import_palette")]
+   [Description("Write colors into a palette page (one undo step). Provide `colors` (a list of #RRGGBB) OR `inPath` to a palette JSON from export_palette. Colors are quantized to GBA 5-bit/channel. Live GUI when present; else headless.")]
+   public string ImportPalette(
+      RomSession session,
+      [Description("Palette anchor name or hex address")] string palette,
+      [Description("Palette page to write (default 0)")] int page = 0,
+      [Description("Colors as #RRGGBB strings (omit if using inPath)")] string[]? colors = null,
+      [Description("Path to a palette JSON from export_palette (omit if using colors)")] string? inPath = null,
+      [Description("Target GUI tab by index")] int? tab = null,
+      [Description("Target GUI tab by filename substring")] string? tabFile = null) {
+      var p = new Dictionary<string, object?> { ["palette"] = palette, ["page"] = page };
+      if (colors != null) p["colors"] = colors;
+      if (!string.IsNullOrEmpty(inPath)) p["inPath"] = inPath;
+      return Dispatch("import_palette", p, tab, tabFile,
+         () => SpriteIO.ImportPalette(session.Require(), () => session.Token, palette, page, colors, inPath));
+   }
+
    [McpServerTool(Name = "supported_roms")]
    [Description("Reference of the Pokemon GBA base games HexManiacAdvance supports: header codes, No-Intro names, md5/sha1/crc32, and support tier. No code: the whole reference. code (e.g. 'BPRE0' or 'bpre'): matching entries.")]
    public string SupportedRoms_([Description("Optional header code filter, e.g. BPRE0")] string? code = null) {

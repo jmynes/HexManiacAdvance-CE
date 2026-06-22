@@ -407,6 +407,29 @@ HexManiacAdvance ships the reference data it uses for parsing/autocomplete. Two 
 {"name": "list_specials", "arguments": {"filter": "Roamer"}}
 ```
 
+## Sprites & palettes
+
+Round-trip GBA graphics through standard files: sprites as **indexed PNG** (palette indices preserved exactly; index 0 transparent), palettes as **JSON** (`#RRGGBB`, quantized to GBA 5-bit on import). Address a sprite/palette by anchor name, hex address, or `table/index` (HMA goto syntax — follows the pointer in that element).
+
+**`export_sprite`** — write a sprite to an indexed PNG; the palette is auto-paired (HMA's own logic) unless you pass an explicit `palette`. `page`/`palettePage` pick a frame / palette page.
+
+```json
+{"name": "export_sprite", "arguments": {"sprite": "graphics.pokemon.sprites.front/1", "outPath": "bulbasaur.png"}}
+```
+
+**`import_sprite`** — write a PNG back into a sprite (one undo step). Must match the sprite's pixel size. An indexed PNG uses its indices directly (`applyPalette: true` also writes its palette); a truecolor PNG is nearest-matched to the sprite's palette.
+
+```json
+{"name": "import_sprite", "arguments": {"sprite": "graphics.pokemon.sprites.front/1", "inPath": "bulbasaur.png"}}
+```
+
+**`export_palette`** / **`import_palette`** — a palette to/from JSON. `page: -1` (export) dumps all pages; import takes `colors` (a `#RRGGBB` list) or `inPath` to an exported file.
+
+```json
+{"name": "export_palette", "arguments": {"palette": "graphics.pokemon.palettes.normal/1", "outPath": "pal.json"}}
+{"name": "import_palette", "arguments": {"palette": "graphics.pokemon.palettes.normal/1", "page": 0, "colors": ["#000000", "#F8F8F8"]}}
+```
+
 ## Scripts
 
 **`run_script`** — run an HMA script. Provide inline `script` text or a `path` to a `.hma` file (`path` takes precedence). Works live and headless.
@@ -534,6 +557,10 @@ All 25 tools exposed by this MCP server:
 | `list_tables` | List the named data tables (anchors) in the open ROM. Targets the GUI's active tab when live; optional substring filter and tab selector. |
 | `list_specials` | List the script 'specials' for the open ROM (resolved by name, romhack-aware). A script calls these as `special <index>`; the index is the position in this list. Optional substring filter. |
 | `reference` | Look up HMA's built-in reference docs (script/battle/ai/animation commands, constants, arm, pcs, tables, doc links). kind + optional case-insensitive query; no kind lists the kinds. Does not require an open ROM. |
+| `export_sprite` | Export a sprite to an indexed PNG (palette indices preserved; index 0 transparent). Address by anchor, hex, or table/index; palette auto-paired (or explicit). page/palettePage for multi-page runs. |
+| `import_sprite` | Write a PNG into a sprite (one undo step); must match the sprite's dimensions. Indexed PNG uses its indices (applyPalette also writes its palette); truecolor is nearest-matched. |
+| `export_palette` | Export a palette to JSON ({address, bits, pages, palettes:[{page, colors:[#RRGGBB]}]}). page=-1 for all pages. |
+| `import_palette` | Write colors into a palette page (one undo step). Provide a #RRGGBB list (colors) or inPath to an export_palette JSON; quantized to GBA 5-bit. |
 | `read_table` | Read a named table as JSON rows. Targets the GUI's active tab when live. Use start/count to page; tab/tabFile to pick a tab. Species-indexed tables omit the ~25 placeholder/limbo slots by default (`excludedPlaceholders`, pass includePlaceholders=true to keep them) and add a canonical `slug` (+ `forms`/`defaultForm` for Deoxys/Castform). |
 | `write_value` | Set a field on a table row. value is a string (text/enum name), number (integer/enum index), or true/false. For a bit-array checkbox, pass flag="<name>" with value true/false. Live GUI when present (visible+undoable); else headless. |
 | `export_table` | Export an entire table (all rows, no paging) to a JSON file on disk. Targets the GUI's active tab when live; else headless. Species-indexed tables omit the ~25 placeholder/limbo slots by default (`excludedPlaceholders`, pass includePlaceholders=true to keep them) and add a canonical `slug` (+ `forms`/`defaultForm` for Deoxys/Castform). |

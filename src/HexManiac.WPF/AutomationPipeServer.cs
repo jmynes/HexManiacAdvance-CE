@@ -72,6 +72,37 @@ namespace HavenSoft.HexManiac.WPF.Windows {
                if (vp == null) return NoTab();
                return Ok(RomAutomation.ListSpecials(vp.Model, StrOrNull(p, "filter")));
             }
+            case "export_sprite": {
+               var vp = ResolveTab(p);
+               if (vp == null) return NoTab();
+               return Ok(SpriteIO.ExportSprite(vp.Model, Str(p, "sprite"), StrOrNull(p, "palette"), Int(p, "page", 0), Int(p, "palettePage", 0), Str(p, "outPath")));
+            }
+            case "import_sprite": {
+               var vp = ResolveTab(p);
+               if (vp == null) return NoTab();
+               var result = SpriteIO.ImportSprite(vp.Model, () => vp.CurrentChange, Str(p, "sprite"), Str(p, "inPath"),
+                  Int(p, "page", 0), Bool(p, "applyPalette", false), StrOrNull(p, "palette"), Int(p, "palettePage", 0));
+               if (result is System.Collections.IDictionary ds && !ds.Contains("error")) vp.Goto.Execute(Str(p, "sprite"));
+               return Ok(result);
+            }
+            case "export_palette": {
+               var vp = ResolveTab(p);
+               if (vp == null) return NoTab();
+               return Ok(SpriteIO.ExportPalette(vp.Model, Str(p, "palette"), Int(p, "page", -1), Str(p, "outPath")));
+            }
+            case "import_palette": {
+               var vp = ResolveTab(p);
+               if (vp == null) return NoTab();
+               string[] colors = null;
+               if (p.ValueKind == JsonValueKind.Object && p.TryGetProperty("colors", out var cv) && cv.ValueKind == JsonValueKind.Array) {
+                  var list = new System.Collections.Generic.List<string>();
+                  foreach (var e in cv.EnumerateArray()) list.Add(e.GetString());
+                  colors = list.ToArray();
+               }
+               var result = SpriteIO.ImportPalette(vp.Model, () => vp.CurrentChange, Str(p, "palette"), Int(p, "page", 0), colors, StrOrNull(p, "inPath"));
+               if (result is System.Collections.IDictionary dp && !dp.Contains("error")) vp.Goto.Execute(Str(p, "palette"));
+               return Ok(result);
+            }
             case "read_table": {
                var vp = ResolveTab(p);
                if (vp == null) return NoTab();
