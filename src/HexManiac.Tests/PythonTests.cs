@@ -3,6 +3,7 @@ using HavenSoft.HexManiac.Core.Models;
 using HavenSoft.HexManiac.Core.Models.Runs;
 using HavenSoft.HexManiac.Core.ViewModels.Tools;
 using System.Collections.Generic;
+using System.Linq;
 using Xunit;
 
 namespace HavenSoft.HexManiac.Tests {
@@ -211,6 +212,46 @@ namespace HavenSoft.HexManiac.Tests {
 
          var result = Execute("import requests; 'requests imported ok'").Trim();
          Assert.Equal("requests imported ok", result);
+      }
+
+      [Fact]
+      public void Introspect_Namespaces_IncludesAnchorGroup() {
+         ViewPort.Edit("^elements[a: b:]3 1 2 3 4 5 6 ");
+         var result = (System.Collections.Generic.IDictionary<string, object>)
+            HavenSoft.HexManiac.Core.Models.PythonIntrospection.Namespaces(Model);
+         var names = (System.Collections.Generic.IEnumerable<string>)result["namespaces"];
+         Assert.Contains("elements", names);
+      }
+
+      [Fact]
+      public void Introspect_TableSchema_ListsFields() {
+         ViewPort.Edit("^elements[a: b:]3 1 2 3 4 5 6 ");
+         var run = HavenSoft.HexManiac.Core.Models.PythonIntrospection.ResolveTable(Model, "elements");
+         Assert.NotNull(run);
+         var schema = (System.Collections.Generic.IDictionary<string, object>)
+            HavenSoft.HexManiac.Core.Models.PythonIntrospection.TableSchema(Model, run, "elements");
+         Assert.Equal("table", schema["kind"]);
+         Assert.Equal(3, schema["count"]);
+         var fields = (System.Collections.Generic.IEnumerable<object>)schema["fields"];
+         var fieldNames = fields
+            .Select(f => (string)((System.Collections.Generic.IDictionary<string, object>)f)["name"]).ToList();
+         Assert.Contains("a", fieldNames);
+         Assert.Contains("b", fieldNames);
+      }
+
+      [Fact]
+      public void Introspect_NonTableTarget_ResolveTableReturnsNull() {
+         ViewPort.Edit("^elements[a: b:]3 1 2 3 4 5 6 ");
+         Assert.Null(HavenSoft.HexManiac.Core.Models.PythonIntrospection.ResolveTable(Model, "not_a_table"));
+      }
+
+      [Fact]
+      public void DescribeExpression_Evaluates_ValueAndMembers() {
+         var result = (System.Collections.Generic.IDictionary<string, object>)tool.DescribeExpression("1 + 1");
+         Assert.Equal("value", result["kind"]);
+         Assert.Equal("2", ((string)result["value"]).Trim());
+         var members = (System.Collections.Generic.IEnumerable<string>)result["members"];
+         Assert.NotEmpty(members); // dir(2) has int members like bit_length
       }
    }
 }

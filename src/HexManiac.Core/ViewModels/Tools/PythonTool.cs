@@ -274,6 +274,23 @@ def __hma_run__(__hma_code__):
          return info;
       }
 
+      // Read-only: evaluate an arbitrary expression and report its stringified value plus its
+      // public dir() members - the agent's equivalent of the GUI autocomplete dropdown.
+      public object DescribeExpression(string target) {
+         var valueResult = RunPythonScript(target);
+         if (valueResult.HasError && !valueResult.IsWarning)
+            return new Dictionary<string, object> { ["error"] = $"Could not evaluate '{target}': {valueResult.ErrorMessage}" };
+         var value = valueResult.IsWarning ? valueResult.ErrorMessage : "None";
+         var dirResult = RunPythonScript($"sorted(n for n in dir({target}) if not n.startswith('_'))");
+         var members = dirResult.IsWarning && dirResult.ErrorMessage != null
+            ? dirResult.ErrorMessage.Split('\n', StringSplitOptions.RemoveEmptyEntries)
+            : Array.Empty<string>();
+         return new Dictionary<string, object> {
+            ["ok"] = true, ["kind"] = "value", ["target"] = target,
+            ["members"] = members, ["value"] = value,
+         };
+      }
+
       private static void EnsureEngineInitialized() {
          if (engineInitialized) return;
          lock (engineLock) {
