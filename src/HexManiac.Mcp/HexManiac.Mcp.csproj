@@ -2,6 +2,10 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
+    <!-- Stage the embeddable CPython runtime next to the exe so the headless Python engine
+         (PythonTool) works in the MCP, exactly like HexManiac.Tests does. x64 only: the MCP
+         is dev tooling. Staging logic lives in src/Directory.Build.targets (auto-imported). -->
+    <BundlePythonRuntimeX64>true</BundlePythonRuntimeX64>
     <!-- net6.0 to match HexManiac.Core / the WPF editor, so the whole repo builds with one
          SDK (root global.json pins SDK 6) and the MCP can live in the solution. The MCP SDK
          and its transitive deps officially target net8+, so they resolve via netstandard2.0
