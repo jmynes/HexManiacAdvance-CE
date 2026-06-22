@@ -25,6 +25,12 @@ python scripts/firered-pokedump/build_dump.py
 `build_dump.py` reads the `output/_work/*.json` exports **and** parses the ROM directly for the
 things that live behind pointers (level-up movesets, wild-encounter slots, TM/HM compatibility).
 
+**National dex numbers** come from a stored resource, not the ROM: a species' *internal* index in
+the ROM isn't its national dex number for Hoenn (Treecko is internal #277 but national #252), and the
+ROM's `data.pokedex.*` tables are sort/pointer tables rather than a clean species→number map. The
+canonical order lives in `src/HexManiac.Mcp/resources/national-pokedex.json` (PokeAPI national dex,
+captured offline; mirrored into Core resources) and is matched to species by canonical `slug`.
+
 ## Inputs (`output/_work/*.json`)
 
 `export_inputs.py` produces all of these; 13 are plain table dumps, 4 are dedicated tools.
@@ -49,3 +55,29 @@ cartridge (trade-/event-only) — counted in `gaps.unobtainableInFireRed`.
   Emerald/romhacks. The uncatchable Pokémon-Tower ghost Marowak (`StartMarowakBattle`) is excluded.
 - **Curated** (`docs/firered-obtain-overrides.json`): only the **roaming beast** remains — its species
   is chosen in ASM by your starter, with no literal anywhere in the script.
+
+Evolution is added **transitively** (a species counts only if a pre-evolution is itself reachable),
+and respects FRLG reality: **trade evolutions** (Alakazam, Machamp, …) carry `evolvesFrom[].requiresTrade`,
+and **Day/Night-friendship** evolutions (Espeon, Umbreon) are excluded — vanilla FRLG has no clock
+(flip `HAS_DAY_NIGHT` in `build_dump.py` for a romhack that adds one).
+
+## Choice locks & the four obtainability tiers
+
+`choiceGroups` lists the mutually-exclusive "pick one" decisions. Each carries `oneSaveLock`: a **hard**
+lock (starter line, Mt. Moon fossil, roaming beast) permanently forecloses its alternatives in a save;
+a **soft** lock (the dojo Hitmons via Ditto→Tyrogue, the Eeveelutions via breeding) does not. The
+top-level `obtainability` block reports four counts derived from this:
+
+| tier | meaning | FireRed |
+|------|---------|---------|
+| `uniqueNoTrade` | distinct species on one cart, no link cable, any replays | 183 |
+| `oneSaveNoTrade` | most obtainable in **one save** (hard locks cost their alternatives) | 173 |
+| `soloNoTradeNoEvent` | …and no event distributions (drops Lugia/Ho-Oh/Deoxys tickets) | **170** |
+| `uniqueSameVersionTrade` | + FireRed↔FireRed trade-evolutions | 192 |
+| `crossVersionTradeCeiling` | National-Dex ceiling via LG/RSE/Colosseum trade (not ROM-derivable) | 383 |
+
+`soloNoTradeNoEvent` (170) reproduces the [PokéCommunity solo-play completionist list](https://www.pokecommunity.com/showthread.php?t=374346)
+species-for-species. Two FRLG quirks are handled so the count is honest: **Altering Cave**'s 8 Johto
+wild slots are dead data (the released games lock the slot to Zubat; the alternates needed a Japan-only
+e-Reader card), and the **ticket legendaries** (Lugia/Ho-Oh/Deoxys) carry `requiresEvent`. Each species
+also has an `obtainableWithoutTrade` boolean.
