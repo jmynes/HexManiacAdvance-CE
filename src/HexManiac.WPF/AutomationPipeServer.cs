@@ -67,6 +67,11 @@ namespace HavenSoft.HexManiac.WPF.Windows {
                if (vp == null) return NoTab();
                return Ok(RomAutomation.ListTables(vp.Model, StrOrNull(p, "filter")));
             }
+            case "list_specials": {
+               var vp = ResolveTab(p);
+               if (vp == null) return NoTab();
+               return Ok(RomAutomation.ListSpecials(vp.Model, StrOrNull(p, "filter")));
+            }
             case "read_table": {
                var vp = ResolveTab(p);
                if (vp == null) return NoTab();

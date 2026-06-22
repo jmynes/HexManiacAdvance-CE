@@ -51,6 +51,25 @@ namespace HavenSoft.HexManiac.Core.Models {
          return new Dictionary<string, object?> { ["count"] = names.Count, ["tables"] = names };
       }
 
+      // The script "specials" for the loaded ROM (resolved by name, so romhack-aware). A script calls
+      // these as `special <index>` / `special2 <var> <index>`; the index is the position in this list.
+      public static object ListSpecials(IDataModel model, string? filter) {
+         var opts = model.GetOptions("specials");
+         var specials = new List<object>();
+         if (opts != null) {
+            for (int i = 0; i < opts.Count; i++) {
+               var name = opts[i];
+               if (string.IsNullOrEmpty(name)) continue;
+               if (!string.IsNullOrEmpty(filter) && !name.Contains(filter!, StringComparison.OrdinalIgnoreCase)) continue;
+               specials.Add(new Dictionary<string, object?> { ["index"] = i, ["name"] = name });
+            }
+         }
+         return new Dictionary<string, object?> {
+            ["count"] = specials.Count, ["total"] = opts?.Count ?? 0, ["specials"] = specials,
+            ["note"] = "Called from scripts as `special <index>`; names are resolved for the loaded ROM. Use the `reference` tool (kind=script) for command syntax.",
+         };
+      }
+
       public static object ReadTable(IDataModel model, string name, int start, int count, bool includePlaceholders = false) {
          var table = model.GetTableModel(name);
          if (table == null) return Err($"No table named '{name}'. Use list_tables to discover names.");

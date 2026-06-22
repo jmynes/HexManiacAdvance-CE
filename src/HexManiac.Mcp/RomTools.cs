@@ -497,6 +497,28 @@ public sealed class RomTools {
       return Stamp(JsonSerializer.Serialize(new { ok = true, text }, Json), GuiBridge.IsGuiRunning() ? "live" : "headless");
    }
 
+   [McpServerTool(Name = "reference")]
+   [Description("Look up HexManiacAdvance's built-in reference docs (the data HMA itself uses for parsing/autocomplete). kind: script | battle | ai | animation | constants | arm | pcs | tables | doc (+ aliases like xse/thumb/text). query: optional case-insensitive filter, e.g. a command name ('applymovement'), a constant, or a table anchor. No kind: lists the kinds. For the loaded ROM's game-specific specials, use list_specials.")]
+   public string Reference(
+      [Description("Reference kind: script|battle|ai|animation|constants|arm|pcs|tables|doc")] string? kind = null,
+      [Description("Optional case-insensitive substring filter (command/constant/anchor name)")] string? query = null,
+      [Description("Max lines to return (default 400)")] int maxLines = 400) {
+      return Stamp(JsonSerializer.Serialize(ReferenceDocs.Lookup(kind, query, maxLines), Json),
+         GuiBridge.IsGuiRunning() ? "live" : "headless");
+   }
+
+   [McpServerTool(Name = "list_specials")]
+   [Description("List the script 'specials' for the open ROM (resolved by name, so romhack-aware). A script calls these as `special <index>`; the index is the position in this list. Optional substring filter. Pair with reference(kind=script) for command syntax.")]
+   public string ListSpecials(
+      RomSession session,
+      [Description("Optional substring to filter special names")] string? filter = null,
+      [Description("Target GUI tab by index (default: active tab)")] int? tab = null,
+      [Description("Target GUI tab by filename substring")] string? tabFile = null) {
+      var p = new Dictionary<string, object?>();
+      if (!string.IsNullOrEmpty(filter)) p["filter"] = filter;
+      return Dispatch("list_specials", p, tab, tabFile, () => RomAutomation.ListSpecials(session.Require(), filter));
+   }
+
    [McpServerTool(Name = "supported_roms")]
    [Description("Reference of the Pokemon GBA base games HexManiacAdvance supports: header codes, No-Intro names, md5/sha1/crc32, and support tier. No code: the whole reference. code (e.g. 'BPRE0' or 'bpre'): matching entries.")]
    public string SupportedRoms_([Description("Optional header code filter, e.g. BPRE0")] string? code = null) {

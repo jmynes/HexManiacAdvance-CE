@@ -389,6 +389,24 @@ Does not require a ROM to be open. The same data is available as the `hexmaniac:
 
 This is useful for detecting whether a loaded ROM is an unmodified clean dump or a romhack derived from a known base game. A romhack will show `isCleanDump: false` but still report the correct `baseGame` (since HMA identifies by header code, not hash).
 
+## Built-in reference docs
+
+HexManiacAdvance ships the reference data it uses for parsing/autocomplete. Two tools expose it so you can look up command syntax, constants, anchors, and specials without guessing — useful before writing a script or searching the ROM.
+
+**`reference`** — serve a bundled reference, optionally filtered. `kind`: `script` | `battle` | `ai` | `animation` | `constants` | `arm` | `pcs` | `tables` | `doc` (aliases: `xse`/`overworld`→script, `thumb`/`asm`→arm, `text`→pcs, `docs`/`tutorials`→doc, …). `query`: case-insensitive substring (a command name, constant, or anchor). No `kind` lists the kinds. Does not require an open ROM.
+
+```json
+{"name": "reference", "arguments": {"kind": "script", "query": "applymovement"}}
+{"name": "reference", "arguments": {"kind": "tables", "query": "pokedex"}}
+{"name": "reference", "arguments": {"kind": "doc"}}
+```
+
+**`list_specials`** — the script "specials" for the **open** ROM, resolved by name (romhack-aware). A script calls these as `special <index>`; the index is the position returned here. Optional `filter`.
+
+```json
+{"name": "list_specials", "arguments": {"filter": "Roamer"}}
+```
+
 ## Scripts
 
 **`run_script`** — run an HMA script. Provide inline `script` text or a `path` to a `.hma` file (`path` takes precedence). Works live and headless.
@@ -514,6 +532,8 @@ All 25 tools exposed by this MCP server:
 | `list_shortcuts` | List the GUI 'Goto' shortcut buttons (e.g. Pokemon, Trainers) as {display, anchor}. Targets the GUI's active tab when live; else headless. |
 | `goto` | Navigate the live GUI to a target: a shortcut label (e.g. Pokemon), an anchor name (e.g. data.pokemon.stats), or a hex address. Live GUI only; headless returns an error. |
 | `list_tables` | List the named data tables (anchors) in the open ROM. Targets the GUI's active tab when live; optional substring filter and tab selector. |
+| `list_specials` | List the script 'specials' for the open ROM (resolved by name, romhack-aware). A script calls these as `special <index>`; the index is the position in this list. Optional substring filter. |
+| `reference` | Look up HMA's built-in reference docs (script/battle/ai/animation commands, constants, arm, pcs, tables, doc links). kind + optional case-insensitive query; no kind lists the kinds. Does not require an open ROM. |
 | `read_table` | Read a named table as JSON rows. Targets the GUI's active tab when live. Use start/count to page; tab/tabFile to pick a tab. Species-indexed tables omit the ~25 placeholder/limbo slots by default (`excludedPlaceholders`, pass includePlaceholders=true to keep them) and add a canonical `slug` (+ `forms`/`defaultForm` for Deoxys/Castform). |
 | `write_value` | Set a field on a table row. value is a string (text/enum name), number (integer/enum index), or true/false. For a bit-array checkbox, pass flag="<name>" with value true/false. Live GUI when present (visible+undoable); else headless. |
 | `export_table` | Export an entire table (all rows, no paging) to a JSON file on disk. Targets the GUI's active tab when live; else headless. Species-indexed tables omit the ~25 placeholder/limbo slots by default (`excludedPlaceholders`, pass includePlaceholders=true to keep them) and add a canonical `slug` (+ `forms`/`defaultForm` for Deoxys/Castform). |
