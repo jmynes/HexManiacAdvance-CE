@@ -200,6 +200,31 @@ namespace HavenSoft.HexManiac.WPF.Windows {
                if (vp == null) return NoTab();
                return Ok(MoveExport.Export(vp.Model, Str(p, "outPath")));
             }
+            case "export_items": {
+               var vp = ResolveTab(p);
+               if (vp == null) return NoTab();
+               return Ok(ItemExport.Export(vp.Model, Str(p, "outPath")));
+            }
+            case "export_item_locations": {
+               var vp = ResolveTab(p);
+               if (vp == null) return NoTab();
+               return Ok(ItemLocationExport.Export(vp.Model, vp.Tools.CodeTool.ScriptParser, Str(p, "outPath")));
+            }
+            case "export_script_encounters": {
+               var vp = ResolveTab(p);
+               if (vp == null) return NoTab();
+               return Ok(EncounterScriptExport.Export(vp.Model, vp.Tools.CodeTool.ScriptParser, Str(p, "outPath")));
+            }
+            case "export_species_sources": {
+               var vp = ResolveTab(p);
+               if (vp == null) return NoTab();
+               return Ok(SpeciesSourceExport.Export(vp.Model, vp.Tools.CodeTool.ScriptParser, Str(p, "outPath")));
+            }
+            case "export_coin_prizes": {
+               var vp = ResolveTab(p);
+               if (vp == null) return NoTab();
+               return Ok(CoinPrizeExport.Export(vp.Model, Str(p, "outPath")));
+            }
             case "read_script": {
                var vp = ResolveTab(p);
                if (vp == null) return NoTab();
