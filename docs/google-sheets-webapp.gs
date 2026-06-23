@@ -37,15 +37,15 @@ function doPost(e) {
 
     if (req.action === 'push') {
       if (!sheet) sheet = req.tab ? ss.insertSheet(req.tab) : ss.getSheets()[0];
-      sheet.clearContents();
+      sheet.clear();   // wipe values AND old formatting so each push restyles cleanly
       var values = req.values || [];
       if (values.length > 0) {
         var cols = values[0].length;
-        // normalize ragged rows to a rectangle (setValues requires equal-length rows)
         for (var i = 0; i < values.length; i++) {
-          while (values[i].length < cols) values[i].push('');
+          while (values[i].length < cols) values[i].push('');   // setValues needs equal-length rows
         }
         sheet.getRange(1, 1, values.length, cols).setValues(values);
+        if (req.style) applyStyle(sheet, values);
       }
       return json({ ok: true, rows: Math.max(0, values.length - 1) });
     }
@@ -54,6 +54,44 @@ function doPost(e) {
   } catch (err) {
     return json({ error: String(err) });
   }
+}
+
+// Make a pushed sheet read like docs: bold + frozen header, ✓/✗ cells colored green/red and centered,
+// columns auto-sized (capped so long text like descriptions doesn't sprawl).
+function applyStyle(sheet, values) {
+  var nRows = values.length, nCols = values[0].length;
+  sheet.getRange(1, 1, 1, nCols).setFontWeight('bold').setBackground('#efefef');
+  sheet.setFrozenRows(1);
+
+  if (nRows > 1) {
+    var bg = [], fc = [];
+    for (var r = 1; r < nRows; r++) {
+      var b = [], f = [];
+      for (var c = 0; c < nCols; c++) {
+        var v = values[r][c];
+        if (v === '✓')      { b.push('#d9ead3'); f.push('#38761d'); }   // green
+        else if (v === '✗') { b.push('#f4cccc'); f.push('#cc0000'); }   // red
+        else                { b.push('#ffffff'); f.push('#000000'); }
+      }
+      bg.push(b); fc.push(f);
+    }
+    var data = sheet.getRange(2, 1, nRows - 1, nCols);
+    data.setBackgrounds(bg);
+    data.setFontColors(fc);
+
+    // center any column that is entirely ✓/✗ (the exploded flag columns)
+    for (var c = 0; c < nCols; c++) {
+      var allBool = true;
+      for (var r = 1; r < nRows; r++) {
+        var v = values[r][c];
+        if (v !== '✓' && v !== '✗' && v !== '') { allBool = false; break; }
+      }
+      if (allBool) sheet.getRange(2, c + 1, nRows - 1, 1).setHorizontalAlignment('center');
+    }
+  }
+
+  for (var c = 1; c <= nCols; c++) sheet.autoResizeColumn(c);
+  for (var c = 1; c <= nCols; c++) if (sheet.getColumnWidth(c) > 420) sheet.setColumnWidth(c, 420);
 }
 
 function doGet() {

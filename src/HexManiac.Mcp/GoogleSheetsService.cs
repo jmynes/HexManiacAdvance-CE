@@ -124,7 +124,7 @@ public static class GoogleSheetsService {
    // Push records from a JSON file (an export_* output) to a tab as a flattened READ-ONLY reference view:
    // lists are joined with ", ", nested objects become compact JSON. Not pulled back (columns are derived,
    // not raw table fields) - use sheet_push/sheet_pull for editable round-trips.
-   public static object PushJson(string path, string key, string tab, string urlOverride) {
+   public static object PushJson(string path, string key, string tab, string urlOverride, string explode, bool style) {
       var (url, token) = Config(urlOverride);
       if (string.IsNullOrEmpty(url)) return RomAutomation.Err("No web-app URL. Set HEXMANIAC_SHEETS_URL (or <config>/sheets.json), or pass url. See docs/GOOGLE-SHEETS.md.");
       if (!File.Exists(path)) return RomAutomation.Err($"File not found: {path}");
@@ -134,19 +134,40 @@ public static class GoogleSheetsService {
       if (string.IsNullOrWhiteSpace(key)) { if (root.ValueKind != JsonValueKind.Array) return RomAutomation.Err("Root isn't an array - pass key (the array property to push, e.g. 'moves')."); arr = root; }
       else if (!root.TryGetProperty(key, out arr) || arr.ValueKind != JsonValueKind.Array) return RomAutomation.Err($"'{key}' isn't an array in {Path.GetFileName(path)}.");
 
-      var columns = new List<string>(); var seen = new HashSet<string>();
+      var baseCols = new List<string>(); var seen = new HashSet<string>();
       foreach (var rec in arr.EnumerateArray())
          if (rec.ValueKind == JsonValueKind.Object)
-            foreach (var p in rec.EnumerateObject()) if (seen.Add(p.Name)) columns.Add(p.Name);
-      if (columns.Count == 0) return RomAutomation.Err("No object records to push.");
+            foreach (var p in rec.EnumerateObject()) if (seen.Add(p.Name)) baseCols.Add(p.Name);
+      if (baseCols.Count == 0) return RomAutomation.Err("No object records to push.");
+
+      // explode: turn a list-valued column (e.g. "flags") into one ✓/✗ column per distinct value.
+      var explodeVals = new List<string>(); var evSeen = new HashSet<string>();
+      bool doExplode = !string.IsNullOrWhiteSpace(explode) && baseCols.Contains(explode);
+      if (doExplode) {
+         foreach (var rec in arr.EnumerateArray())
+            if (rec.ValueKind == JsonValueKind.Object && rec.TryGetProperty(explode, out var lv) && lv.ValueKind == JsonValueKind.Array)
+               foreach (var el in lv.EnumerateArray()) { var s = el.ValueKind == JsonValueKind.String ? el.GetString() : el.GetRawText(); if (!string.IsNullOrEmpty(s) && evSeen.Add(s)) explodeVals.Add(s); }
+         doExplode = explodeVals.Count > 0;
+      }
+      var explodeSet = new HashSet<string>(explodeVals);
+      var columns = new List<string>();
+      foreach (var col in baseCols) { if (doExplode && col == explode) columns.AddRange(explodeVals); else columns.Add(col); }
 
       var values = new List<List<object?>> { columns.Cast<object?>().ToList() };
       foreach (var rec in arr.EnumerateArray()) {
-         values.Add(columns.Select(col => rec.ValueKind == JsonValueKind.Object && rec.TryGetProperty(col, out var v) ? Flatten(v) : "").ToList());
+         var present = new HashSet<string>();
+         if (doExplode && rec.ValueKind == JsonValueKind.Object && rec.TryGetProperty(explode, out var lv2) && lv2.ValueKind == JsonValueKind.Array)
+            foreach (var el in lv2.EnumerateArray()) present.Add(el.ValueKind == JsonValueKind.String ? el.GetString() : el.GetRawText());
+         var row = new List<object?>();
+         foreach (var oc in columns) {
+            if (explodeSet.Contains(oc)) row.Add(present.Contains(oc) ? "✓" : "✗");
+            else row.Add(rec.ValueKind == JsonValueKind.Object && rec.TryGetProperty(oc, out var v) ? Flatten(v) : "");
+         }
+         values.Add(row);
       }
-      var res = Post(url, new { action = "push", token, tab, values });
+      var res = Post(url, new { action = "push", token, tab, values, style });
       if (res.TryGetProperty("error", out var e)) return RomAutomation.Err("web app: " + e.GetString());
-      return new Dictionary<string, object?> { ["ok"] = true, ["source"] = Path.GetFileName(path), ["key"] = key, ["tab"] = tab, ["rowsWritten"] = values.Count - 1, ["columns"] = columns.Count, ["note"] = "Read-only reference view; not pulled back." };
+      return new Dictionary<string, object?> { ["ok"] = true, ["source"] = Path.GetFileName(path), ["key"] = key, ["tab"] = tab, ["rowsWritten"] = values.Count - 1, ["columns"] = columns.Count, ["explodedInto"] = doExplode ? explodeVals.Count : 0, ["styled"] = style, ["note"] = "Read-only reference view; not pulled back." };
    }
 
    private static object? Flatten(JsonElement v) => v.ValueKind switch {

@@ -67,6 +67,17 @@ is a *view* — it isn't pulled back, because the columns are derived (effect na
 table fields. Works for any export with a record array (`export_items` → key `items`, the FireRed pokémon
 dump → key `pokemon`, etc.).
 
+**Doc-ready formatting** — `explode` splits a list column into one **✓/✗ column per value**, and `style`
+makes it presentable (bold + frozen header, ✓ green / ✗ red and centered, auto-sized columns):
+
+```json
+{"name": "sheet_push_json", "arguments": {"path": "C:/tmp/moves.json", "key": "moves", "tab": "moves", "explode": "flags", "style": true}}
+```
+
+> **`style` is applied by the web app**, so you must have the **latest `docs/google-sheets-webapp.gs`**
+> deployed. If you set it up before this was added: copy the script again, then **Deploy → Manage
+> deployments → ✎ edit → New version** (the URL stays the same), and re-push.
+
 ## Notes
 
 - **One web app = one spreadsheet.** To sync several sheets, deploy the script in each and pass its `url`

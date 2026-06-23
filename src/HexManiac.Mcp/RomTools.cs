@@ -654,13 +654,15 @@ public sealed class RomTools {
    }
 
    [McpServerTool(Name = "sheet_push_json")]
-   [Description("Push records from a JSON file (e.g. an export_moves / export_items / export_pokedex output) to a Google Sheet tab as a flattened, READ-ONLY reference view: scalars as-is, lists joined with ', ', nested objects as compact JSON. path: the .json file. key: the array property to push (e.g. 'moves', 'items', 'pokemon'); omit if the file's root is itself an array. tab + url as in sheet_push. Unlike sheet_push this is for viewing resolved/joined data (effect names, descriptions, TM/HM/tutor) - it is NOT pulled back, since the columns are derived, not raw table fields. Does not require an open ROM.")]
+   [Description("Push records from a JSON file (e.g. an export_moves / export_items / export_pokedex output) to a Google Sheet tab as a flattened, READ-ONLY reference view: scalars as-is, lists joined with ', ', nested objects as compact JSON. path: the .json file. key: the array property to push (e.g. 'moves', 'items', 'pokemon'); omit if the file's root is itself an array. tab + url as in sheet_push. explode: a list-valued column to split into one ✓/✗ column per distinct value (e.g. 'flags'). style=true makes it doc-ready: bold+frozen header, ✓/✗ cells colored green/red and centered, auto-sized columns (needs the latest docs/google-sheets-webapp.gs deployed). NOT pulled back (columns are derived). Does not require an open ROM.")]
    public string SheetPushJson(
       [Description("Path to the .json file (an export_* tool's output)")] string path,
       [Description("Array property to push, e.g. 'moves' / 'items' / 'pokemon' (omit if the root is an array)")] string? key = null,
       [Description("Sheet/tab name (default: first tab)")] string? tab = null,
+      [Description("A list-valued column to split into one ✓/✗ column per distinct value, e.g. 'flags'")] string? explode = null,
+      [Description("Style the sheet for docs (bold/frozen header, green/red ✓/✗, auto-width)")] bool style = false,
       [Description("Apps Script web-app URL (default: configured HEXMANIAC_SHEETS_URL)")] string? url = null) {
-      try { return Stamp(JsonSerializer.Serialize(GoogleSheetsService.PushJson(path, key ?? "", tab ?? "", url ?? ""), Json), "headless"); }
+      try { return Stamp(JsonSerializer.Serialize(GoogleSheetsService.PushJson(path, key ?? "", tab ?? "", url ?? "", explode ?? "", style), Json), "headless"); }
       catch (System.Exception ex) { return Stamp(JsonSerializer.Serialize(RomAutomation.Err(ex.Message), Json), "headless"); }
    }
 
