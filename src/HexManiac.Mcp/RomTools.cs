@@ -629,6 +629,37 @@ public sealed class RomTools {
          () => SpriteIO.ImportPalette(session.Require(), () => session.Token, palette, page, colors, inPath));
    }
 
+   [McpServerTool(Name = "sheet_authenticate")]
+   [Description("Authenticate to Google Sheets (once per user): opens the browser for consent and caches the token locally. Needs a Desktop-app OAuth client at <AppData>/HexManiacMcp/google/client_secret.json (or the HEXMANIAC_GOOGLE_CLIENT_SECRET path) - see docs/GOOGLE-SHEETS.md for the 2-minute Google Cloud setup. Does not require an open ROM.")]
+   public string SheetAuthenticate() {
+      try { return Stamp(JsonSerializer.Serialize(GoogleSheetsService.Authenticate(), Json), "headless"); }
+      catch (System.Exception ex) { return Stamp(JsonSerializer.Serialize(RomAutomation.Err(ex.Message), Json), "headless"); }
+   }
+
+   [McpServerTool(Name = "sheet_push")]
+   [Description("Push a ROM table to a Google Sheet tab: a header row of field names then one row per record (clears the tab first). table: anchor name (e.g. data.pokemon.stats). spreadsheetId: the .../d/<ID>/edit part of the sheet URL. tab: sheet/tab name (default: first tab). Requires an open ROM (headless) and a prior sheet_authenticate.")]
+   public string SheetPush(
+      RomSession session,
+      [Description("ROM table/anchor name, e.g. data.pokemon.stats")] string table,
+      [Description("Spreadsheet id (the .../d/<ID>/edit part of the URL)")] string spreadsheetId,
+      [Description("Sheet/tab name (default: first tab)")] string? tab = null) {
+      if (session.Model == null) return Stamp(JsonSerializer.Serialize(RomAutomation.Err("Open a ROM first (open_rom)."), Json), "headless");
+      try { return Stamp(JsonSerializer.Serialize(GoogleSheetsService.PushTable(session.Require(), table, spreadsheetId, tab ?? ""), Json), "headless"); }
+      catch (System.Exception ex) { return Stamp(JsonSerializer.Serialize(RomAutomation.Err(ex.Message), Json), "headless"); }
+   }
+
+   [McpServerTool(Name = "sheet_pull")]
+   [Description("Pull a Google Sheet tab back into a ROM table as ONE undo step. The sheet's header row maps columns to fields and must include an 'index' column (the ROM row id) to match rows - run sheet_push first to get the right layout. 'slug' and 'index' columns are treated as read-only keys. table/spreadsheetId/tab as in sheet_push. Requires an open ROM (headless) and a prior sheet_authenticate.")]
+   public string SheetPull(
+      RomSession session,
+      [Description("ROM table/anchor name, e.g. data.pokemon.stats")] string table,
+      [Description("Spreadsheet id (the .../d/<ID>/edit part of the URL)")] string spreadsheetId,
+      [Description("Sheet/tab name (default: first tab)")] string? tab = null) {
+      if (session.Model == null) return Stamp(JsonSerializer.Serialize(RomAutomation.Err("Open a ROM first (open_rom)."), Json), "headless");
+      try { return Stamp(JsonSerializer.Serialize(GoogleSheetsService.PullTable(session.Require(), () => session.Token, table, spreadsheetId, tab ?? ""), Json), "headless"); }
+      catch (System.Exception ex) { return Stamp(JsonSerializer.Serialize(RomAutomation.Err(ex.Message), Json), "headless"); }
+   }
+
    [McpServerTool(Name = "supported_roms")]
    [Description("Reference of the Pokemon GBA base games HexManiacAdvance supports: header codes, No-Intro names, md5/sha1/crc32, and support tier. No code: the whole reference. code (e.g. 'BPRE0' or 'bpre'): matching entries.")]
    public string SupportedRoms_([Description("Optional header code filter, e.g. BPRE0")] string? code = null) {
