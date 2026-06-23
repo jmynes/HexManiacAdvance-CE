@@ -12,10 +12,18 @@ shared quota, no credentials shipped.
 1. Open the Google Sheet you want to sync.
 2. **Extensions → Apps Script.** Delete the stub and paste all of [`docs/google-sheets-webapp.gs`](google-sheets-webapp.gs).
 3. Change `SECRET` (top of the script) to a long random string of your own.
-4. **Deploy → New deployment → Web app**: *Execute as: Me*, *Who has access: Anyone with the link* → Deploy.
+4. **Limit it to this one sheet** (otherwise the consent asks for *all* your spreadsheets): **⚙ Project
+   Settings → "Show appsscript.json manifest file in editor"**, open `appsscript.json`, and add a per-file
+   scope:
+   ```json
+   "oauthScopes": ["https://www.googleapis.com/auth/spreadsheets.currentonly"]
+   ```
+   The consent then reads *"only the specific spreadsheet you use this app with."* (Works because the
+   script only calls `getActiveSpreadsheet()` — never `openById`/`openByUrl`, which force the all-sheets scope.)
+5. **Deploy → New deployment → Web app**: *Execute as: Me*, *Who has access: Anyone with the link* → Deploy.
    Authorize when prompted — that's the **Apps Script editor's own consent screen** (it asks to manage *this*
    spreadsheet), *not* Google Cloud. Copy the **Web app URL**.
-5. Tell the MCP the URL + secret, either by env vars:
+6. Tell the MCP the URL + secret, either by env vars:
    - `HEXMANIAC_SHEETS_URL` = the web-app URL
    - `HEXMANIAC_SHEETS_TOKEN` = your `SECRET`
 

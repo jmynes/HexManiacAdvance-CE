@@ -4,11 +4,17 @@
  * Setup (in the sheet you want to sync):
  *   1. Extensions -> Apps Script. Delete the stub, paste this whole file.
  *   2. Change SECRET below to a long random string of your own.
- *   3. Deploy -> New deployment -> type "Web app":
+ *   3. Limit the script to THIS sheet only (not all your spreadsheets): Project Settings (gear) ->
+ *      check "Show appsscript.json manifest file in editor", open appsscript.json, and add:
+ *        "oauthScopes": ["https://www.googleapis.com/auth/spreadsheets.currentonly"]
+ *      (per-file scope - the consent then says "only the specific spreadsheet you use this app with").
+ *      This works because the script only touches getActiveSpreadsheet(); never use openById/openByUrl,
+ *      which would force the all-spreadsheets scope.
+ *   4. Deploy -> New deployment -> type "Web app":
  *        Execute as: Me        Who has access: Anyone with the link
  *      Authorize when prompted (this is the Apps Script editor's own consent - NOT Google Cloud).
- *   4. Copy the Web app URL.
- *   5. Tell the MCP: set HEXMANIAC_SHEETS_URL = that URL and HEXMANIAC_SHEETS_TOKEN = your SECRET,
+ *   6. Copy the Web app URL.
+ *   7. Tell the MCP: set HEXMANIAC_SHEETS_URL = that URL and HEXMANIAC_SHEETS_TOKEN = your SECRET,
  *      or write <AppData>/HexManiacMcp/google/sheets.json = {"url":"...","token":"..."}.
  *
  * The MCP POSTs {action, token, tab, values}. push writes the grid; pull returns it. The script runs
