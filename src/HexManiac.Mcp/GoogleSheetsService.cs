@@ -124,7 +124,7 @@ public static class GoogleSheetsService {
    // Push records from a JSON file (an export_* output) to a tab as a flattened READ-ONLY reference view:
    // lists are joined with ", ", nested objects become compact JSON. Not pulled back (columns are derived,
    // not raw table fields) - use sheet_push/sheet_pull for editable round-trips.
-   public static object PushJson(string path, string key, string tab, string urlOverride, string explode, bool style) {
+   public static object PushJson(string path, string key, string tab, string urlOverride, string explode, bool style, int freezeColumns) {
       var (url, token) = Config(urlOverride);
       if (string.IsNullOrEmpty(url)) return RomAutomation.Err("No web-app URL. Set HEXMANIAC_SHEETS_URL (or <config>/sheets.json), or pass url. See docs/GOOGLE-SHEETS.md.");
       if (!File.Exists(path)) return RomAutomation.Err($"File not found: {path}");
@@ -167,7 +167,7 @@ public static class GoogleSheetsService {
       }
       // when styling, the MCP computes the WHOLE look (per-cell colors, alignments, widths) and ships it as
       // `format`; the web app just applies it. So tweaking the look is an MCP change - no Apps Script redeploy.
-      object format = style ? BuildFormat(columns, values) : null;
+      object format = style ? BuildFormat(columns, values, freezeColumns) : null;
       var res = Post(url, new { action = "push", token, tab, values, format });
       if (res.TryGetProperty("error", out var e)) return RomAutomation.Err("web app: " + e.GetString());
       return new Dictionary<string, object?> { ["ok"] = true, ["source"] = Path.GetFileName(path), ["key"] = key, ["tab"] = tab, ["rowsWritten"] = values.Count - 1, ["columns"] = columns.Count, ["explodedInto"] = doExplode ? explodeVals.Count : 0, ["styled"] = style, ["note"] = "Read-only reference view; not pulled back." };
@@ -191,38 +191,46 @@ public static class GoogleSheetsService {
 
    // Compute the doc look the web app applies: ✓ green / ✗ red, the 'type' column by Pokemon type, number/
    // ✓/✗/type columns centered, header bold+frozen+grey, all cells vertically centered, padded auto-widths.
-   private static object BuildFormat(List<string> columns, List<List<object?>> values) {
+   private static readonly Dictionary<string, string> CategoryColors = new(StringComparer.OrdinalIgnoreCase) {
+      ["Physical"] = "#C92112", ["Special"] = "#4F5870", ["Status"] = "#8C888C",
+   };
+   private static bool IsYes(string s) => s != null && s.StartsWith("✓");
+   private static bool IsNo(string s) => s != null && (s.StartsWith("✗") || s.StartsWith("✘"));
+   private static object BuildFormat(List<string> columns, List<List<object?>> values, int freezeColumns) {
       int nCols = columns.Count;
       int typeCol = columns.FindIndex(h => string.Equals(h, "type", StringComparison.OrdinalIgnoreCase));
+      int catCol = columns.FindIndex(h => string.Equals(h, "category", StringComparison.OrdinalIgnoreCase));
       var bg = new List<List<string>>(); var fc = new List<List<string>>();
       for (int r = 1; r < values.Count; r++) {
          var brow = new List<string>(nCols); var frow = new List<string>(nCols);
          for (int c = 0; c < nCols; c++) {
-            var s = values[r][c] as string;
-            if (c == typeCol && !string.IsNullOrEmpty(s)) { var tc = TypeColor(s); brow.Add(tc); frow.Add(Contrast(tc)); }
-            else if (s == "✓") { brow.Add("#d9ead3"); frow.Add("#38761d"); }
-            else if (s == "✗") { brow.Add("#f4cccc"); frow.Add("#cc0000"); }
+            var s = values[r][c] as string; string col;
+            if (c == typeCol && !string.IsNullOrEmpty(s)) { col = TypeColor(s); brow.Add(col); frow.Add(Contrast(col)); }
+            else if (c == catCol && !string.IsNullOrEmpty(s) && CategoryColors.TryGetValue(s, out col)) { brow.Add(col); frow.Add(Contrast(col)); }
+            else if (IsYes(s)) { brow.Add("#d9ead3"); frow.Add("#38761d"); }
+            else if (IsNo(s)) { brow.Add("#f4cccc"); frow.Add("#cc0000"); }
             else { brow.Add("#ffffff"); frow.Add("#000000"); }
          }
          bg.Add(brow); fc.Add(frow);
       }
       var aligns = new List<string>(nCols);
       for (int c = 0; c < nCols; c++) {
-         bool center = c == typeCol;
+         bool center = c == typeCol || c == catCol;
          if (!center) {
             center = true;
             for (int r = 1; r < values.Count; r++) {
                var v = values[r][c];
                if (v is null || v is long or int or double or float) continue;     // numeric / empty -> centerable
-               if (v is string sv && (sv == "" || sv == "✓" || sv == "✗")) continue;
+               if (v is string sv && (sv == "" || IsYes(sv) || IsNo(sv))) continue;
                center = false; break;
             }
          }
          aligns.Add(center ? "center" : "left");
       }
       return new {
-         headerBold = true, headerBackground = "#efefef", freezeHeader = true, verticalAlign = "middle",
-         backgrounds = bg, fontColors = fc, columnAligns = aligns,
+         headerBold = true, headerBackground = "#efefef", freezeHeader = true,
+         freezeColumns = freezeColumns > 0 ? (object)freezeColumns : null,
+         verticalAlign = "middle", backgrounds = bg, fontColors = fc, columnAligns = aligns,
          autoResize = true, widthPadding = 20, widthCap = 420,
       };
    }
