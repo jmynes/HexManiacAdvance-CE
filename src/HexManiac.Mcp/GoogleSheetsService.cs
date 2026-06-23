@@ -199,13 +199,20 @@ public static class GoogleSheetsService {
    private static object BuildFormat(List<string> columns, List<List<object?>> values, int freezeColumns) {
       int nCols = columns.Count;
       int typeCol = columns.FindIndex(h => string.Equals(h, "type", StringComparison.OrdinalIgnoreCase));
-      int catCol = columns.FindIndex(h => string.Equals(h, "category", StringComparison.OrdinalIgnoreCase));
+      int catCol  = columns.FindIndex(h => string.Equals(h, "category", StringComparison.OrdinalIgnoreCase));
+      int idCol   = columns.FindIndex(h => string.Equals(h, "id #", StringComparison.OrdinalIgnoreCase));
+      int moveCol = columns.FindIndex(h => string.Equals(h, "move", StringComparison.OrdinalIgnoreCase));
+      // a blank-header column immediately before Type is the type-color SWATCH (a solid color block, no text)
+      int swatchCol = (typeCol > 0 && string.IsNullOrWhiteSpace(columns[typeCol - 1])) ? typeCol - 1 : -1;
+
       var bg = new List<List<string>>(); var fc = new List<List<string>>();
       for (int r = 1; r < values.Count; r++) {
          var brow = new List<string>(nCols); var frow = new List<string>(nCols);
+         string typeName = typeCol >= 0 ? values[r][typeCol] as string : null;
          for (int c = 0; c < nCols; c++) {
             var s = values[r][c] as string; string col;
-            if (c == typeCol && !string.IsNullOrEmpty(s)) { col = TypeColor(s); brow.Add(col); frow.Add(Contrast(col)); }
+            if (c == swatchCol && !string.IsNullOrEmpty(typeName)) { col = TypeColor(typeName); brow.Add(col); frow.Add(col); }      // solid swatch (bg==fg)
+            else if (c == typeCol && swatchCol < 0 && !string.IsNullOrEmpty(s)) { col = TypeColor(s); brow.Add(col); frow.Add(Contrast(col)); } // no swatch -> color the text
             else if (c == catCol && !string.IsNullOrEmpty(s) && CategoryColors.TryGetValue(s, out col)) { brow.Add(col); frow.Add(Contrast(col)); }
             else if (IsYes(s)) { brow.Add("#d9ead3"); frow.Add("#38761d"); }
             else if (IsNo(s)) { brow.Add("#f4cccc"); frow.Add("#cc0000"); }
@@ -213,25 +220,19 @@ public static class GoogleSheetsService {
          }
          bg.Add(brow); fc.Add(frow);
       }
+      // alignment: ID # right, Move left, everything else centered
       var aligns = new List<string>(nCols);
-      for (int c = 0; c < nCols; c++) {
-         bool center = c == typeCol || c == catCol;
-         if (!center) {
-            center = true;
-            for (int r = 1; r < values.Count; r++) {
-               var v = values[r][c];
-               if (v is null || v is long or int or double or float) continue;     // numeric / empty -> centerable
-               if (v is string sv && (sv == "" || IsYes(sv) || IsNo(sv))) continue;
-               center = false; break;
-            }
-         }
-         aligns.Add(center ? "center" : "left");
-      }
+      for (int c = 0; c < nCols; c++) aligns.Add(c == idCol ? "right" : c == moveCol ? "left" : "center");
+      // narrow the blank-header spacer columns (the type swatch, the emblem column)
+      var widths = new Dictionary<string, int>();
+      for (int c = 0; c < nCols; c++) if (string.IsNullOrWhiteSpace(columns[c])) widths[c.ToString()] = 36;
+
       return new {
-         headerBold = true, headerBackground = "#efefef", freezeHeader = true,
+         headerBold = true, headerBackground = "#efefef", headerAlign = "center", freezeHeader = true,
          freezeColumns = freezeColumns > 0 ? (object)freezeColumns : null,
          verticalAlign = "middle", backgrounds = bg, fontColors = fc, columnAligns = aligns,
          autoResize = true, widthPadding = 20, widthCap = 420,
+         columnWidths = widths.Count > 0 ? (object)widths : null,
       };
    }
 

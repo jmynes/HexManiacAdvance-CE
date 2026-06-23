@@ -71,6 +71,7 @@ function applyStyle(sheet, values, fmt) {
   if (fmt.headerBackground) sheet.getRange(1, 1, 1, nCols).setBackground(fmt.headerBackground);
   if (fmt.freezeHeader) sheet.setFrozenRows(1);
   if (fmt.freezeColumns) sheet.setFrozenColumns(fmt.freezeColumns);   // keep the left N columns visible while scrolling right
+  if (fmt.headerAlign) sheet.getRange(1, 1, 1, nCols).setHorizontalAlignment(fmt.headerAlign);
   if (fmt.verticalAlign) sheet.getRange(1, 1, nRows, nCols).setVerticalAlignment(fmt.verticalAlign);
 
   if (nRows > 1) {
@@ -90,6 +91,9 @@ function applyStyle(sheet, values, fmt) {
       sheet.autoResizeColumn(c);
       sheet.setColumnWidth(c, Math.min(sheet.getColumnWidth(c) + pad, cap));
     }
+  }
+  if (fmt.columnWidths) {   // explicit per-column widths (0-based index -> px), applied after autoResize
+    for (var k in fmt.columnWidths) sheet.setColumnWidth(Number(k) + 1, fmt.columnWidths[k]);
   }
 }
 
