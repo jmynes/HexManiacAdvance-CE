@@ -653,6 +653,17 @@ public sealed class RomTools {
       catch (System.Exception ex) { return Stamp(JsonSerializer.Serialize(RomAutomation.Err(ex.Message), Json), "headless"); }
    }
 
+   [McpServerTool(Name = "sheet_push_json")]
+   [Description("Push records from a JSON file (e.g. an export_moves / export_items / export_pokedex output) to a Google Sheet tab as a flattened, READ-ONLY reference view: scalars as-is, lists joined with ', ', nested objects as compact JSON. path: the .json file. key: the array property to push (e.g. 'moves', 'items', 'pokemon'); omit if the file's root is itself an array. tab + url as in sheet_push. Unlike sheet_push this is for viewing resolved/joined data (effect names, descriptions, TM/HM/tutor) - it is NOT pulled back, since the columns are derived, not raw table fields. Does not require an open ROM.")]
+   public string SheetPushJson(
+      [Description("Path to the .json file (an export_* tool's output)")] string path,
+      [Description("Array property to push, e.g. 'moves' / 'items' / 'pokemon' (omit if the root is an array)")] string? key = null,
+      [Description("Sheet/tab name (default: first tab)")] string? tab = null,
+      [Description("Apps Script web-app URL (default: configured HEXMANIAC_SHEETS_URL)")] string? url = null) {
+      try { return Stamp(JsonSerializer.Serialize(GoogleSheetsService.PushJson(path, key ?? "", tab ?? "", url ?? ""), Json), "headless"); }
+      catch (System.Exception ex) { return Stamp(JsonSerializer.Serialize(RomAutomation.Err(ex.Message), Json), "headless"); }
+   }
+
    [McpServerTool(Name = "supported_roms")]
    [Description("Reference of the Pokemon GBA base games HexManiacAdvance supports: header codes, No-Intro names, md5/sha1/crc32, and support tier. No code: the whole reference. code (e.g. 'BPRE0' or 'bpre'): matching entries.")]
    public string SupportedRoms_([Description("Optional header code filter, e.g. BPRE0")] string? code = null) {

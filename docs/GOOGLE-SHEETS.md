@@ -51,6 +51,22 @@ as **one undo step**. The `slug` column is treated as a read-only key. Cell valu
 as `read_table`/`write_value` (enum names like `FIRE`, numbers, text), so you edit them in the sheet
 directly. Then `save_rom` when you're happy.
 
+## Resolved reference views (`sheet_push_json`)
+
+`sheet_push`/`sheet_pull` round-trip *raw editable* tables. For a nice **read-only reference** — resolved
+move effect names, decoded flags, dex flavor, etc. — run one of the `export_*` tools to a JSON file, then
+push its records:
+
+```json
+{"name": "export_moves",    "arguments": {"outPath": "C:/tmp/moves.json"}}
+{"name": "sheet_push_json", "arguments": {"path": "C:/tmp/moves.json", "key": "moves", "tab": "moves-ref"}}
+```
+
+Each record's scalars go straight in; lists are joined with `, `; nested objects become compact JSON. This
+is a *view* — it isn't pulled back, because the columns are derived (effect names, resolved text), not raw
+table fields. Works for any export with a record array (`export_items` → key `items`, the FireRed pokémon
+dump → key `pokemon`, etc.).
+
 ## Notes
 
 - **One web app = one spreadsheet.** To sync several sheets, deploy the script in each and pass its `url`

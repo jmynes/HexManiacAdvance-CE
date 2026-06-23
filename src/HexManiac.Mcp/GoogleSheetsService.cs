@@ -121,6 +121,45 @@ public static class GoogleSheetsService {
       return new Dictionary<string, object?> { ["ok"] = true, ["table"] = table, ["tab"] = tab, ["rowsUpdated"] = rowsTouched, ["cellsWritten"] = writes, ["cellsUnchanged"] = skipped, ["errors"] = errors };
    }
 
+   // Push records from a JSON file (an export_* output) to a tab as a flattened READ-ONLY reference view:
+   // lists are joined with ", ", nested objects become compact JSON. Not pulled back (columns are derived,
+   // not raw table fields) - use sheet_push/sheet_pull for editable round-trips.
+   public static object PushJson(string path, string key, string tab, string urlOverride) {
+      var (url, token) = Config(urlOverride);
+      if (string.IsNullOrEmpty(url)) return RomAutomation.Err("No web-app URL. Set HEXMANIAC_SHEETS_URL (or <config>/sheets.json), or pass url. See docs/GOOGLE-SHEETS.md.");
+      if (!File.Exists(path)) return RomAutomation.Err($"File not found: {path}");
+      using var doc = JsonDocument.Parse(File.ReadAllText(path));
+      var root = doc.RootElement;
+      JsonElement arr;
+      if (string.IsNullOrWhiteSpace(key)) { if (root.ValueKind != JsonValueKind.Array) return RomAutomation.Err("Root isn't an array - pass key (the array property to push, e.g. 'moves')."); arr = root; }
+      else if (!root.TryGetProperty(key, out arr) || arr.ValueKind != JsonValueKind.Array) return RomAutomation.Err($"'{key}' isn't an array in {Path.GetFileName(path)}.");
+
+      var columns = new List<string>(); var seen = new HashSet<string>();
+      foreach (var rec in arr.EnumerateArray())
+         if (rec.ValueKind == JsonValueKind.Object)
+            foreach (var p in rec.EnumerateObject()) if (seen.Add(p.Name)) columns.Add(p.Name);
+      if (columns.Count == 0) return RomAutomation.Err("No object records to push.");
+
+      var values = new List<List<object?>> { columns.Cast<object?>().ToList() };
+      foreach (var rec in arr.EnumerateArray()) {
+         values.Add(columns.Select(col => rec.ValueKind == JsonValueKind.Object && rec.TryGetProperty(col, out var v) ? Flatten(v) : "").ToList());
+      }
+      var res = Post(url, new { action = "push", token, tab, values });
+      if (res.TryGetProperty("error", out var e)) return RomAutomation.Err("web app: " + e.GetString());
+      return new Dictionary<string, object?> { ["ok"] = true, ["source"] = Path.GetFileName(path), ["key"] = key, ["tab"] = tab, ["rowsWritten"] = values.Count - 1, ["columns"] = columns.Count, ["note"] = "Read-only reference view; not pulled back." };
+   }
+
+   private static object? Flatten(JsonElement v) => v.ValueKind switch {
+      JsonValueKind.String => v.GetString(),
+      JsonValueKind.Number => v.TryGetInt64(out var l) ? l : v.GetDouble(),
+      JsonValueKind.True => true,
+      JsonValueKind.False => false,
+      JsonValueKind.Null => "",
+      JsonValueKind.Array => string.Join(", ", v.EnumerateArray().Select(x => x.ValueKind == JsonValueKind.String ? x.GetString() : x.GetRawText())),
+      JsonValueKind.Object => v.GetRawText(),
+      _ => v.GetRawText(),
+   };
+
    private static string CellStr(JsonElement c) => c.ValueKind switch {
       JsonValueKind.String => c.GetString() ?? "",
       JsonValueKind.Null => "",
