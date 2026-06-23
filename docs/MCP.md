@@ -591,9 +591,8 @@ All 25 tools exposed by this MCP server:
 | `backup_rom` | Explicitly snapshot the loaded ROM (.gba + sidecar .toml + .sav) into a timestamped backups/ subdirectory next to the ROM, without saving any pending edits. Returns the list of files written. Live or headless. |
 | `launch_rom` | Shell-open the resolved ROM's on-disk file in the default GBA program (like HexManiacAdvance's play button). The ROM must be saved; pass force=true to launch the last-saved file even with unsaved edits. Returns { ok, launched, mode }. Live or headless. |
 | `supported_roms` | List the supported Pokémon GBA ROMs (header codes, No-Intro names, checksums). Pass code="BPRE0" to look up a single entry. Does not require an open ROM. |
-| `sheet_authenticate` | Authenticate to Google Sheets once per user (browser consent, token cached locally). Needs a Desktop-app OAuth client (bring-your-own) — see [docs/GOOGLE-SHEETS.md](GOOGLE-SHEETS.md). No open ROM needed. |
-| `sheet_push` | Push a ROM table to a Google Sheet tab (header row of fields + one row per record; clears the tab). table + spreadsheetId (from the sheet URL) + optional tab. Headless; requires sheet_authenticate. |
-| `sheet_pull` | Pull a Google Sheet tab back into a ROM table as one undo step. Matches rows by the `index` column; writes every other cell via write_value semantics. Headless; requires sheet_authenticate. |
+| `sheet_push` | Push a ROM table to a Google Sheet via a bound Apps Script web app (no Google Cloud/OAuth) — header row of fields + one row per record; clears the tab. table + optional tab + url. Headless. See [docs/GOOGLE-SHEETS.md](GOOGLE-SHEETS.md). |
+| `sheet_pull` | Pull a Google Sheet tab back into a ROM table as one undo step (via the same web app). Matches rows by the `index` column; writes every other cell via write_value semantics. Headless. |
 | `identify_rom` | Identify the currently open ROM: reports isCleanDump (MD5/SHA1/CRC32 match), baseGame (e.g. "FireRed Rev 0 (v1.0)"), and headerCode. Detects clean dumps vs romhacks of a known base. |
 | `help` | Return the full MCP guide or a specific section. Call with no arguments for the full guide; pass topic="<section-heading>" for a specific section (e.g. topic="Saving & backups safety"). |
 

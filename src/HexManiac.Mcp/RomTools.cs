@@ -629,34 +629,27 @@ public sealed class RomTools {
          () => SpriteIO.ImportPalette(session.Require(), () => session.Token, palette, page, colors, inPath));
    }
 
-   [McpServerTool(Name = "sheet_authenticate")]
-   [Description("Authenticate to Google Sheets (once per user): opens the browser for consent and caches the token locally. Needs a Desktop-app OAuth client at <AppData>/HexManiacMcp/google/client_secret.json (or the HEXMANIAC_GOOGLE_CLIENT_SECRET path) - see docs/GOOGLE-SHEETS.md for the 2-minute Google Cloud setup. Does not require an open ROM.")]
-   public string SheetAuthenticate() {
-      try { return Stamp(JsonSerializer.Serialize(GoogleSheetsService.Authenticate(), Json), "headless"); }
-      catch (System.Exception ex) { return Stamp(JsonSerializer.Serialize(RomAutomation.Err(ex.Message), Json), "headless"); }
-   }
-
    [McpServerTool(Name = "sheet_push")]
-   [Description("Push a ROM table to a Google Sheet tab: a header row of field names then one row per record (clears the tab first). table: anchor name (e.g. data.pokemon.stats). spreadsheetId: the .../d/<ID>/edit part of the sheet URL. tab: sheet/tab name (default: first tab). Requires an open ROM (headless) and a prior sheet_authenticate.")]
+   [Description("Push a ROM table to a Google Sheet via a bound Apps Script web app (no Google Cloud/OAuth): a header row of field names then one row per record (clears the tab first). table: anchor name (e.g. data.pokemon.stats). tab: sheet/tab name (default: first tab). url: the web-app URL (default: HEXMANIAC_SHEETS_URL / <config>/sheets.json). Deploy the script from docs/google-sheets-webapp.gs - see docs/GOOGLE-SHEETS.md. Requires an open ROM (headless).")]
    public string SheetPush(
       RomSession session,
       [Description("ROM table/anchor name, e.g. data.pokemon.stats")] string table,
-      [Description("Spreadsheet id (the .../d/<ID>/edit part of the URL)")] string spreadsheetId,
-      [Description("Sheet/tab name (default: first tab)")] string? tab = null) {
+      [Description("Sheet/tab name (default: first tab)")] string? tab = null,
+      [Description("Apps Script web-app URL (default: configured HEXMANIAC_SHEETS_URL)")] string? url = null) {
       if (session.Model == null) return Stamp(JsonSerializer.Serialize(RomAutomation.Err("Open a ROM first (open_rom)."), Json), "headless");
-      try { return Stamp(JsonSerializer.Serialize(GoogleSheetsService.PushTable(session.Require(), table, spreadsheetId, tab ?? ""), Json), "headless"); }
+      try { return Stamp(JsonSerializer.Serialize(GoogleSheetsService.PushTable(session.Require(), table, tab ?? "", url ?? ""), Json), "headless"); }
       catch (System.Exception ex) { return Stamp(JsonSerializer.Serialize(RomAutomation.Err(ex.Message), Json), "headless"); }
    }
 
    [McpServerTool(Name = "sheet_pull")]
-   [Description("Pull a Google Sheet tab back into a ROM table as ONE undo step. The sheet's header row maps columns to fields and must include an 'index' column (the ROM row id) to match rows - run sheet_push first to get the right layout. 'slug' and 'index' columns are treated as read-only keys. table/spreadsheetId/tab as in sheet_push. Requires an open ROM (headless) and a prior sheet_authenticate.")]
+   [Description("Pull a Google Sheet tab back into a ROM table as ONE undo step, via the bound Apps Script web app. The sheet's header row maps columns to fields and must include an 'index' column (the ROM row id) to match rows - run sheet_push first to get the layout. 'slug'/'index' are treated as read-only keys. table/tab/url as in sheet_push. Requires an open ROM (headless).")]
    public string SheetPull(
       RomSession session,
       [Description("ROM table/anchor name, e.g. data.pokemon.stats")] string table,
-      [Description("Spreadsheet id (the .../d/<ID>/edit part of the URL)")] string spreadsheetId,
-      [Description("Sheet/tab name (default: first tab)")] string? tab = null) {
+      [Description("Sheet/tab name (default: first tab)")] string? tab = null,
+      [Description("Apps Script web-app URL (default: configured HEXMANIAC_SHEETS_URL)")] string? url = null) {
       if (session.Model == null) return Stamp(JsonSerializer.Serialize(RomAutomation.Err("Open a ROM first (open_rom)."), Json), "headless");
-      try { return Stamp(JsonSerializer.Serialize(GoogleSheetsService.PullTable(session.Require(), () => session.Token, table, spreadsheetId, tab ?? ""), Json), "headless"); }
+      try { return Stamp(JsonSerializer.Serialize(GoogleSheetsService.PullTable(session.Require(), () => session.Token, table, tab ?? "", url ?? ""), Json), "headless"); }
       catch (System.Exception ex) { return Stamp(JsonSerializer.Serialize(RomAutomation.Err(ex.Message), Json), "headless"); }
    }
 
