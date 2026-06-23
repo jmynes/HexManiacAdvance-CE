@@ -173,8 +173,8 @@ public static class GoogleSheetsService {
    private static object? Flatten(JsonElement v) => v.ValueKind switch {
       JsonValueKind.String => v.GetString(),
       JsonValueKind.Number => v.TryGetInt64(out var l) ? l : v.GetDouble(),
-      JsonValueKind.True => true,
-      JsonValueKind.False => false,
+      JsonValueKind.True => "✓",     // render booleans as ✓/✗ so style colors them green/red like flags
+      JsonValueKind.False => "✗",
       JsonValueKind.Null => "",
       JsonValueKind.Array => string.Join(", ", v.EnumerateArray().Select(x => x.ValueKind == JsonValueKind.String ? x.GetString() : x.GetRawText())),
       JsonValueKind.Object => v.GetRawText(),

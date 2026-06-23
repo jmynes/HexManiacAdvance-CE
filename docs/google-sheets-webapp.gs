@@ -56,12 +56,38 @@ function doPost(e) {
   }
 }
 
-// Make a pushed sheet read like docs: bold + frozen header, ✓/✗ cells colored green/red and centered,
-// columns auto-sized (capped so long text like descriptions doesn't sprawl).
+// Canonical Pokemon type colors (keyed by HMA's type names + common full-name aliases; Fairy is here for
+// romhacks even though Gen 3 lacks it). Unknown types fall back to TYPE_FALLBACK.
+var TYPE_COLORS = {
+  'NORMAL': '#A8A878', 'FIGHT': '#C03028', 'FIGHTING': '#C03028', 'FLYING': '#A890F0',
+  'POISON': '#A040A0', 'GROUND': '#E0C068', 'ROCK': '#B8A038', 'BUG': '#A8B820',
+  'GHOST': '#705898', 'STEEL': '#B8B8D0', '???': '#68A090', 'CURSE': '#68A090',
+  'FIRE': '#F08030', 'WATER': '#6890F0', 'GRASS': '#78C850',
+  'ELECTR': '#F8D030', 'ELECTRIC': '#F8D030', 'PSYCHC': '#F85888', 'PSYCHIC': '#F85888',
+  'ICE': '#98D8D8', 'DRAGON': '#7038F8', 'DARK': '#705848', 'FAIRY': '#EE99AC'
+};
+var TYPE_FALLBACK = '#BFBFBF';
+
+function typeColor(v) {
+  if (v === '' || v == null) return null;
+  return TYPE_COLORS[String(v).toUpperCase().trim()] || TYPE_FALLBACK;
+}
+function contrast(hex) {   // black or white text for a given background hex
+  var r = parseInt(hex.substr(1, 2), 16), g = parseInt(hex.substr(3, 2), 16), b = parseInt(hex.substr(5, 2), 16);
+  return (0.299 * r + 0.587 * g + 0.114 * b) > 150 ? '#000000' : '#ffffff';
+}
+
+// Make a pushed sheet read like docs: bold + frozen header, content vertically centered, ✓/✗ cells green/
+// red, a 'type' column colored by Pokemon type, number/✓/✗/type columns centered, columns auto-sized (with
+// a little padding so nothing clips, capped so long text like descriptions doesn't sprawl).
 function applyStyle(sheet, values) {
-  var nRows = values.length, nCols = values[0].length;
+  var nRows = values.length, nCols = values[0].length, headers = values[0];
+  var typeCol = -1;
+  for (var c = 0; c < nCols; c++) if (String(headers[c]).toLowerCase() === 'type') typeCol = c;
+
   sheet.getRange(1, 1, 1, nCols).setFontWeight('bold').setBackground('#efefef');
   sheet.setFrozenRows(1);
+  sheet.getRange(1, 1, nRows, nCols).setVerticalAlignment('middle');
 
   if (nRows > 1) {
     var bg = [], fc = [];
@@ -69,7 +95,8 @@ function applyStyle(sheet, values) {
       var b = [], f = [];
       for (var c = 0; c < nCols; c++) {
         var v = values[r][c];
-        if (v === '✓')      { b.push('#d9ead3'); f.push('#38761d'); }   // green
+        if (c === typeCol) { var tc = typeColor(v); if (tc) { b.push(tc); f.push(contrast(tc)); } else { b.push('#ffffff'); f.push('#000000'); } }
+        else if (v === '✓') { b.push('#d9ead3'); f.push('#38761d'); }   // green
         else if (v === '✗') { b.push('#f4cccc'); f.push('#cc0000'); }   // red
         else                { b.push('#ffffff'); f.push('#000000'); }
       }
@@ -79,19 +106,25 @@ function applyStyle(sheet, values) {
     data.setBackgrounds(bg);
     data.setFontColors(fc);
 
-    // center any column that is entirely ✓/✗ (the exploded flag columns)
+    // center the type column and any column that's all number / ✓ / ✗ / empty (ids, stats, flag columns)
     for (var c = 0; c < nCols; c++) {
-      var allBool = true;
-      for (var r = 1; r < nRows; r++) {
-        var v = values[r][c];
-        if (v !== '✓' && v !== '✗' && v !== '') { allBool = false; break; }
+      var center = (c === typeCol);
+      if (!center) {
+        center = true;
+        for (var r = 1; r < nRows; r++) {
+          var v = values[r][c];
+          if (v === '' || v === '✓' || v === '✗' || typeof v === 'number') continue;
+          center = false; break;
+        }
       }
-      if (allBool) sheet.getRange(2, c + 1, nRows - 1, 1).setHorizontalAlignment('center');
+      if (center) sheet.getRange(2, c + 1, nRows - 1, 1).setHorizontalAlignment('center');
     }
   }
 
-  for (var c = 1; c <= nCols; c++) sheet.autoResizeColumn(c);
-  for (var c = 1; c <= nCols; c++) if (sheet.getColumnWidth(c) > 420) sheet.setColumnWidth(c, 420);
+  for (var c = 1; c <= nCols; c++) {
+    sheet.autoResizeColumn(c);
+    sheet.setColumnWidth(c, Math.min(sheet.getColumnWidth(c) + 20, 420));   // +20 so the last char never clips
+  }
 }
 
 function doGet() {
