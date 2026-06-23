@@ -95,6 +95,17 @@ function applyStyle(sheet, values, fmt) {
   if (fmt.columnWidths) {   // explicit per-column widths (0-based index -> px), applied after autoResize
     for (var k in fmt.columnWidths) sheet.setColumnWidth(Number(k) + 1, fmt.columnWidths[k]);
   }
+  if (fmt.columnGroups && fmt.columnGroups.length) {   // 0-based column indices to make collapsible groups
+    try {
+      sheet.setColumnGroupControlPosition(SpreadsheetApp.GroupControlTogglePosition.BEFORE);   // toggle on the left (parent) side
+      for (var i = 0; i < fmt.columnGroups.length; i++) {
+        var col = fmt.columnGroups[i] + 1;
+        var d = 0; try { d = sheet.getColumnGroupDepth(col); } catch (e) {}
+        if (d > 0) sheet.getRange(1, col, 1, 1).shiftColumnGroupDepth(-d);   // reset on re-push so groups don't stack
+        sheet.getRange(1, col, 1, 1).shiftColumnGroupDepth(1);
+      }
+    } catch (e) {}
+  }
 }
 
 function doGet() {

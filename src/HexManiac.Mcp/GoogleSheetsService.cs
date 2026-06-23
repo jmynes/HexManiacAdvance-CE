@@ -216,9 +216,12 @@ public static class GoogleSheetsService {
       // alignment: ID # right, Move left, everything else centered
       var aligns = new List<string>(nCols);
       for (int c = 0; c < nCols; c++) aligns.Add(c == idCol ? "right" : c == moveCol ? "left" : "center");
-      // narrow the blank-header spacer columns: the type swatch is a thin bar (18px); other blanks (emblem) 36px
+      // the blank-header spacer columns: the type swatch is a thin bar (18px), other blanks (emblem) 36px;
+      // those same columns also become collapsible groups (swatch tucks under Move, emblem under Category).
       var widths = new Dictionary<string, int>();
-      for (int c = 0; c < nCols; c++) if (string.IsNullOrWhiteSpace(columns[c])) widths[c.ToString()] = c == swatchCol ? 18 : 36;
+      var groups = new List<int>();
+      for (int c = 0; c < nCols; c++)
+         if (string.IsNullOrWhiteSpace(columns[c])) { widths[c.ToString()] = c == swatchCol ? 18 : 36; groups.Add(c); }
 
       return new {
          headerBold = true, headerBackground = "#efefef", headerAlign = "center", freezeHeader = true,
@@ -226,6 +229,7 @@ public static class GoogleSheetsService {
          verticalAlign = "middle", backgrounds = bg, fontColors = fc, columnAligns = aligns,
          autoResize = true, widthPadding = 20, widthCap = 420,
          columnWidths = widths.Count > 0 ? (object)widths : null,
+         columnGroups = groups.Count > 0 ? (object)groups : null,
       };
    }
 
