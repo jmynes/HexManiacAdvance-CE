@@ -74,9 +74,10 @@ makes it presentable (bold + frozen header, ✓ green / ✗ red and centered, au
 {"name": "sheet_push_json", "arguments": {"path": "C:/tmp/moves.json", "key": "moves", "tab": "moves", "explode": "flags", "style": true}}
 ```
 
-> **`style` is applied by the web app**, so you must have the **latest `docs/google-sheets-webapp.gs`**
-> deployed. If you set it up before this was added: copy the script again, then **Deploy → Manage
-> deployments → ✎ edit → New version** (the URL stays the same), and re-push.
+> **Styling needs the generic web app.** The MCP computes the whole look (per-cell colors, type colors,
+> alignments, widths) and ships it as a `format` spec; the script in `docs/google-sheets-webapp.gs` is a
+> generic applier. Deploy that script **once** (re-paste it → **Deploy → Manage deployments → ✎ edit →
+> New version**, same URL). After that, *style tweaks are MCP-side* — they never need another redeploy.
 
 ## Notes
 

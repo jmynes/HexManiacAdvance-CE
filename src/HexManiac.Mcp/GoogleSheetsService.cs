@@ -165,9 +165,66 @@ public static class GoogleSheetsService {
          }
          values.Add(row);
       }
-      var res = Post(url, new { action = "push", token, tab, values, style });
+      // when styling, the MCP computes the WHOLE look (per-cell colors, alignments, widths) and ships it as
+      // `format`; the web app just applies it. So tweaking the look is an MCP change - no Apps Script redeploy.
+      object format = style ? BuildFormat(columns, values) : null;
+      var res = Post(url, new { action = "push", token, tab, values, format });
       if (res.TryGetProperty("error", out var e)) return RomAutomation.Err("web app: " + e.GetString());
       return new Dictionary<string, object?> { ["ok"] = true, ["source"] = Path.GetFileName(path), ["key"] = key, ["tab"] = tab, ["rowsWritten"] = values.Count - 1, ["columns"] = columns.Count, ["explodedInto"] = doExplode ? explodeVals.Count : 0, ["styled"] = style, ["note"] = "Read-only reference view; not pulled back." };
+   }
+
+   // Canonical Pokemon type colors (HMA's type names + full-name aliases; Fairy for romhacks). Unknown -> fallback.
+   private static readonly Dictionary<string, string> TypeColors = new(StringComparer.OrdinalIgnoreCase) {
+      ["NORMAL"] = "#A8A878", ["FIGHT"] = "#C03028", ["FIGHTING"] = "#C03028", ["FLYING"] = "#A890F0",
+      ["POISON"] = "#A040A0", ["GROUND"] = "#E0C068", ["ROCK"] = "#B8A038", ["BUG"] = "#A8B820",
+      ["GHOST"] = "#705898", ["STEEL"] = "#B8B8D0", ["???"] = "#68A090", ["CURSE"] = "#68A090",
+      ["FIRE"] = "#F08030", ["WATER"] = "#6890F0", ["GRASS"] = "#78C850",
+      ["ELECTR"] = "#F8D030", ["ELECTRIC"] = "#F8D030", ["PSYCHC"] = "#F85888", ["PSYCHIC"] = "#F85888",
+      ["ICE"] = "#98D8D8", ["DRAGON"] = "#7038F8", ["DARK"] = "#705848", ["FAIRY"] = "#EE99AC",
+   };
+   private const string TypeFallback = "#BFBFBF";
+   private static string TypeColor(string v) => TypeColors.TryGetValue(v.Trim(), out var c) ? c : TypeFallback;
+   private static string Contrast(string hex) {
+      int r = Convert.ToInt32(hex.Substring(1, 2), 16), g = Convert.ToInt32(hex.Substring(3, 2), 16), b = Convert.ToInt32(hex.Substring(5, 2), 16);
+      return (0.299 * r + 0.587 * g + 0.114 * b) > 150 ? "#000000" : "#ffffff";
+   }
+
+   // Compute the doc look the web app applies: ✓ green / ✗ red, the 'type' column by Pokemon type, number/
+   // ✓/✗/type columns centered, header bold+frozen+grey, all cells vertically centered, padded auto-widths.
+   private static object BuildFormat(List<string> columns, List<List<object?>> values) {
+      int nCols = columns.Count;
+      int typeCol = columns.FindIndex(h => string.Equals(h, "type", StringComparison.OrdinalIgnoreCase));
+      var bg = new List<List<string>>(); var fc = new List<List<string>>();
+      for (int r = 1; r < values.Count; r++) {
+         var brow = new List<string>(nCols); var frow = new List<string>(nCols);
+         for (int c = 0; c < nCols; c++) {
+            var s = values[r][c] as string;
+            if (c == typeCol && !string.IsNullOrEmpty(s)) { var tc = TypeColor(s); brow.Add(tc); frow.Add(Contrast(tc)); }
+            else if (s == "✓") { brow.Add("#d9ead3"); frow.Add("#38761d"); }
+            else if (s == "✗") { brow.Add("#f4cccc"); frow.Add("#cc0000"); }
+            else { brow.Add("#ffffff"); frow.Add("#000000"); }
+         }
+         bg.Add(brow); fc.Add(frow);
+      }
+      var aligns = new List<string>(nCols);
+      for (int c = 0; c < nCols; c++) {
+         bool center = c == typeCol;
+         if (!center) {
+            center = true;
+            for (int r = 1; r < values.Count; r++) {
+               var v = values[r][c];
+               if (v is null || v is long or int or double or float) continue;     // numeric / empty -> centerable
+               if (v is string sv && (sv == "" || sv == "✓" || sv == "✗")) continue;
+               center = false; break;
+            }
+         }
+         aligns.Add(center ? "center" : "left");
+      }
+      return new {
+         headerBold = true, headerBackground = "#efefef", freezeHeader = true, verticalAlign = "middle",
+         backgrounds = bg, fontColors = fc, columnAligns = aligns,
+         autoResize = true, widthPadding = 20, widthCap = 420,
+      };
    }
 
    private static object? Flatten(JsonElement v) => v.ValueKind switch {
