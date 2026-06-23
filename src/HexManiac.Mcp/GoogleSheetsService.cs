@@ -227,7 +227,7 @@ public static class GoogleSheetsService {
          headerBold = true, headerBackground = "#efefef", headerAlign = "center", freezeHeader = true,
          freezeColumns = freezeColumns > 0 ? (object)freezeColumns : null,
          verticalAlign = "middle", backgrounds = bg, fontColors = fc, columnAligns = aligns,
-         autoResize = true, widthPadding = 20, widthCap = 420,
+         autoResize = true, widthPadding = filter ? 42 : 20, widthCap = 420,   // extra room for the filter button so header labels don't clip
          columnWidths = widths.Count > 0 ? (object)widths : null,
          columnGroups = groups.Count > 0 ? (object)groups : null,
          filter = filter ? (object)true : null,
