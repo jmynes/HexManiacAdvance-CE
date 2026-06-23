@@ -59,14 +59,18 @@ public static class GoogleSheetsService {
       if (RomAutomation.ReadTable(model, table, 0, int.MaxValue) is not IDictionary<string, object?> read) return RomAutomation.Err("read failed");
       if (read.ContainsKey("error")) return read;
       var fields = ((System.Collections.IEnumerable)read["fields"]!).Cast<object>().Select(f => f?.ToString() ?? "").ToList();
-      var values = new List<List<object?>> { fields.Cast<object?>().ToList() };
+      // 'index' (the ROM row id) isn't one of the table's fields - it's a separate key on each row - but it
+      // MUST be the first column so sheet_pull can match rows back. Prepend it; 'slug' is already in fields.
+      var columns = new List<string> { "index" };
+      columns.AddRange(fields);
+      var values = new List<List<object?>> { columns.Cast<object?>().ToList() };
       foreach (var rObj in (System.Collections.IEnumerable)read["rows"]!) {
          var row = (IDictionary<string, object?>)rObj;
-         values.Add(fields.Select(f => row.TryGetValue(f, out var v) ? Cell(v) : "").ToList());
+         values.Add(columns.Select(f => row.TryGetValue(f, out var v) ? Cell(v) : "").ToList());
       }
       var res = Post(url, new { action = "push", token, tab, values });
       if (res.TryGetProperty("error", out var e)) return RomAutomation.Err("web app: " + e.GetString());
-      return new Dictionary<string, object?> { ["ok"] = true, ["table"] = table, ["tab"] = tab, ["rowsWritten"] = values.Count - 1, ["columns"] = fields.Count };
+      return new Dictionary<string, object?> { ["ok"] = true, ["table"] = table, ["tab"] = tab, ["rowsWritten"] = values.Count - 1, ["columns"] = columns.Count };
    }
 
    public static object PullTable(IDataModel model, Func<ModelDelta> changeToken, string table, string tab, string urlOverride) {
@@ -82,21 +86,39 @@ public static class GoogleSheetsService {
       int indexCol = headers.FindIndex(h => h.Equals("index", StringComparison.OrdinalIgnoreCase));
       if (indexCol < 0) return RomAutomation.Err("The sheet needs an 'index' column (the ROM row id) to match rows back. Push first to get the layout.");
       var skip = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "index", "slug" };  // key + read-only derived
-      int writes = 0, rowsTouched = 0; var errors = new List<string>();
+
+      // current ROM values (same display form sheet_push wrote), so we only write cells that ACTUALLY
+      // changed. Writing every cell back (10k+ for big tables) is needless and can exhaust the host;
+      // a normal edit touches a handful.
+      var current = new Dictionary<int, Dictionary<string, string>>();
+      if (RomAutomation.ReadTable(model, table, 0, int.MaxValue) is IDictionary<string, object?> cur && !cur.ContainsKey("error")) {
+         foreach (var rObj in (System.Collections.IEnumerable)cur["rows"]!) {
+            var rd = (IDictionary<string, object?>)rObj;
+            if (rd.TryGetValue("index", out var iv) && iv is int ci) {
+               var m = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+               foreach (var kv in rd) m[kv.Key] = kv.Value?.ToString() ?? "";
+               current[ci] = m;
+            }
+         }
+      }
+
+      int writes = 0, rowsTouched = 0, skipped = 0; var errors = new List<string>();
       for (int r = 1; r < data.Count; r++) {
          var row = data[r];
          if (row.Count <= indexCol || !int.TryParse(row[indexCol], out var index)) continue;
+         current.TryGetValue(index, out var cur1);
          bool touched = false;
          for (int c = 0; c < headers.Count && c < row.Count; c++) {
             var field = headers[c];
             if (string.IsNullOrEmpty(field) || skip.Contains(field)) continue;
+            if (cur1 != null && cur1.TryGetValue(field, out var old) && old == row[c]) { skipped++; continue; }  // unchanged
             var res2 = RomAutomation.WriteValue(model, changeToken, table, index, field, row[c]) as IDictionary<string, object?>;
             if (res2 != null && res2.ContainsKey("error")) { if (errors.Count < 10) errors.Add($"[{index}].{field}: {res2["error"]}"); }
             else { writes++; touched = true; }
          }
          if (touched) rowsTouched++;
       }
-      return new Dictionary<string, object?> { ["ok"] = true, ["table"] = table, ["tab"] = tab, ["rowsUpdated"] = rowsTouched, ["cellsWritten"] = writes, ["errors"] = errors };
+      return new Dictionary<string, object?> { ["ok"] = true, ["table"] = table, ["tab"] = tab, ["rowsUpdated"] = rowsTouched, ["cellsWritten"] = writes, ["cellsUnchanged"] = skipped, ["errors"] = errors };
    }
 
    private static string CellStr(JsonElement c) => c.ValueKind switch {
