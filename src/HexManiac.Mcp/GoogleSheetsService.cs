@@ -189,17 +189,11 @@ public static class GoogleSheetsService {
       return (0.299 * r + 0.587 * g + 0.114 * b) > 150 ? "#000000" : "#ffffff";
    }
 
-   // Compute the doc look the web app applies: ✓ green / ✗ red, the 'type' column by Pokemon type, number/
-   // ✓/✗/type columns centered, header bold+frozen+grey, all cells vertically centered, padded auto-widths.
-   private static readonly Dictionary<string, string> CategoryColors = new(StringComparer.OrdinalIgnoreCase) {
-      ["Physical"] = "#C92112", ["Special"] = "#4F5870", ["Status"] = "#8C888C",
-   };
    private static bool IsYes(string s) => s != null && s.StartsWith("✓");
    private static bool IsNo(string s) => s != null && (s.StartsWith("✗") || s.StartsWith("✘"));
    private static object BuildFormat(List<string> columns, List<List<object?>> values, int freezeColumns) {
       int nCols = columns.Count;
       int typeCol = columns.FindIndex(h => string.Equals(h, "type", StringComparison.OrdinalIgnoreCase));
-      int catCol  = columns.FindIndex(h => string.Equals(h, "category", StringComparison.OrdinalIgnoreCase));
       int idCol   = columns.FindIndex(h => string.Equals(h, "id #", StringComparison.OrdinalIgnoreCase));
       int moveCol = columns.FindIndex(h => string.Equals(h, "move", StringComparison.OrdinalIgnoreCase));
       // a blank-header column immediately before Type is the type-color SWATCH (a solid color block, no text)
@@ -213,7 +207,6 @@ public static class GoogleSheetsService {
             var s = values[r][c] as string; string col;
             if (c == swatchCol && !string.IsNullOrEmpty(typeName)) { col = TypeColor(typeName); brow.Add(col); frow.Add(col); }      // solid swatch (bg==fg)
             else if (c == typeCol && swatchCol < 0 && !string.IsNullOrEmpty(s)) { col = TypeColor(s); brow.Add(col); frow.Add(Contrast(col)); } // no swatch -> color the text
-            else if (c == catCol && !string.IsNullOrEmpty(s) && CategoryColors.TryGetValue(s, out col)) { brow.Add(col); frow.Add(Contrast(col)); }
             else if (IsYes(s)) { brow.Add("#d9ead3"); frow.Add("#38761d"); }
             else if (IsNo(s)) { brow.Add("#f4cccc"); frow.Add("#cc0000"); }
             else { brow.Add("#ffffff"); frow.Add("#000000"); }
@@ -223,9 +216,9 @@ public static class GoogleSheetsService {
       // alignment: ID # right, Move left, everything else centered
       var aligns = new List<string>(nCols);
       for (int c = 0; c < nCols; c++) aligns.Add(c == idCol ? "right" : c == moveCol ? "left" : "center");
-      // narrow the blank-header spacer columns (the type swatch, the emblem column)
+      // narrow the blank-header spacer columns: the type swatch is a thin bar (18px); other blanks (emblem) 36px
       var widths = new Dictionary<string, int>();
-      for (int c = 0; c < nCols; c++) if (string.IsNullOrWhiteSpace(columns[c])) widths[c.ToString()] = 36;
+      for (int c = 0; c < nCols; c++) if (string.IsNullOrWhiteSpace(columns[c])) widths[c.ToString()] = c == swatchCol ? 18 : 36;
 
       return new {
          headerBold = true, headerBackground = "#efefef", headerAlign = "center", freezeHeader = true,
