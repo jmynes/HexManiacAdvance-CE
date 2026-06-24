@@ -60,8 +60,8 @@ namespace HavenSoft.HexManiac.Core.Models.Runs.Factory {
       }
 
       public static ErrorInfo IsValid(SpriteFormat format) {
-         if (!format.BitsPerPixel.IsAny(1, 2, 4, 8)) {
-            return new ErrorInfo("Sprite bpp must be 1, 2, 4, or 8.");
+         if (!format.BitsPerPixel.IsAny(1, 2, 4, 6, 8)) {
+            return new ErrorInfo("Sprite bpp must be 1, 2, 4, 6, or 8.");
          }
          if (format.ExpectedByteLength <= 0) {
             return new ErrorInfo("Sprite width/height must positive.");

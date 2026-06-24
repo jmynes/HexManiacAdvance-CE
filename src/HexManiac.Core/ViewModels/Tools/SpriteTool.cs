@@ -32,7 +32,7 @@ namespace HavenSoft.HexManiac.Core.ViewModels.Tools {
 
       public int SpritePage {
          get => spritePage;
-         set => Set(ref spritePage, value, arg => LoadSprite());
+         set => Set(ref spritePage, value, arg => { SyncPalettePageToSpritePage(); LoadSprite(); });
       }
 
       public int PalettePage {
@@ -569,8 +569,8 @@ namespace HavenSoft.HexManiac.Core.ViewModels.Tools {
 
          importPair.Execute = arg => ImportSpriteAndPalette((IFileSystem)arg);
          exportPair.Execute = arg => ExportSpriteAndPalette((IFileSystem)arg);
-         prevSpritePage.Execute = arg => { spritePage -= 1; LoadSprite(); };
-         nextSpritePage.Execute = arg => { spritePage += 1; LoadSprite(); };
+         prevSpritePage.Execute = arg => { spritePage -= 1; SyncPalettePageToSpritePage(); LoadSprite(); };
+         nextSpritePage.Execute = arg => { spritePage += 1; SyncPalettePageToSpritePage(); LoadSprite(); };
          prevPalPage.Execute = arg => { palPage -= 1; LoadPalette(); };
          nextPalPage.Execute = arg => { palPage += 1; LoadPalette(); };
 
@@ -660,6 +660,14 @@ namespace HavenSoft.HexManiac.Core.ViewModels.Tools {
          if (!int.TryParse(parts[0], out int width)) width = 4;
          if (parts.Length < 2 || !int.TryParse(parts[1], out int height)) height = 4;
          return new SpriteFormat(4, width, height, null);
+      }
+
+      // When the sprite and palette pages line up 1:1 (e.g. an inline sprite/palette table pair,
+      // one row per duelist/character), assume row-paired and step the palette in lockstep with
+      // the sprite - otherwise the colors would belong to whatever row the palette happened to
+      // be on, not the row currently being viewed.
+      private void SyncPalettePageToSpritePage() {
+         if (palPages == spritePages && palPage != spritePage) { palPage = spritePage; LoadPalette(); }
       }
 
       private void LoadSprite() {

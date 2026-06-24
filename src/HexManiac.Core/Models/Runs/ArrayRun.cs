@@ -590,6 +590,7 @@ namespace HavenSoft.HexManiac.Core.Models.Runs {
          if (!length.All(c => IsValidTableNameCharacter(c) || c.IsAny('-', '+'))) throw new ArrayRunParseException("Array length must be an anchor name or a number."); // the name might end with "-1" so also allow +/-
          ElementContent = ParseSegments(segments, data);
          if (ElementContent.Count == 0) throw new ArrayRunParseException("Array Content must not be empty.");
+         if (ElementContent.Any(e => e is InlineArraySegment)) throw new ArrayRunParseException("Inline variable-length arrays (field[...]/.countField) are only supported inside a struct pointer destination, not a top-level table.");
          ElementLength = ElementContent.Sum(e => e.Length);
          if (ElementLength == 0) throw new ArrayRunParseException("Array Content Length must not be zero.");
 
@@ -684,6 +685,9 @@ namespace HavenSoft.HexManiac.Core.Models.Runs {
          if (singleSegment is ArrayRunElementSegment) {
             // option 0: the length looks like a tilemap, and there's a single segment. Parse as a tilemap table.
             self = new TilemapTableRun(data, tilemapLength, singleSegment, margins, start, pointerSources);
+         } else if (TryParseInlineImageTable(data, format, length, start, pointerSources, out var inlineImageTable)) {
+            // option 0.5: row content is a single bare `backtick` sprite/palette format - each row IS the image directly, not a pointer to one.
+            self = inlineImageTable;
          } else if (length.All(c => IsValidTableNameCharacter(c) || c.IsAny('-', '+'))) {
             // option 1: the length looks like a standard table length (or is empty, and thus dynamic). Parse as a table.
             try {
@@ -755,6 +759,54 @@ namespace HavenSoft.HexManiac.Core.Models.Runs {
          var content = ParseSegments(segments, model);
          if (content.Count != 1) return default;
          return (content[0], margins, length);
+      }
+
+      /// <summary>
+      /// Detects a table whose row content is a single bare backtick sprite/palette format with
+      /// no field name and no pointer wrapper, e.g. Format = '[`ucp4`]duelists' or
+      /// '[`ucs4x3x3|some.palette`]duelists' - each row IS the sprite/palette directly, not a
+      /// pointer to one. Mirrors ParseTilemapTable's "detect a special single-segment case before
+      /// falling back to generic ArrayRun" pattern.
+      /// </summary>
+      public static bool TryParseInlineImageTable(IDataModel data, string format, string length, int start, SortedSpan<int> pointerSources, out ITableRun self) {
+         self = null;
+         var closeArray = format.LastIndexOf(ArrayEnd.ToString());
+         if (!format.StartsWith(ArrayStart.ToString()) || closeArray == -1) return false;
+         var content = format.Substring(1, closeArray - 1).Trim();
+         if (!content.StartsWith("`") || content.IndexOf('`', 1) != content.Length - 1) return false;
+
+         if (!TryResolveTableLength(data, length, out var elementCount, out var elementNames)) return false;
+
+         if (SpriteRun.TryParseSpriteFormat(content, out var spriteFormat)) {
+            self = new InlineSpriteTableRun(data, spriteFormat, elementCount, elementNames, start, pointerSources, format);
+            return true;
+         }
+         if (PaletteRun.TryParsePaletteFormat(content, out var paletteFormat)) {
+            self = new InlinePaletteTableRun(paletteFormat, elementCount, elementNames, start, pointerSources, format);
+            return true;
+         }
+         return false;
+      }
+
+      private static bool TryResolveTableLength(IDataModel data, string length, out int elementCount, out IReadOnlyList<string> elementNames) {
+         elementCount = 1;
+         elementNames = Array.Empty<string>();
+         if (int.TryParse(length, out elementCount)) {
+            elementNames = elementCount.Range().Select(i => i.ToString()).ToList();
+            return true;
+         }
+         if (data.TryGetList(length, out var list)) {
+            elementCount = list.Count;
+            elementNames = list;
+            return true;
+         }
+         var address = data.GetAddressFromAnchor(new NoDataChangeDeltaModel(), -1, length);
+         if (address != Pointer.NULL && data.GetNextRun(address) is ITableRun otherTable && otherTable.Start == address) {
+            elementCount = otherTable.ElementCount;
+            elementNames = otherTable.ElementNames;
+            return true;
+         }
+         return false;
       }
 
       public ITableRun Duplicate(int start, SortedSpan<int> pointerSources, IReadOnlyList<ArrayRunElementSegment> segments) {
@@ -1322,6 +1374,17 @@ namespace HavenSoft.HexManiac.Core.Models.Runs {
                segments = segments.Slice(subArrayClose + 1);
                var repeatEnd = segments.IndexOf(' ');
                if (repeatEnd == -1) repeatEnd = segments.Length;
+               if (segments.Length > 0 && segments[0] == '/') {
+                  // length comes from a sibling field's value, resolved by name at read time
+                  // (rather than a literal repeat count known at parse time) - only meaningful
+                  // inside a StructRun, which resolves the placeholder against its own fields.
+                  // See StructRun.Expand.
+                  if (innerSegments.Count != 1) throw new ArrayRunParseException("Inline variable-length arrays must contain exactly one field.");
+                  var countFieldName = segments.Slice(1, repeatEnd - 1).ToString();
+                  list.Add(new InlineArraySegment(innerSegments[0], countFieldName));
+                  segments = segments.Slice(repeatEnd);
+                  continue;
+               }
                if (!int.TryParse(segments.Slice(0, repeatEnd), out int innerCount)) {
                   throw new ArrayRunParseException($"Could not parse '{segments}' as a number.");
                }

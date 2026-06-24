@@ -793,7 +793,10 @@ namespace HavenSoft.HexManiac.Core.ViewModels {
          var spriteRun = (ISpriteRun)model.GetNextRun(spriteAddress);
          if (spriteRun is ITilesetRun tileset && tileset.TilesetFormat.BitsPerPixel == 4) return true;
          if (spriteRun is ITilemapRun) return false;
-         if (spriteRun.SpriteFormat.BitsPerPixel < 8 && spriteRun.Pages == 1) return true;
+         // <= 4, not < 8: a 6bpp sprite's pixel values span 0-63 (4 palette pages of 16
+         // colors), so it needs the same multi-page color handling as a multi-page 4bpp
+         // sprite even though it also (like an uncompressed sprite) always reports Pages == 1.
+         if (spriteRun.SpriteFormat.BitsPerPixel <= 4 && spriteRun.Pages == 1) return true;
          return false;
       }
 

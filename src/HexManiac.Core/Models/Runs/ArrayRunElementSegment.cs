@@ -184,17 +184,31 @@ namespace HavenSoft.HexManiac.Core.Models.Runs {
 
       public int ValueOffset { get; }
 
+      /// <summary>
+      /// Optional sibling table named after a trailing |tableName, e.g. for a card's
+      /// halfword index into data.cards.names: card:data.cards.names|data.cards.passwords.
+      /// Lets an external password-keyed format (such as a YDK deck list) resolve to this
+      /// segment's enum index by matching against the sibling table instead of by name.
+      /// </summary>
+      public string PasswordTableHint { get; }
+
       public override string SerializeFormat {
          get {
             var result = base.SerializeFormat + EnumName;
             if (ValueOffset > 0) result += "+" + ValueOffset;
             if (ValueOffset < 0) result += ValueOffset;
+            if (PasswordTableHint != null) result += "|" + PasswordTableHint;
             return result;
          }
       }
 
       public ArrayRunEnumSegment(string name, int length, string enumName) : base(name, ElementContentType.Integer, length) {
          EnumName = enumName;
+         var hintParts = EnumName.Split("|");
+         if (hintParts.Length == 2) {
+            EnumName = hintParts[0];
+            PasswordTableHint = hintParts[1];
+         }
          var parts = EnumName.Split("+");
          if (parts.Length == 2 && int.TryParse(parts[1], out int valueOffset)) {
             EnumName = parts[0];
@@ -973,5 +987,39 @@ namespace HavenSoft.HexManiac.Core.Models.Runs {
       public const string Separator = "|";
       public ArrayRunSplitterSegment() : base(string.Empty, ElementContentType.Integer, 0) { }
       public override string SerializeFormat => Separator;
+   }
+
+   /// <summary>
+   /// Placeholder produced by ArrayRun.ParseSegments for a [field]/countFieldName token: a
+   /// repeated field whose count isn't known until a sibling field (by name) is read from
+   /// live model data, so it can't be expanded into a fixed-length segment list at parse time.
+   /// Only StructRun knows how to resolve and expand these - a plain ArrayRun rejects them.
+   /// </summary>
+   /// <summary>
+   /// Placeholder ElementContent entry for a table row that IS a sprite/palette/tileset/tilemap
+   /// directly (InlinePaletteTableRun/InlineSpriteTableRun) - real reading/writing/rendering for
+   /// these goes through the owning run's own CreateDataFormat/GetPixels/GetPalette, bypassing
+   /// the normal per-segment Write/ToText path entirely, so those just degrade gracefully here
+   /// (e.g. for copy/paste's AppendTo) rather than throwing NotImplementedException.
+   /// </summary>
+   public class InlineImageElementSegment : ArrayRunElementSegment {
+      private readonly string formatText;
+      public InlineImageElementSegment(string formatText, int length) : base(string.Empty, ElementContentType.Unknown, length) => this.formatText = formatText;
+      public override string SerializeFormat => formatText;
+      public override string ToText(IDataModel rawData, int offset, int depth = 0) => formatText;
+      public override bool Write(IReadOnlyList<ArrayRunElementSegment> parentSegments, IDataModel model, ModelDelta token, int start, ref string data) {
+         data = string.Empty;
+         return false;
+      }
+   }
+
+   public class InlineArraySegment : ArrayRunElementSegment {
+      public ArrayRunElementSegment Template { get; }
+      public string CountFieldName { get; }
+      public override string SerializeFormat => $"[{Template.SerializeFormat}]/{CountFieldName}";
+      public InlineArraySegment(ArrayRunElementSegment template, string countFieldName) : base(template.Name, ElementContentType.Integer, 0) {
+         Template = template;
+         CountFieldName = countFieldName;
+      }
    }
 }
